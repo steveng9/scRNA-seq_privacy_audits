@@ -3,10 +3,15 @@
 Welcome to your home page! 
 
 **Contents**
+- [Tasks](#tasks)
 - [Guideline for running and evaluating baseline methods](#thread-workflow-for-running-and-evaluating-baseline-methods)
 - [Guideline for developing your own method](#bookmark_tabs-guideline-for-developing-your-own-method)
 - [Submission checklist](#white_check_mark-submission-checklist)
 
+## Tasks 
+Blue teams participate in **Phase 1**, and work towards developing methods that improve the baseline methods and generating novel insights into privacy preservation in biological datasets.
+
+ 
 
 ## :thread: Guideline for running and evaluating baseline methods
 
