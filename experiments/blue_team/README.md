@@ -9,7 +9,8 @@ Welcome to your home page!
 - [Submission checklist](#white_check_mark-submission-checklist)
 
 ## Tasks 
-Blue teams participate in **Phase 1**, and work towards developing methods that improve the baseline methods and generating novel insights into privacy preservation in biological datasets.
+- Blue teams participate in **Phase 1**, and work towards developing methods that improve the baseline methods and generating novel insights into privacy preservation in biological datasets.
+  - TCGA-BRCA and TCGA COMBINED datasets with corresponding subtype and cancer type information in CSV files are provided to download. 
 
  
 
