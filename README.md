@@ -12,15 +12,15 @@ We are looking forward to engaging with you and working together to deepen our u
 
 **This repository contains:**
 
-- :woman_technologist: **Baseline code** for generation methods for the **blue teams** and  Membership Inference Attack algorithms  **red teams**.
+- :woman_technologist: **Baseline code** for generative methods (**Blue Teams**) and  Membership Inference Attack algorithms  (**Red teams**).
 - :memo: **Documentation** that details setup and submission instructions for the competition. 
 - :paperclip: **Submission templates** to base your submissions on. 
 
 **Other resources:**
 
-- :speech_balloon: **CAMDA Google Groups:** https://groups.google.com/g/camda-health-privacy-challenge
-- :globe_with_meridians: **CAMDA Challenge website:** 
-- :globe_with_meridians: **ELSA model submission platform:** https://benchmarks.elsa-ai.eu/?ch=4
+- :speech_balloon: **[CAMDA Health Privacy Challenge Google Groups:](https://groups.google.com/g/camda-health-privacy-challenge)** Join us for questions, discussions and further announcements. 
+- :globe_with_meridians: **[CAMDA Challenge website:]()** Follow CAMDA 2025 for conference announcements. 
+- :globe_with_meridians: **[ELSA Benchmark method submission platform:](https://benchmarks.elsa-ai.eu/?ch=4)** The platform to register, to download datasets, and to submit your benchmark methods. 
 - :books: **Relevant papers:** https://arxiv.org/abs/2402.04912 
 
 ## :roller_coaster: Get started!  
@@ -66,17 +66,20 @@ The winners will be  invited to present their methods at the CAMDA Conference at
 
 ![Timeline](timeline.png)
 
+<!-- 
 **:round_pushpin: January 13: Submissions open.** 
 - Both teams, please first register through ELSA Benchmarks Platform to download the datasets. We recommend you to register using an organizational email if possible. 
 - To be considered as successfully participating in the competition:
     - Both teams must submit a CAMDA extended abstract.
-    - Both teams must submit two models each during the challenge, within the specified time frames.
+    - Blue teams must have one benchmark method submission by the first phase deadline. 
+    - Red teams must have two benchmark method submissions by the first and second phase deadlines, respectively. 
+
+Red teams must have two benchmark method submissions by the first and second phase deadlines, respectively. 
 - Please make sure to adhere to the guideline closely to avoid invalidating your submission.
 
 **:round_pushpin: March 15: First phase deadline, method submission for both teams.**
 - **Blue teams** must complete their first and final benchmark method submission as detailed in the [🫐 Blue Team homepage](/experiments/blue_team/README.md). 
 - **Red teams** must complete their first benchmark method submissions as detailed in the [🍅 Red Team homepage](/experiments/red_team/README.md). 
-
 
 **:round_pushpin: March 22: Leaderboard announcement.**
 - Leaderboards for both teams is announced based on the first phase results. 
@@ -88,7 +91,7 @@ The winners will be  invited to present their methods at the CAMDA Conference at
 
 **:round_pushpin: May 15: CAMDA extended abstract submission deadline for both teams.** 
 - Both blue and red teams must submit their CAMDA extended abstract through ISMB submission system. These abstracts should describe the methods submitted through the benchmark submission system. 
-
+-->
 
 ## :busts_in_silhouette: Organization Team  
 
