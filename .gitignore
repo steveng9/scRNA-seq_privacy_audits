@@ -20,6 +20,7 @@ data_splits/TCGA-*
 data_splits/seed*/
 qrcode/
 src/prepare_data/
+src/generators/utils/prepare_data_master.py
 
 
 # C extensions

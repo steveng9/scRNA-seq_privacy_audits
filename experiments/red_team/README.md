@@ -1,0 +1,88 @@
+# 🍅 RED TEAM 
+
+Welcome to your home page! 
+
+**Contents**
+- [Running and evaluating baseline methods](#yarn-guideline-for-running-and-evaluating-baseline-methods)
+- [Guideline for developing your own method](#bookmark_tabs-guideline-for-developing-your-own-method-develop)
+- [Submission checklist](#white_check_mark-submission-checklist)
+
+## :yarn: Guideline for running and evaluating baseline methods 
+
+[**Follow the guideline**](/experiments/red_team/1_mia/) for running baseline membership inference attack (MIA) methods and evaluating their performances against baseline generator methods. 
+
+## :bookmark_tabs: Guideline for developing your own method 
+
+We provide `BaseMIAModel` class inside [/src/mia/models/base.py)](/src/mia/models/base.py) for MIA models to inherit. This class handles the configuration arguments passed through `config.yaml`. 
+
+It also has one abstract functions:  
+- `run_attack(self) -> Dict[str, np.ndarray]:`, 
+-  `evaluate_attack(self, scores: Dict[str, np.ndarray], labels: np.ndarray, file_name: str):()`, a fixed function that reports and saves the performance of MIA method in CSV file. 
+-  `save_predictions(self, scores: Dict[str, np.ndarray]):`, a fixed function that saves the predicted membership scores in `scores` dictionary. `scores` dictionary stores e.g. `{synthetic_data_1: membership_prediction_probabilities}`. 
+
+We expect your submitted code to follow the logic in [red_team.py](/src/mia/red_team.py). 
+
+
+```python
+## the outputs of the attack are always saved under
+## /{home_dir}/results/mia/{dataset_name}/{attacker_name}/{generator_model}/{experiment_name}/{mia_experiment_name}
+@click.command()
+@click.argument('synthetic_file', type=click.Path(exists=True))
+@click.argument('mmb_test_file', type=click.Path(exists=True))
+@click.argument('mia_experiment_name', type=str, default="")
+@click.option('--mmb_labels_file', type=click.Path(exists=True), default=None)
+@click.option('--reference_file', type=click.Path(exists=True), default=None)
+def run_mia(synthetic_file:str, 
+            mmb_test_file:str, 
+            mia_experiment_name:str = "",
+            mmb_labels_file:str = None,
+            reference_file:str = None):
+    # Load the config file
+    configfile = "config.yaml"
+    config = yaml.safe_load(open(configfile))
+
+    attack_model = config.get('attack_model')
+    MIAClass = mia_classes.get(attack_model)
+
+    if not MIAClass:
+        raise ValueError(f"Unknown MIA model name: {attack_model}")
+
+    mia_model = MIAClass(config, 
+                         synthetic_file,
+                         mmb_test_file,
+                         mmb_labels_file,
+                         mia_experiment_name,
+                         reference_file)
+    
+    predictions, y_test = mia_model.run_attack()
+    mia_model.save_predictions(predictions)
+
+    if y_test is not None:
+        mia_model.evaluate_attack(predictions, 
+                                 y_test, 
+                                "evaluation_results.csv")
+    
+
+```
+Please test your code inside `run_mia` function to ensure its reproducibility. 
+
+
+## :white_check_mark: Submission checklist 
+The following files are required for submission, for each dataset:
+
+1. Modified [red_team.py](/src/mia/red_team.py) with your MIA class included, and other necessary `.py` files to run your method.
+2. Updated `config.yaml` file containing `{your_attack_model}_config` 
+3. Predictions in CSV format, following the below file name format:
+    - `synthetic_data_1_predictions.csv`
+    - `synthetic_data_2_predictions.csv`
+    - `synthetic_data_3_predictions.csv`
+4. `environment.yaml` to reproduce the experiments
+
+This means we expect two zip files from you, strictly in the below filename format:
+1.  `redteam_{yourteamname}_TCGA-BRCA.zip`
+2. `redteam_{yourteamname}_TCGA-COMBINED.zip`
+
+Please take look at the [example submission zip file](/experiments/red_team/redteam_example_TCGA-BRCA.zip) to double check correct formatting. 
+
+
+**Best of luck!** :four_leaf_clover:

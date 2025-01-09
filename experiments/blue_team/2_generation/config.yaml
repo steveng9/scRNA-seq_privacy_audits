@@ -1,0 +1,120 @@
+dir_list:
+  home: "~/ELSA-Health-Challenge"
+  meta: "data/meta"
+  processed_data: "data/processed"
+  data_save_dir: "data_splits"
+  split_save_dir: "data_splits/split_indices"
+
+dataset_config:
+  name: "TCGA-COMBINED" #"TCGA-BRCA" # 
+  count_file: "data/processed/TCGA-COMBINED_primary_tumor_star_deseq_VST_lmgenes.tsv" #"TCGA-BRCA" # 
+  annot_file: "data/meta/TCGA-COMBINED_primary_tumor_subtypes.csv" #"TCGA-COMBRCA 
+  sample_col_name: "samplesID" 
+  subtype_col_name: "cancer_type" #"Subtype"  
+  num_splits: 5
+  random_seed: 42
+
+generator_name: "multivariate"
+generate: True
+train: True
+load_from_checkpoint: False
+
+
+multivariate_config:
+  noise_level: 0.5
+  random_seed: 42 # TODO: seed experiment for reproducibility
+
+
+cvae_config: 
+  device_type: "cuda"
+  random_seed: 42 # seed experiment for reproducibility
+  preprocess: "standard"
+
+  train_config:
+    num_iters: 10000
+    batch_size: 64
+  
+  model_config:
+    z_dim: 64
+    beta: 0.001
+    lr: 0.001
+    transform: "none"
+
+  generation_config:
+    n_synth_samples: -1
+    uniform_y: False
+
+dpcvae_config: 
+  device_type: "cuda"
+  random_seed: 42
+  preprocess: "standard"
+
+  train_config:
+    num_iters: 10000
+    batch_size: 64
+  
+  model_config:
+    z_dim: 64
+    beta: 0.001
+    lr: 0.001
+    transform: "none"
+  
+  privacy_config:
+    target_epsilon: 10
+    preprocessor_eps: 0.1 # if private preprocessor is turned on, this will be deducted from total target_epsilon and the remainder will be used to train the model.
+    target_delta: 0.00001
+    max_norm: 0.1
+
+  generation_config:
+    n_synth_samples: -1
+    uniform_y: False
+
+
+ctgan_config: 
+  device_type: "cuda"
+  random_seed: 42
+  preprocess: "standard"
+
+  train_config:
+    num_iters: 10000
+    batch_size: 64
+
+  generation_config:
+    n_synth_samples: -1
+
+
+dpctgan_config:
+  # This configuration uses the SmartNoise implementation. https://github.com/opendp/smartnoise-sdk
+  # Note: It requires a private preprocessor for continuous columns, so allocate privacy budget accordingly.
+  # For example, with the BRCA dataset:
+  #   preprocessing_eps = preprocessor_eps_multiplier * feature_size
+  #   If preprocessor_eps is computed as 31.1, and target_epsilon is 35, this leaves 3.86 for training the GAN model.
+  # To allocate more budget to GAN training, increase `target_epsilon`.
+  # Re-implementation using the latest Opacus version is encouraged as the current one is outdated.
+  # Contributions through PRs are welcome.
+  
+  device_type: "cuda"
+  random_seed: 42
+  preprocess: "minmax" 
+  # SmartNoise uses MinMax Scaler for continuous columns by default, so changing this does not change anything.
+  # Left for consistency with naming convention of the other generators.
+
+  train_config:
+    num_iters: 10000
+    # Set `num_iters` to a high value to allow termination based on privacy budget.
+    # Otherwise, training will stop when `num_iters` is reached.
+    batch_size: 64
+
+  privacy_config:
+    target_epsilon: 35
+    preprocessor_eps_multiplier: 0.1
+    # Preprocessor epsilon is calculated as `preprocessor_eps_multiplier * feature_size`.
+    # Ensure enough budget is allocated for inferring bounds.
+    # To save budget, pass known bounds directly; otherwise, set a positive value less than training epsilon.
+    # Preprocessing budget is subtracted from the training budget.
+    target_delta: 0.00001
+    max_norm: 0.1
+
+  generation_config:
+    n_synth_samples: -1
+    uniform_y: false

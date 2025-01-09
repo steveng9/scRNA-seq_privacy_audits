@@ -1,0 +1,24 @@
+dir_list:
+  home: "~/ELSA-Health-Challenge"
+  meta: "data/meta"
+  processed_data: "data/processed"
+  data_save_dir: "data_splits"
+  split_save_dir: "data_splits/split_indices"
+
+dataset_config:
+  name: "TCGA-COMBINED" #"TCGA-COMBINED" # 
+  count_file: "data/processed/TCGA-COMBINED_primary_tumor_star_deseq_VST_lmgenes.tsv" #"TCGA-COMBINED" # 
+  annot_file: "data/meta/TCGA-COMBINED_primary_tumor_subtypes.csv" #"TCGA-COMBINED" # 
+  sample_col_name: "samplesID" 
+  subtype_col_name: "cancer_type" #"Subtype" 
+  num_splits: 5
+  random_seed: 42
+
+generator_name: "multivariate"
+
+multivariate_config:
+  noise_level: 0.5
+
+generate: True
+train: False
+load_from_checkpoint: False
