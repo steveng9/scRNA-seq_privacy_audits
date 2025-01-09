@@ -1,0 +1,28 @@
+name: health-privacy-env
+channels:
+  - bioconda
+  - conda-forge
+  - nvidia
+  - pytorch
+
+dependencies:
+  - python=3.10
+  - pytorch=2.4.0
+  #- pytorch-cuda=12.1
+  - numpy=1.26.4
+  - pandas=2.2.3
+  - scikit-learn=1.5.2
+  - scipy=1.14.1
+  - pip=24.3.1
+
+  - pip:
+      - ctgan
+      - domias
+      - matplotlib
+      - plotnine
+      - opacus
+      - tqdm
+      - click
+    #  - nvidia-cublas-cu12
+      - PyYAML
+      - statsmodels
