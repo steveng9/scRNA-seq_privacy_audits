@@ -1,5 +1,5 @@
 dir_list:
-   home: "~/ELSA-Health-Challenge"
+   home: "~/Health-Privacy-Challenge"
    data_splits: "data_splits"
    meta: "data/meta"
    processed_data: "data/processed"

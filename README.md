@@ -32,12 +32,12 @@ Both teams, please check out [Getting Started](/experiments/) to set up and use 
 
 We re-distribute two open access TCGA RNA-seq datasets, which can be accessed from the [GDC portal](https://gdc.cancer.gov), in the pre-processed form:
 
-- TCGA-BRCA RNASeq 
+- **TCGA-BRCA RNASeq** 
 
     **Dimensions:** <1089 x 978> <individuals x landmark genes>
     **Details:** 5 subtypes
 
-- TCGA COMBINED RNASeq (with 10 different tissues )
+- **TCGA COMBINED RNASeq** (with 10 different cancer tissues )
 
     **Dimensions:** <4323 x 978> <individuals x landmark genes>
     **Details:** Cancer tissue of origin prediction (10 tissues)
@@ -103,6 +103,8 @@ This competition is designed as a collaborative effort between [European Molecul
 
 We thank Katharina Mikulik (DKFZ) and Kevin Domanegg (DKFZ) for helpful feedback. 
 
+<!-- 
 ## :pushpin: Statement
 
 Membership inference attacks (MIA) aim to re-identify the training data points used to generate synthetic datasets from the original dataset. This re-identification process pertains only to identifying the pseudo-identities within the dataset and **does not, in any way, attempt to re-identify the original donors.**
+-->
