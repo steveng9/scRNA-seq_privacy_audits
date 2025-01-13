@@ -7,12 +7,17 @@ We re-distribute two open access TCGA RNA-seq datasets, which can be accessed fr
 - **TCGA-BRCA RNASeq** 
 
     **Dimensions:** <1089 x 978> <individuals x landmark genes>
-    **Details:** 5 subtypes
+    **Details:** Suitable for cancer subtype prediction (5 subtypes)
+    - LumA
+    - LumB
+    - Her2
+    - Normal
+    - Basal
 
 - **TCGA-COMBINED RNASeq** (with 10 different tissues )
 
     **Dimensions:** <4323 x 978> <individuals x landmark genes>
-    **Details:** Cancer tissue of origin prediction (10 tissues)
+    **Details:** Suitable for cancer tissue-of-origin prediction (10 tissues)
     - "TCGA-BRCA" = "Breast",
     - "TCGA-COAD" = "Colorectal",
     - "TCGA-ESCA" = "Esophagus",

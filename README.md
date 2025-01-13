@@ -29,18 +29,17 @@ Both teams, please check out [Getting Started](/experiments/) to set up and use 
 
 
 ## Datasets 
-
-We re-distribute two open access TCGA RNA-seq datasets, which can be accessed from the [GDC portal](https://gdc.cancer.gov), in the pre-processed form:
+We re-distribute pre-processed versions of two open-access TCGA RNA-seq datasets, available through the  [GDC portal](https://gdc.cancer.gov):
 
 - **TCGA-BRCA RNASeq** 
 
     **Dimensions:** <1089 x 978> <individuals x landmark genes>
-    **Details:** 5 subtypes
+    **Details:** Suitable for cancer subtype prediction (5 subtypes)
 
 - **TCGA COMBINED RNASeq** (with 10 different cancer tissues )
 
     **Dimensions:** <4323 x 978> <individuals x landmark genes>
-    **Details:** Cancer tissue of origin prediction (10 tissues)
+    **Details:** Suitable for cancer tissue of origin prediction (10 tissues)
 
 
 You can download the pre-processed datasets from [ELSA Benchmarks Competition platform](https://benchmarks.elsa-ai.eu/?ch=4&com=introduction) after registration. 
