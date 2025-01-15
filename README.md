@@ -19,7 +19,7 @@ We are looking forward to engaging with you and working together to deepen our u
 **Other resources:**
 
 - :speech_balloon: **[CAMDA Health Privacy Challenge Google Groups:](https://groups.google.com/g/camda-health-privacy-challenge)** Join us for questions, discussions and further announcements. 
-- :globe_with_meridians: **[CAMDA Challenge website:]()** Follow CAMDA 2025 for conference announcements. 
+- :globe_with_meridians: **[CAMDA Challenge website:](https://bipress.boku.ac.at/camda2025/)** Follow CAMDA 2025 for conference announcements. 
 - :globe_with_meridians: **[ELSA Benchmark method submission platform:](https://benchmarks.elsa-ai.eu/?ch=4)** The platform to register, to download datasets, and to submit your benchmark methods. 
 - :books: **Relevant papers:** https://arxiv.org/abs/2402.04912 
 
