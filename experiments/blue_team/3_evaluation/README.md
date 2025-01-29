@@ -130,7 +130,9 @@ e.g.
 # Evaluation 
 
 ## Metric definitions 
-Here we describe the list of evaluation metrics used in [evaluate.py](/src/evaluation/evaluate.py). **We strongly encourage the participants to also use other evaluation metrics, or even, propose their own.**
+- Here we describe the list of evaluation metrics used in [evaluate.py](/src/evaluation/evaluate.py). **We strongly encourage the participants to also use other evaluation metrics, or even, propose their own.**
+
+- The term "synthetic datasets" here refers to the datasets generated for each training set in each split. The test split, which is never used in the training or synthetic data generation process, is reserved solely for evaluation purposes, such as training on synthetic data and testing on real data, among other evaluations.
 
 | Category | Method Name                | Method Details                       | Description                                         | Value (Better) |
 |----------|----------------------------|--------------------------------------|-----------------------------------------------------|----------------|

@@ -27,6 +27,10 @@ micromamba activate <environment>
 ```
 
 ## 1. Generate Split Indices
+- We adopt a 5-fold cross-validation (CV) design, which involves dividing the data into 5 distinct splits. This is due to relatively small size of the datasets. 
+
+- In each split, the data is partitioned into a training set and a test set, with the training set comprising the remaining 4 folds. The test set is kept separate from the training process and is used exclusively during evaluation. The goal is to generate synthetic datasets corresponding to each training split.
+
 - You can use the provided ``split_indices/{dataset_name}_splits.yaml.`` for evaluating your models against the provided baselines which are created with `random_seed=42` inside the `config.yaml` file. 
 
 - Please use `random_seed=42` **only** to compare your method against baseline results. 
