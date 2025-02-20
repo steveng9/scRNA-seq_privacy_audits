@@ -4,7 +4,7 @@ Welcome to your home page!
 
 **Contents**
 - [Tasks](#tasks)
-- [Guideline for running and evaluating baseline methods](#thread-workflow-for-running-and-evaluating-baseline-methods)
+- [Guideline for running and evaluating baseline methods](#thread-guideline-for-running-and-evaluating-baseline-methods)
 - [Guideline for developing your own method](#bookmark_tabs-guideline-for-developing-your-own-method)
 - [Submission checklist](#white_check_mark-submission-checklist)
 

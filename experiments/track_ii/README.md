@@ -5,7 +5,7 @@ Welcome to Track II home page!
 **Contents**
 - [Prerequisites](#prerequisites)
 - [Tasks](#tasks)
-- [Guideline for running and evaluating baseline methods](#thread-workflow-for-running-and-evaluating-baseline-methods)
+- [Guideline for running and evaluating baseline methods](#thread-guideline-for-running-and-evaluating-baseline-methods)
 - [Guideline for developing your own method](#bookmark_tabs-guideline-for-developing-your-own-method)
 - [Submission checklist](#white_check_mark-submission-checklist)
 - [Citations](#pencil-citations)
@@ -26,16 +26,16 @@ If you get, `FileNotFoundError: [Errno 2] No such file or directory: '~/lisi_002
 
 
 ## Tasks 
-- In Track II, the participants work towards developing methods that improve the baseline methods and generating novel insights into privacy preservation in multi-sample per donor setting on scRNA-seq dataset.
-- Train and test splits of the OneK1K dataset are provided to download in annData format, with corresponding cell-type provided as annData observation. 
-- Train dataset is used to train the generator, and the evaluation will be performed against the test set. 
+- In Track II, the participants work towards **developing methods that improve the baseline methods and generating novel insights into privacy preservation in multi-sample per donor setting** on scRNA-seq dataset.
+- Train and test splits of the OneK1K dataset are provided in annData format, with corresponding cell-type inside annData observation. 
+- **Train dataset** should be used to **train the generator**, and the **evaluation** should be performed against the **test set**. 
  
 
 ## :thread: Guideline for running and evaluating baseline methods
 
-Please follow the three main steps below:
-2. **[Generate synthetic data](/experiments/track_ii/1_generation/)**: Generates synthetic data using baseline methods. 
-3. **[Evaluate](/experiments/track_ii/2_evaluation/)**: Reports the evaluation metrics for the given synthetic single-cell dataset. 
+Please follow suggested steps below:
+1. **[Generate synthetic data](/experiments/track_ii/1_generation/)**: Generates synthetic data using baseline methods. 
+2. **[Evaluate](/experiments/track_ii/2_evaluation/)**: Reports the evaluation metrics for the given synthetic single-cell dataset. 
 
 
 

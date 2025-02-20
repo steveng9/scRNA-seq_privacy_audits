@@ -68,20 +68,16 @@ Make sure to replace `<src_dir>`  with your corresponding path, then run the fol
 python {src_dir}/evaluation/sc_evaluate.py run-statistical-eval     
 ```
 
-The results are saved to: ``{home_dir}/{res_files}/{dataset_name}/{generator_name}/{experiment_name}/split_{split}.csv``
+The results are saved to: ``{home_dir}/{res_files}/{dataset_name}/{generator_name}/{experiment_name}/statistics_evals.csv``
 
 
 ## Classification-based methods
-
-`combine-results` function  assumes all generated split results (split_{split_no}.csv) are saved under the following directory: `{home_dir}/{res_files}/{dataset_name}/{generator_name}/{experiment_name}`. 
-
-Run the below line to combine the results from each split file into single CSV file and to compute the average of the folds. 
 
 ```bash
 python {src_dir}/evaluation/sc_evaluate.py run-classification-eval   
 ```
 
-The output is a CSV file in the same directory above named `evaluation_results.csv`.
+The results are saved under the following directory: `{home_dir}/{res_files}/{dataset_name}/{generator_name}/{experiment_name}/classification_evals.csv`. 
 
 
 ## UMAP
@@ -92,12 +88,10 @@ Generate a UMAP visualization using the following command, where both real and s
 `n_hvgs` is the number of Highly Variable Genes (HVG)
 
 ```bash
-python {src_dir}/evaluation/sc_evaluate.py run-umap-eval {experiment_name} {n_hvgs}
+python {src_dir}/evaluation/sc_evaluate.py run-umap-eval {n_hvgs}
 ```
 
-
-
-This command generates a PCA plot for each split in the following format:
+This command generates a UMAP saved under the directory:
 ``{home_dir}/{figures}/{dataset_name}/{generator_name}/{experiment_name}/umap....HVG={n_hvgs}.png``
 
 
@@ -109,26 +103,26 @@ To assess the similarity between synthetic and real cells, we evaluated the gene
 For computational efficiency, we used **Highly Variable Genes (HVG)** for the analyses. We provide these metrics to help kickstart your analysis and **strongly encourage you to modify these according to your needs, and to explore additional or novel metrics that could offer deeper insights.** 
 
 ### Statistical Indicators
-- Spearman Correlation Coefficient (SCC), measures how well the gene rankings correlate between real and synthetic datasets, focusing on the most highly variable genes (HVGs). 
-  - Higher SCC (1.0) indicates high correlation between synthetic and real. 
-- Maximum Mean Discrepancy (MMD) (Gretton et al., 2012), measures distributional similarity. 
-  - Lower MMD (~0.0) indicates higher similarity between synthetic and real. 
+- **Spearman Correlation Coefficient (SCC)** measures how well the gene rankings correlate between real and synthetic datasets, focusing on the most highly variable genes (HVGs). 
+  - **Higher SCC (1.0)** indicates high correlation between synthetic and real. 
+- **Maximum Mean Discrepancy (MMD)** (Gretton et al., 2012) measures distributional similarity. 
+  - **Lower MMD (~0.0)** indicates higher similarity between synthetic and real. 
   - Here we used subsampling for computational efficiency. You can modify the size of sampling or introduce a batch based computation for more reliable MMD score. 
-- Local Inverse Simpson’s Index (LISI) (Korsunsky et al., 2019) measures how well real and synthetic cells mix together in a shared latent space. 
-  - Higher LISI indicates good integration. 
-- Adjusted Rand Index (ARI) measures how well real and synthetic cells cluster together. 
+- **Local Inverse Simpson’s Index (LISI)** (Korsunsky et al., 2019) measures how well real and synthetic cells mix together in a shared latent space. 
+  - **Higher LISI** indicates good integration. 
+- **Adjusted Rand Index (ARI)** measures how well real and synthetic cells cluster together. 
   - ARI (real vs. synthetic clusters) measures how well synthetic cells cluster similarly to real cells.
   - ARI (ground truth vs. combined clusters) checks whether synthetic data maintains biological structure.
-  - Higher ARI indicates (1.0) synthetic and real cells form similar clusters. 
+  - **Higher ARI indicates (1.0)** synthetic and real cells form similar clusters. 
 
 
 ### Classification and visualization based metrics 
-- Uniform Manifold Approximation and Projection (UMAP) (McInnes et al., 2018) visualizes the structure of the synthetic and real cells in 2D. 
-- CellTypist classification (Dominguez Conde et al., 2022) measures whether cell type identity is retrained. 
+- **Uniform Manifold Approximation and Projection (UMAP)** (McInnes et al., 2018) visualizes the structure of the synthetic and real cells in 2D. 
+- **CellTypist classification** (Dominguez Conde et al., 2022) measures whether cell type identity is retrained. 
   - We used the *Immune_All_High* model from Celltypist to infer, feel free to explore with other existing [Celltypist models](https://www.celltypist.org/models). 
-  - High ARI & Jaccard indicates synthetic cells match real cells in terms of cell-type classification.
-- Random forest evaluation measures whether synthetic and real cells can be distinguished. 
-  - Low AUC (close to 0.5) indicates good quality of synthetic cells. 
+  - **High ARI & Jaccard** indicates synthetic cells match real cells in terms of cell-type classification.
+- **Random forest evaluation** measures whether synthetic and real cells can be distinguished. 
+  - **Low AUC (close to 0.5)** indicates good quality of synthetic cells. 
 
 
 
