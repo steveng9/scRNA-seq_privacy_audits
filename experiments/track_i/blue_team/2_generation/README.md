@@ -1,4 +1,4 @@
-# :blueberries: BLUE TEAM: Generate synthetic data 
+# :blueberries: BLUE TEAM: Generate synthetic bulk RNA-seq data 
 
 ## Prerequisites
 
@@ -10,7 +10,7 @@ You need to modify `config.yaml` according to your need for each experiment. Rem
 micromamba activate <environment>
 ```
 
-This section assumes you already generated real data splits. Please refer to [data](/experiments/1_data/) if not. 
+This section assumes you already generated real data splits. Please refer to [data](/experiments/track_i/blue_team/1_data/) if not. 
 
 
 ## Generate synthetic data with baseline methods for each split

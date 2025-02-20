@@ -1,4 +1,4 @@
-# :blueberries: BLUE TEAM: Evaluate synthetic data
+# :blueberries: BLUE TEAM: Evaluate synthetic bulk RNA-seq data
 
 Evaluation workflow:
 
@@ -25,7 +25,7 @@ Remember to update `home_dir`. The other configurations can stay depending on yo
    - `res_files`: Directory for storing evaluation metric scores in a CSV file.
    - `figures`: Directory for saving PCA plots.
    - `bio_files`: Directory to store image and csv files for biological evalutions. 
-   - `mia_files`: Directory to store membership inference attack scores. Please refer to [Red Team homepage](/experiments/red_team/README.md) if you want to test this out. 
+   - `mia_files`: Directory to store membership inference attack scores. Please refer to [Red Team homepage](/experiments/track_i/red_team/README.md) if you want to test this out. 
  
 
 ### **Configuration Variables**:
@@ -150,7 +150,7 @@ e.g.
 
 ## Baseline results
 
-Default values in [config.yaml](/experiments/blue_team/2_generation/config.yaml) are used. The average scores are reported. 
+Default values in [config.yaml](/experiments/track_i/blue_team/2_generation/config.yaml) are used. The average scores are reported. 
 
 ### TCGA-BRCA
 

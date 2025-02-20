@@ -1,40 +1,42 @@
 import os
-import pandas as pd
+import scanpy as sc
+import anndata as ad
 from typing import Dict, Any
 from abc import ABC, abstractmethod
+
 
 def check_dirs(path):
     if not os.path.exists(path):
         os.makedirs(path)
 
-class AbstractDataGenerator(ABC):
-    def __init__(self, config: Dict[str, Any], split_no: int = 1):
+
+class AbstractSingleCellDataGenerator(ABC):
+    def __init__(self, config: Dict[str, Any]):
         self.config = config
-        self.split_no = split_no
 
     @abstractmethod
     def generate(self):
         pass
 
     @abstractmethod
-    def save_synthetic_data(self, 
-                            synthetic_features: pd.DataFrame, 
-                            synthetic_labels: pd.DataFrame, 
-                            experiment_name: str):
+    def save_synthetic_anndata(self, 
+                                synthetic_features: ad.AnnData, 
+                                experiment_name: str):
         pass
 
     @abstractmethod
     def train(self):
         pass
-    
+        
     @abstractmethod
     def load_from_checkpoint(self):
         pass
 
 
-class BaseDataGenerator(AbstractDataGenerator):
-    def __init__(self, config: Dict[str, Any], split_no: int = 1):
-        super().__init__(config, split_no)
+
+class BaseSingleCellDataGenerator(AbstractSingleCellDataGenerator):
+    def __init__(self, config: Dict[str, Any]):
+        super().__init__(config)
         self.dataset_config = self.config["dataset_config"]
 
         # Common configuration loading logic
@@ -47,14 +49,33 @@ class BaseDataGenerator(AbstractDataGenerator):
             raise ValueError(f"No config found for generator: {self.generator_name}")
 
         self.dataset_name = self.dataset_config["name"]
-        self.subtype_col_name = self.dataset_config["subtype_col_name"]
+        self.home_dir = self.config["dir_list"]["home"]
 
-    def save_synthetic_data(self, 
-                            synthetic_features: pd.DataFrame, 
-                            synthetic_labels: pd.DataFrame,
+    def load_train_anndata(self):
+        try:
+            train_data_pth = os.path.join(self.home_dir, self.dataset_config["train_count_file"])
+            train_data = sc.read_h5ad(train_data_pth)
+
+            return train_data
+        except:
+            raise Exception(f"Failed to load train anndata.")
+        
+
+    def load_test_anndata(self):
+        try: 
+            test_data_pth = os.path.join(self.home_dir, self.dataset_config["test_count_file"])
+            test_data = sc.read_h5ad(test_data_pth)
+
+            return test_data
+        except:
+            raise Exception(f"Failed to load test anndata.")
+         
+
+    def save_synthetic_anndata(self, 
+                            synthetic_features: ad.AnnData, 
                             experiment_name: str = ""):
         data_save_dir = os.path.join(self.config["dir_list"]["home"],
-                                     self.config["dir_list"]["data_save_dir"])
+                                     self.config["dir_list"]["data_splits"])
         
         syn_save_dir = os.path.join(
                                     data_save_dir, 
@@ -66,12 +87,12 @@ class BaseDataGenerator(AbstractDataGenerator):
         check_dirs(syn_save_dir)
                 
         # save synthetic features and labels
-        synthetic_features.to_csv(os.path.join(
-            syn_save_dir, f"synthetic_data_split_{self.split_no}.csv"), index=False)
-        synthetic_labels.to_csv(os.path.join(
-            syn_save_dir, f"synthetic_labels_split_{self.split_no}.csv"), index=False)
-
+        synthetic_features.write(os.path.join(syn_save_dir, "onek1k_annotated_synthetic.h5ad" ),
+                                 compression="gzip")
         print(f"Synthetic data saved in {syn_save_dir}.")
+
+
+
 
     @abstractmethod
     def generate(self):
@@ -87,4 +108,3 @@ class BaseDataGenerator(AbstractDataGenerator):
     def load_from_checkpoint(self):
         """Load your model from a checkpoint."""
         pass
-

@@ -20,9 +20,9 @@ Welcome to your home page!
 ## :thread: Guideline for running and evaluating baseline methods
 
 Please follow the three main steps below:
-1. **[Create cross-fold dataset splits](/experiments/blue_team/1_data/)**: Prepares the data in stratified 5 fold train-test splits. 
-2. **[Generate synthetic data](/experiments/blue_team/2_generation/)**: Generates synthetic data using baseline methods on each data split generated in the previous step. 
-3. **[Evaluate](/experiments/blue_team/3_evaluation/)**: Reports the evaluation metrics for each data splits (and in average).
+1. **[Create cross-fold dataset splits](/experiments/track_i/blue_team/1_data/)**: Prepares the data in stratified 5 fold train-test splits. 
+2. **[Generate synthetic data](/experiments/track_i/blue_team/2_generation/)**: Generates synthetic data using baseline methods on each data split generated in the previous step. 
+3. **[Evaluate](/experiments/track_i/blue_team/3_evaluation/)**: Reports the evaluation metrics for each data splits (and in average).
 
 
 ## :bookmark_tabs: Guideline for developing your own method
@@ -84,7 +84,7 @@ This means we expect two zip files from you in the following file name format,
 2.  `blueteam_{yourteamname}_TCGA-COMBINED.zip`
 
 
-Please take look at the [example submission zip file](/experiments/blue_team/blueteam_example_TCGA-BRCA.zip) to double check correct formatting. 
+Please take look at the [example submission zip file](/experiments/track_i/blue_team/blueteam_example_TCGA-BRCA.zip) to double check correct formatting. 
 
 
 **Best of luck!** :four_leaf_clover:

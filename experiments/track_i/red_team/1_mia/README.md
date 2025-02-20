@@ -15,7 +15,7 @@ micromamba activate <environment>
 ```
 
 ### Generate synthetic datasets to launch membership inference
-In order to re-produce the MIA methods, you first need some synthetic datasets. You can refer to [Blue team home page](/experiments/blue_team/) for detailed instructions. 
+In order to re-produce the MIA methods, you first need some synthetic datasets. You can refer to [Blue team home page](/experiments/track_i/blue_team/) for detailed instructions. 
 
 
 ## Baseline MIA methods and configuration
@@ -76,7 +76,7 @@ python {src_dir}/mia/red_team.py run-mia
             --mmb_labels_file /path/to/example/label/csv/ + "synthetic_data_1_gt.csv"
             #--reference_file {reference_path} 
 ```
-- You can download [running_baseline_example.zip](/experiments/red_team/1_mia/running_baseline_example.zip), that contains `synthetic_data_split_1.csv` and `synthetic_data_1_gt.csv` files for your convenience. 
+- You can download [running_baseline_example.zip](/experiments/track_i/red_team/1_mia/running_baseline_example.zip), that contains `synthetic_data_split_1.csv` and `synthetic_data_1_gt.csv` files for your convenience. 
 
 - The script will generate an `evaluation_results.csv` under `/{home_dir}/results/mia/{dataset_name}/{attacker_name}/{generator_model}/{experiment_name}/{mia_experiment_name}` directory, 
      - i.e. `/{home_dir}/results/mia/TCGA-BRCA/domias_baselines/multivariate/noise_0.5/synthetic_data_1`
@@ -89,7 +89,7 @@ python {src_dir}/mia/red_team.py run-mia
 
 ## Evaluation
 
-Classification metrics, accuracy, AUC, and AUPR, is utilized to evaluate attack performances. We report here the MIA performances against some of the baseline generators, using the default parameter values provided in the [config.yaml](/experiments/blue_team/2_generation/config.yaml). 
+Classification metrics, accuracy, AUC, and AUPR, is utilized to evaluate attack performances. We report here the MIA performances against some of the baseline generators, using the default parameter values provided in the [config.yaml](/experiments/track_i/blue_team/2_generation/config.yaml). 
 
 ### TCGA-BRCA
 #### Multivariate

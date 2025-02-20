@@ -1,0 +1,28 @@
+name: sctest-env
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python=3.9.21
+  - numpy=2.0.2
+  - scipy=1.13.1
+  - pandas=2.2.3
+  - pytorch=2.4.0
+  - scikit-learn=1.6.1
+  - umap-learn=0.5.7
+  - seaborn=0.13.2
+  - statsmodels=0.14.4
+  - h5py=3.12.1
+  - tqdm=4.67.1
+  - pip=24.3.1
+  - pip:
+      - scanpy==1.10.1
+      - anndata==0.10.9
+      - celltypist==1.6.3
+      - leidenalg==0.10.2
+      - matplotlib==3.9.4
+      - scib
+      - scib-metrics==0.5.1
+      - louvain==0.8.2
+      - ctgan
+      - domias 

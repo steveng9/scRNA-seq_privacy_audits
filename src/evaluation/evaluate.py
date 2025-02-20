@@ -261,6 +261,9 @@ def plot_pca(split_no: int):
     Plotting.plot_pca_and_save(real_pca, synthetic_pca, plot_path)
     click.echo(f"PCA plot saved to {plot_path}")
 
+
+
+
 cli.add_command(run_evaluator)
 cli.add_command(combine_results)
 cli.add_command(plot_pca)
