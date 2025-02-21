@@ -27,7 +27,7 @@ or
 conda env create -f sc_environment.yaml -n <env_name>
 ```
 
-If you get, `FileNotFoundError: [Errno 2] No such file or directory: '~/lisi_002vg90t/graph_lisi_indices_0.txt'`,  you can try installing `scib` package from Github, [this should solve the issue](https://github.com/theislab/scib/issues/308). 
+**NOTE:** While running evaluation script `sc_evaluate.py`, if you get, `FileNotFoundError: [Errno 2] No such file or directory: '~/lisi_002vg90t/graph_lisi_indices_0.txt'`,  please try installing `scib` package from Github, [this should solve the issue](https://github.com/theislab/scib/issues/308). 
 
 
 

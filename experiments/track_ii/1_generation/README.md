@@ -2,7 +2,9 @@
 
 ## Prerequisites
 
-`config.yaml` needs to be modified according to your need for each experiment. Remember to update `home_dir`. The other configurations remain as they are depending on your preferences. 
+`config.yaml` needs to be modified according to your need for each experiment. Remember to update your `home` directory accordinly. The other configurations remain as they are depending on your preferences. 
+
+**NOTE:** Please make sure to run the scripts from the same directory as `config.yaml` is placed. 
 
 ### Activate the environment
 

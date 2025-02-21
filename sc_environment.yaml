@@ -21,8 +21,9 @@ dependencies:
       - celltypist==1.6.3
       - leidenalg==0.10.2
       - matplotlib==3.9.4
-      - scib
+      - git+https://github.com/theislab/scib.git
       - scib-metrics==0.5.1
       - louvain==0.8.2
       - ctgan
       - domias 
+      - PyYAML
