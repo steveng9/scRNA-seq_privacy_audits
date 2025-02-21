@@ -1,0 +1,30 @@
+dir_list:
+  home: "~/Health-Privacy-Challenge"
+  data_splits: "data_splits"
+  processed_data: "data/processed"
+  figures: "results/figures"
+  res_files: "results/files"
+  mia_files: "results/mia"
+
+
+dataset_config:
+  name: "onek1k"
+  train_count_file: "data/processed/onek1k/onek1k_annotated_train.h5ad" 
+  test_count_file: "data/processed/onek1k/onek1k_annotated_test.h5ad" 
+  cell_type_col_name: "cell_type" 
+  cell_label_col_name: "cell_label"
+  celltypist_model: "data/Immune_All_High.pkl"
+  random_seed: 42
+
+
+
+generator_config:
+  name: "sc_dist"
+  experiment_name: "distr_Poisson"
+    
+
+evaluator_config:   
+  random_seed: 42
+
+
+

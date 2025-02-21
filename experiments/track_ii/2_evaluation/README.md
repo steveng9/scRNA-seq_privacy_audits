@@ -28,13 +28,18 @@ Remember to update `home_dir`. The other configurations can stay depending on yo
 
 ### **Configuration Variables**:
 You need to modify `config.yaml` according to your need for each experiment. Define the following variables according to your setup in `config.yaml`:
-   - `dataset_config`: Update the name of the dataset you want to evaluate. Total number of splits remains same as in your generation configuration (e.g., `5`).
+   - `dataset_config`: Update the directories of the downloaded datasets. Always assume that the final path is joined with `home_dir`. 
    - `generator_config`: Update the name of the method and experiment name you want to generate evaluation scores. 
 
 Please be reminded that you need to put `config.yaml` in the same directory you are running your experiment. 
 
+### **Evaluation variables**:
 
-### Example config for evaluating multivariate
+  - We use Celltypist as a part of our evaluation metrics. We used the *Immune_All_High* model from Celltypist as an example to infer, therefore please download it from here. Make sure the path to the saved model reflects your directory path in `celltypist_model` inside  `config.yaml`. 
+  - Fell free  to experiment with other existing [Celltypist models](https://www.celltypist.org/models). 
+
+
+### Example config for evaluating Poisson generated synthetic data
 
 e.g. In the Generation step, we set the `--experiment_name` argument as `distr_Poisson`, therefore we will use the same `experiment_name` in `generator_config`.  
 
@@ -119,11 +124,9 @@ For computational efficiency, we used **Highly Variable Genes (HVG)** for the an
 ### Classification and visualization based metrics 
 - **Uniform Manifold Approximation and Projection (UMAP)** (McInnes et al., 2018) visualizes the structure of the synthetic and real cells in 2D. 
 - **CellTypist classification** (Dominguez Conde et al., 2022) measures whether cell type identity is retrained. 
-  - We used the *Immune_All_High* model from Celltypist to infer, feel free to explore with other existing [Celltypist models](https://www.celltypist.org/models). 
   - **High ARI & Jaccard** indicates synthetic cells match real cells in terms of cell-type classification.
 - **Random forest evaluation** measures whether synthetic and real cells can be distinguished. 
   - **Low AUC (close to 0.5)** indicates good quality of synthetic cells. 
-
 
 
 
