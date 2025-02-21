@@ -21,6 +21,12 @@ We suggest installing the provided environment to reproduce the starter kit. We 
 micromamba create --file sc_environment.yaml --name <env_name>
 ```
 
+or
+
+```bash
+conda env create -f sc_environment.yaml -n <env_name>
+```
+
 If you get, `FileNotFoundError: [Errno 2] No such file or directory: '~/lisi_002vg90t/graph_lisi_indices_0.txt'`,  you can try installing `scib` package from Github, [this should solve the issue](https://github.com/theislab/scib/issues/308). 
 
 
