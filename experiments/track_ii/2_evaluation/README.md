@@ -19,15 +19,15 @@ Evaluation workflow:
 micromamba activate <environment>
 ```
 
-### **Ensure the following directories exist**:
-Remember to update `home`. The other configurations can stay depending on your preferences. 
+<!--### **Ensure the following directories exist**:
+The other configurations can stay depending on your preferences. 
    - `res_files`: Directory for storing evaluation metric scores in a CSV file.
    - `figures`: Directory for saving UMAP plots.
-<!--  - `mia_files`: Directory to store membership inference attack scores. Please refer to [Red Team homepage](/experiments/track_i/red_team/README.md) if you want to test this out. -->
+  - `mia_files`: Directory to store membership inference attack scores. Please refer to [Red Team homepage](/experiments/track_i/red_team/README.md) if you want to test this out. -->
  
 
 ### **Configuration Variables**:
-You need to modify `config.yaml` according to your need for each experiment. Define the following variables according to your setup in `config.yaml`:
+Remember to update `home` directory. You need to modify `config.yaml` according to your need for each experiment. Define the following variables according to your setup in `config.yaml`:
    - `dataset_config`: Update the directories of the downloaded datasets. Always assume that the final path is joined with `home_dir`. 
    - `generator_config`: Update the name of the method and experiment name you want to generate evaluation scores. 
 

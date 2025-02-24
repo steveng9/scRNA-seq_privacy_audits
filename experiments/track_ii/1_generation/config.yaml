@@ -1,5 +1,5 @@
 dir_list:
-  home: "~/Health-Privacy-Challenge"
+  home: "~/Health-Privacy-Challenge" #please replace ~ with your absolute path
   data_splits: "data_splits"
   processed_data: "data/processed"
   figures: "results/figures"

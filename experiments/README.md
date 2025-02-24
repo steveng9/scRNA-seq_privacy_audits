@@ -3,7 +3,7 @@
 
 ## [Track I: bulk RNA-seq](/experiments/track_i/) 
 
-**Track I** focuses on **bulk RNA-seq** data and followsa Blue Team (🫐) vs Red Team (🍅) framework. The goal is to explore the privacy-preserving aspects of generative methods while assessing their resilience against membership inference attacks.
+**Track I** focuses on **bulk RNA-seq** data and follows a Blue Team (🫐) vs Red Team (🍅) framework. The goal is to explore the privacy-preserving aspects of generative methods while assessing their resilience against membership inference attacks.
 
 Visit the [Track I Home Page](/experiments/track_i/) for detailed instructions. 
 

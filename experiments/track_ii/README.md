@@ -42,8 +42,20 @@ This should solve two potential errors you might face while running evaluation s
 
 ## Tasks 
 - In Track II, the participants work towards **developing methods that improve the baseline methods and generating novel insights into privacy preservation in multi-sample per donor setting** on scRNA-seq dataset.
-- Train and test splits of the OneK1K dataset are provided in annData format, with corresponding cell-type inside annData observation. 
+- Train and test splits of the [OneK1K single-cell RNA-seq counts](https://onek1k.org) are provided in `h5ad` format, with corresponding cell-type inside `annData` observation. 
 - **Train dataset** should be used to **train the generator**, and the **evaluation** should be performed against the **test set**. 
+
+## Dataset
+- Train and test datasets can be downloaded from the [ELSA Benchmark website](https://benchmarks.elsa-ai.eu/?ch=4) after registration and signing the data download agreement. 
+
+- `config.yaml` files inside [generation](/experiments/track_ii/1_generation/) and  [evaluation](/experiments/track_ii/2_evaluation/) organize directory structure and configurations. Please ensure that the downloaded datasets are placed in the corresponding directories under `dataset_config`, or update the directory path according to your preference.
+
+```bash
+dataset_config:
+  name: "onek1k"
+  train_count_file: "data/processed/onek1k/onek1k_annotated_train.h5ad" 
+  test_count_file: "data/processed/onek1k/onek1k_annotated_test.h5ad" 
+```
  
 
 ## :thread: Guideline for running and evaluating baseline methods
@@ -68,7 +80,7 @@ We expect you to adopt the following logic [blue_team.py](/src/generators/blue_t
 
 
 
-```bash
+```python
 ## your synthetic data will be saved accordingly to config.yaml
 ## e.g. data_splits/{dataset_name}/synthetic/{generator_name}/{experiment_name}
 ## change the corresponding keys in the config.yaml
