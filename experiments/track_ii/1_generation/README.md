@@ -4,7 +4,9 @@
 
 `config.yaml` needs to be modified according to your need for each experiment. Remember to update your `home` directory accordinly. The other configurations remain as they are depending on your preferences. 
 
-**NOTE:** Please make sure to run the scripts from the same directory as `config.yaml` is placed. 
+Please make sure to run the scripts from the same directory as `config.yaml` is placed. 
+
+**NOTE:** The generation method might require up to ~125GB memory space. 
 
 ### Activate the environment
 

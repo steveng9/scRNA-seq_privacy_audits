@@ -69,6 +69,16 @@ class BaseSingleCellDataGenerator(AbstractSingleCellDataGenerator):
             return test_data
         except:
             raise Exception(f"Failed to load test anndata.")
+        
+    
+    def load_external_anndata(self):
+        if self.dataset_config["external_count_file"]: 
+            external_data_pth = os.path.join(self.home_dir, self.dataset_config["external_count_file"])
+            external_data = sc.read_h5ad(external_data_pth)
+
+            return external_data
+        else:
+            raise Exception(f"Failed to load test anndata.")
          
 
     def save_synthetic_anndata(self, 
