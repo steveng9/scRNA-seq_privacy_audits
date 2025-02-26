@@ -4,13 +4,13 @@ This repository is a "starter package" for the [Health Privacy Competition](http
 
 The Health Privacy Challenge consists of two tracks: 
 
-### Track I: Bulk RNA-seq 
+### Track I: Featuring Bulk RNA-seq 
 Track I runs in a “Blue Team (🫐)  vs Red Team (🍅)” scheme. 
 -  The **blue teams** develop **novel privacy preserving generative methods** that can mitigate privacy risks while preserving biological insights for bulk gene expression datasets,
 - The **red teams** launch **trustworthy and realistic membership inference attacks (MIA)** against blue teams’ solutions to assess whether these generative methods can withstand privacy attacks. 
 
 
-### Track II: Single-cell RNA-seq 
+### Track II: Featuring Single-cell RNA-seq 
 Track II invites participants to explore the privacy and utility of synthetic single-cell gene expression (scRNA-seq) data. Participants are encouraged to:
 - **investigate and reveal potential privacy risks** linked to generating synthetic **scRNA-seq** datasets.
 - develop **privacy-preserving generative methods** that balances data privacy and utility.
@@ -43,7 +43,7 @@ Both teams, please check out [Getting Started](/experiments/) to set up and use 
 
 Datasets are available for download in [ELSA Benchmarks Competition platform](https://benchmarks.elsa-ai.eu/?ch=4&com=introduction) after registration and signing the data download agreement. 
 
-### Track I 
+### Track I: Featuring bulk RNA-seq
 We re-distribute pre-processed versions of two open-access TCGA RNA-seq datasets, available through the  [GDC portal](https://gdc.cancer.gov):
 
 - **TCGA-BRCA RNASeq** 
@@ -58,7 +58,7 @@ We re-distribute pre-processed versions of two open-access TCGA RNA-seq datasets
 
 Navigate [here](/data/) for details about the pre-processing steps. 
 
-### Track II
+### Track II: Featuring single-cell RNA-seq 
 We re-distribute raw counts of **OneK1K single-cell RNA-seq** dataset (https://onek1k.org/), a cohort containing 1.26 million peripheral blood mononuclear cells (PBMCs) of 981 donors, generously provided by [Joseph Powell](https://www.garvan.org.au/people/researchers/joseph-powell) and the authors (Yazar et al., 2022) in Garvan Institute of Medical Research. 
 
 - **Train dataset:** <633711 cells from 490 donors x 25834 genes > 
