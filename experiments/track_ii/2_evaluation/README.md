@@ -19,7 +19,7 @@ Evaluation workflow:
 micromamba activate <environment>
 ```
 
-**NOTE:** The evaluation methods might require up to **~125GB memory space.** We're currently working on including **memory-efficient** alternatives to **generate** and **evaluate** functions, and will update the repo when ready. 
+**NOTE:** The evaluation methods might require up to **~125GB memory space.** We're currently working on including **memory-efficient** alternatives to **generate** and **evaluate** functions on [sparse-impl branch](https://github.com/PMBio/Health-Privacy-Challenge/tree/sparse-impl). 
 
 <!--### **Ensure the following directories exist**:
 The other configurations can stay depending on your preferences. 
