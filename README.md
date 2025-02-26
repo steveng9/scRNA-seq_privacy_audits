@@ -1,10 +1,21 @@
 # CAMDA 2025 - ELSA Health Privacy Challenge
 
-This repository is a "starter package" for the [Health Privacy Competition](https://benchmarks.elsa-ai.eu/?ch=4&com=introduction) that runs within [CAMDA 2025](). The  Health Privacy Challenge is organized in the context of the European Lighthouse on Safe and Secure AI (ELSA, https://elsa-ai.eu). 
+This repository is a "starter package" for the [Health Privacy Competition](https://benchmarks.elsa-ai.eu/?ch=4&com=introduction) that runs within [CAMDA Conference 2025](https://bipress.boku.ac.at/camda2025/). The  Health Privacy Challenge is organized in the context of the European Lighthouse on Safe and Secure AI (ELSA, https://elsa-ai.eu). 
 
-The Health Privacy Competition  will run in a “Blue Team (🫐)  vs Red Team (🍅)” scheme. 
--  The **blue teams** will develop **novel privacy preserving generative methods** that can mitigate privacy risks while preserving biological insights for gene expression datasets,
-- The **red teams** will launch **trustworthy and realistic membership inference attacks (MIA)** against blue teams’ solutions to assess whether these generative methods can withstand privacy attacks. 
+The Health Privacy Challenge consists of two tracks: 
+
+### Track I: Bulk RNA-seq 
+Track I runs in a “Blue Team (🫐)  vs Red Team (🍅)” scheme. 
+-  The **blue teams** develop **novel privacy preserving generative methods** that can mitigate privacy risks while preserving biological insights for bulk gene expression datasets,
+- The **red teams** launch **trustworthy and realistic membership inference attacks (MIA)** against blue teams’ solutions to assess whether these generative methods can withstand privacy attacks. 
+
+
+### Track II: Single-cell RNA-seq 
+Track II invites participants to explore the privacy and utility of synthetic single-cell gene expression (scRNA-seq) data. Participants are encouraged to:
+- **investigate and reveal potential privacy risks** linked to generating synthetic **scRNA-seq** datasets.
+- develop **privacy-preserving generative methods** that balances data privacy and utility.
+- propose **novel evaluation metrics and strategies** to assess both utility and privacy preservation in a **multi-sample donor** setting.
+
 
 We are looking forward to engaging with you and working together to deepen our understanding of privacy in healthcare. :hugs: 
 
@@ -29,6 +40,10 @@ Both teams, please check out [Getting Started](/experiments/) to set up and use 
 
 
 ## Datasets 
+
+Datasets are available for download in [ELSA Benchmarks Competition platform](https://benchmarks.elsa-ai.eu/?ch=4&com=introduction) after registration and signing the data download agreement. 
+
+### Track I 
 We re-distribute pre-processed versions of two open-access TCGA RNA-seq datasets, available through the  [GDC portal](https://gdc.cancer.gov):
 
 - **TCGA-BRCA RNASeq** 
@@ -41,10 +56,16 @@ We re-distribute pre-processed versions of two open-access TCGA RNA-seq datasets
     **Dimensions:** <4323 x 978> <individuals x landmark genes>
     **Details:** Suitable for cancer tissue of origin prediction (10 tissues)
 
-
-You can download the pre-processed datasets from [ELSA Benchmarks Competition platform](https://benchmarks.elsa-ai.eu/?ch=4&com=introduction) after registration. 
-
 Navigate [here](/data/) for details about the pre-processing steps. 
+
+### Track II
+We re-distribute raw counts of **OneK1K single-cell RNA-seq** dataset (https://onek1k.org/), a cohort containing 1.26 million peripheral blood mononuclear cells (PBMCs) of 981 donors, generously provided by [Joseph Powell](https://www.garvan.org.au/people/researchers/joseph-powell) and the authors (Yazar et al., 2022) in Garvan Institute of Medical Research. 
+
+- **Train dataset:** <633711 cells from 490 donors x 25834 genes > 
+- **Test dataset:**  <634022 cells from 491 donors x 25834 genes > 
+
+Navigate [Track II homepage](/experiments/track_ii/) for details about the pre-processing steps. 
+
 
 <!-- comment 
 ## :chart_with_upwards_trend: Evaluation
@@ -93,14 +114,17 @@ Red teams must have two benchmark method submissions by the first and second pha
 -->
 
 ## :busts_in_silhouette: Organization Team  
-
 This competition is designed as a collaborative effort between [European Molecular Biology Laboratory  (EMBL)](https://www.embl.org), [CISPA Helmholtz Center for Information Security](https://cispa.de/en), and the [University of Helsinki](https://www.helsinki.fi/en) with the support of [Barcelona Computer Vision Center (CVC)](https://www.cvc.uab.es) within the context of ELSA Project.  
 
 - **EMBL:** [Hakime Öztürk](https://github.com/hkmztrk), [Julio Saez-Rodriguez](https://saezlab.org) and [Oliver Stegle](https://steglelab.org)
 - **CISPA:** [Tejumade Afonja](https://github.com/tejuafonja), [Ruta Binkyte](https://github.com/RuSaBin) and [Mario Fritz](https://cispa.de/en/research/groups/fritz)
 - **University of Helsinki:**  [Joonas Jälkö](https://researchportal.helsinki.fi/en/persons/joonas-jälkö/) and [Antti Honkela](https://www.cs.helsinki.fi/u/ahonkela/)
 
-We thank Katharina Mikulik (DKFZ) and Kevin Domanegg (DKFZ) for helpful feedback. 
+and in collaboration with **Saez-Rodriguez** group in Track II and the review process:
+- **University of Heidelberg:** [Sebastian Lobentanzer](https://github.com/slobentanzer), [Pablo R. Mier](https://github.com/pablormier), [Attila Gabor](). 
+
+
+We also thank [Katharina Mikulik (DKFZ)](https://steglelab.org/katharina-mikulik/),  [Kevin Domanegg (DKFZ)](https://steglelab.org/kevin-domanegg/), and [Danai Vaigaki (EMBL)](https://steglelab.org/danai-vagiaki/) for helpful feedback. 
 
 <!-- 
 ## :pushpin: Statement
