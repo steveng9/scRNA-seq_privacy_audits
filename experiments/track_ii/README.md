@@ -45,9 +45,29 @@ This should solve two potential errors you might face while running evaluation s
 - Train and test splits of the [OneK1K single-cell RNA-seq counts](https://onek1k.org) are provided in `h5ad` format, with corresponding cell-type inside `annData` observation. 
 - **Train dataset** should be used to **train the generator**, and the **evaluation** should be performed against the **test set**. 
 
-## Dataset
-- Train and test datasets can be downloaded from the [ELSA Benchmark website](https://benchmarks.elsa-ai.eu/?ch=4) after registration and signing the data download agreement. 
+## OneK1K Dataset
 
+We re-distribute raw counts of OneK1K single-cell RNA-seq dataset (https://onek1k.org/), a cohort containing 1.26 million peripheral blood mononuclear cells (PBMCs) of 981 donors. 
+
+After the following filtering, 
+```python 
+    sc.pp.filter_genes(adata, min_cells=3) 
+    adata.var['mt'] = adata.var_names.str.startswith('MT-')
+    sc.pp.calculate_qc_metrics(adata, qc_vars=['mt'], percent_top=None, log1p=False, inplace=True)
+    adata = adata[adata.obs.total_counts > 10,:]
+    adata = adata[adata.obs.total_counts < 40000,:]
+```
+
+- The dataset is split into donor-based train and test sets of relatively equal numbers of cells, and similar cell-type distributions. 
+
+- **Train dataset:** < 633711 cells from 490 donors x 25834 genes>, **to be used in training** generative models
+- **Test dataset:**  < 634022 cells from 491 donors x 25834 genes>, **to be used in evaluating** the generated synthetic dataset
+
+We share these datasets in `annData` format with the following annotations: `individual`, `barcode_col`, `cell_type`, `cell_label`. 
+
+### Download 
+
+- Train and test datasets can be downloaded from the [ELSA Benchmark website](https://benchmarks.elsa-ai.eu/?ch=4) after registration and signing the data download agreement. 
 - `config.yaml` files inside [generation](/experiments/track_ii/1_generation/) and  [evaluation](/experiments/track_ii/2_evaluation/) organize directory structure and configurations. Please ensure that the downloaded datasets are placed in the corresponding directories under `dataset_config`, or update the directory path according to your preference.
 
 ```bash
@@ -56,7 +76,6 @@ dataset_config:
   train_count_file: "data/processed/onek1k/onek1k_annotated_train.h5ad" 
   test_count_file: "data/processed/onek1k/onek1k_annotated_test.h5ad" 
 ```
- 
 
 ## :thread: Guideline for running and evaluating baseline methods
 

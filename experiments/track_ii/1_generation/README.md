@@ -6,33 +6,13 @@
 
 Please make sure to run the scripts from the same directory as `config.yaml` is placed. 
 
-**NOTE:** The generation method might require up to ~125GB memory space. 
+**NOTE:** The generation method might require up to **~125GB memory space.** We're currently working on including **memory-efficient** alternatives to **generate** and **evaluate** functions, and will update the repo when ready. 
 
 ### Activate the environment
 
 ```bash
 micromamba activate <environment>
 ```
-
-## OneK1K dataset
-
-We re-distribute raw counts of OneK1K single-cell RNA-seq dataset (https://onek1k.org/), a cohort containing 1.26 million peripheral blood mononuclear cells (PBMCs) of 981 donors. 
-
-After the following filtering, 
-```python 
-    sc.pp.filter_genes(adata, min_cells=3) 
-    adata.var['mt'] = adata.var_names.str.startswith('MT-')
-    sc.pp.calculate_qc_metrics(adata, qc_vars=['mt'], percent_top=None, log1p=False, inplace=True)
-    adata = adata[adata.obs.total_counts > 10,:]
-    adata = adata[adata.obs.total_counts < 40000,:]
-```
-
-The dataset is split into donor-based train and test sets of relatively equal numbers of cells, and similar cell-type distributions.
-
-- Train dataset: < 633711 cells x 490 donors > 
-- Test dataset:  < 634022 cells x 491 donors > 
-
-We share these datasets in annData format with the following annotations: `individual`, `barcode`, `cell_type`, `cell_label`. 
 
 
 ## Generate synthetic sc-RNAseq data 

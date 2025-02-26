@@ -19,6 +19,8 @@ Evaluation workflow:
 micromamba activate <environment>
 ```
 
+**NOTE:** The evaluation methods might require up to **~125GB memory space.** We're currently working on including **memory-efficient** alternatives to **generate** and **evaluate** functions, and will update the repo when ready. 
+
 <!--### **Ensure the following directories exist**:
 The other configurations can stay depending on your preferences. 
    - `res_files`: Directory for storing evaluation metric scores in a CSV file.
