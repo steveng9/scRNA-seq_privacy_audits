@@ -82,6 +82,7 @@ dataset_config:
 Please follow suggested steps below:
 1. **[Generate synthetic data](/experiments/track_ii/1_generation/)**: Generates synthetic data using baseline methods. 
 2. **[Evaluate](/experiments/track_ii/2_evaluation/)**: Reports the evaluation metrics for the given synthetic single-cell dataset. 
+3. **[Investigate privacy](/experiments/track_ii/3_privacy/)**: A demonstration of a membership inference attack on a small, subsampled synthetic single-cell RNA-seq dataset. 
 
 
 
