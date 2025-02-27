@@ -13,7 +13,6 @@ def check_folder(folder_path):
         os.makedirs(folder_path)
 
 
-### TODO: Do an ATTACK EXPERIMENT NAME
 class BaseMIAModel(ABC):
     def __init__(self, 
                 config: Dict[str, Any], 

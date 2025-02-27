@@ -1,0 +1,28 @@
+dir_list:
+   home: "~/Health-Privacy-Challenge" #replace ~ with your absolute path
+   data_splits: "data_splits"
+   meta: "data/meta"
+   processed_data: "data/processed"
+   figures: "results/figures"
+   res_files: "results/files"
+   mia_files: "results/mia"
+
+
+dataset_config:
+  name: "onek1k"
+  membership_label_col: "membership"
+  
+
+attack_model: "sc_domias_baselines"
+
+generator_config: 
+  model_name: "sc_dist"
+  experiment_name: "distr_Poisson_subset"
+  
+
+sc_domias_baselines_config:
+  taxonomy: "bb"
+
+
+
+    
