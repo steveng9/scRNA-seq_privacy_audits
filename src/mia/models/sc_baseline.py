@@ -120,6 +120,27 @@ class DOMIASSingleCellBaselineModels(BaseMIAModel):
             assert len(X_test) == len(y_test), "mismatch in test data and label lengths."
         
         #reference = data_loader.load_reference_data()
+        #X_test_dense = X_test.X.toarray() if hasattr(X_test.X, "toarray") else X_test.X
+        #syn_dense = synthetic_data.X.toarray() if hasattr(synthetic_data.X, "toarray") else synthetic_data.X
+
+        ## Testing if using HVG have an effect 
+        combined_adata = X_test.concatenate(synthetic_data)
+        # Normalize before selecting HVGs
+        sc.pp.normalize_total(combined_adata, target_sum=1e4)
+        sc.pp.log1p(combined_adata)
+        sc.pp.highly_variable_genes(combined_adata, flavor="seurat", n_top_genes=5000)
+
+        ### Normalize and logp
+        sc.pp.normalize_total(X_test, target_sum=1e4)
+        sc.pp.log1p(X_test)
+
+        ### Normalize and logp
+        sc.pp.normalize_total(synthetic_data, target_sum=1e4)
+        sc.pp.log1p(synthetic_data)
+
+        X_test = X_test[:, combined_adata.var['highly_variable']]
+        synthetic_data = synthetic_data[:, combined_adata.var['highly_variable']]
+
         X_test_dense = X_test.X.toarray() if hasattr(X_test.X, "toarray") else X_test.X
         syn_dense = synthetic_data.X.toarray() if hasattr(synthetic_data.X, "toarray") else synthetic_data.X
 
@@ -142,8 +163,11 @@ class DOMIASSingleCellBaselineModels(BaseMIAModel):
             'y_test': labels,
         })
        
-       grp_predictions = scores_df.groupby('donor')['score'].mean()
-       grp_labels = scores_df.groupby('donor')['y_test'].mean()
+       grp_predictions = scores_df.groupby('donor')['score'].mean().to_numpy()
+       grp_labels = scores_df.groupby('donor')['y_test'].mean().to_numpy()
+
+       #print(grp_predictions)
+       #print(grp_labels)
 
        return grp_predictions, grp_labels
 
