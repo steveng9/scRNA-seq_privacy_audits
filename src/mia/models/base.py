@@ -5,8 +5,10 @@ import pandas as pd
 import collections
 import matplotlib.pyplot as plt
 from abc import ABC, abstractmethod
-from sklearn.metrics import (accuracy_score, roc_curve, 
+from sklearn.metrics import (accuracy_score, roc_curve, f1_score,
                              roc_auc_score, average_precision_score)
+
+
 
 def check_folder(folder_path):
     if not os.path.exists(folder_path):
@@ -68,12 +70,22 @@ class BaseMIAModel(ABC):
 
         for method_name, score in scores.items():
             # compute metrics for each method
-            acc, fpr, tpr, threshold, auc, ap = self._compute_metrics(score, labels)
+            #acc, fpr, tpr, threshold, auc, ap = self._compute_metrics(score, labels)
+            acc_median, acc_best, fpr, tpr, threshold, auc, ap, f1_median, f1_best = self._compute_metrics(score, labels)
+
+
             
             eval_results[method_name] = {
-                "accuracy": acc,
+                #"accuracy": acc,
+                #"aucroc": auc,
+                #"average_precision": ap,
+                "accuracy_median": acc_median,
+                "accuracy_best": acc_best,
                 "aucroc": auc,
                 "average_precision": ap,
+                "f1_median": f1_median,
+                "f1_best": f1_best
+
                 #"fpr": fpr.tolist(),
                 #"tpr": tpr.tolist(),
                 #"threshold": threshold.tolist() 
@@ -83,6 +95,8 @@ class BaseMIAModel(ABC):
             self._plot_roc_curve(method_name, fpr, tpr, auc, ap)
 
         self._save_eval_results(eval_results, file_name)
+
+
 
     def save_predictions(self, scores: Dict[str, np.ndarray]):
         for key, value in scores.items():
@@ -107,13 +121,33 @@ class BaseMIAModel(ABC):
                 y_scores: np.ndarray, 
                 y_true: np.ndarray, 
                 sample_weight: Optional[np.ndarray] = None):
-        y_pred = y_scores > np.median(y_scores)
-        acc = accuracy_score(y_true, y_pred, sample_weight=sample_weight)
+        y_pred_median = y_scores > np.median(y_scores)
+
+        # compute F1 for multiple thresholds
+        thresholds = np.sort(np.unique(y_scores))
+        if len(thresholds) < 2:
+                raise ValueError("Not enough unique prediction scores..")
+            
+        f1_scores = [f1_score(y_true, y_scores > t, sample_weight=sample_weight) 
+                     for t in thresholds]
+        best_threshold = thresholds[np.argmax(f1_scores)]
+        y_pred_best = y_scores > best_threshold
+
+        ## compare the accuracy and f1 computed with best_threshold vs median 
+        acc_median = accuracy_score(y_true, y_pred_median, sample_weight=sample_weight)
+        acc_best = accuracy_score(y_true, y_pred_best, sample_weight=sample_weight)
+
         auc = roc_auc_score(y_true, y_scores, sample_weight=sample_weight)
         ap = average_precision_score(y_true, y_scores)
         fpr, tpr, threshold = roc_curve(y_true, y_scores, pos_label=1)
 
-        return acc, fpr, tpr, threshold, auc, ap
+        f1_median = f1_score(y_true, y_pred_median, sample_weight=sample_weight) 
+        f1_best= f1_score(y_true, y_pred_best, sample_weight=sample_weight) 
+
+        #return acc, fpr, tpr, threshold, auc, ap
+        return acc_median, acc_best, fpr, tpr, threshold, auc, ap, f1_median, f1_best
+    
+
 
     def _plot_roc_curve(self, name:str, fpr: np.ndarray, tpr: np.ndarray, auc: float, ap: float):
         plt.figure()

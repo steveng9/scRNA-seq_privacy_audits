@@ -90,10 +90,9 @@ Classification metrics, accuracy, AUC, and AUPR, is utilized to evaluate attack 
 
 
 #### Poisson
-will be updated..
 
-| Method      | Accuracy | AUCROC   | Average Precision |
+| Method      | Accuracy | AUCROC   | Average Precision  |
 |-------------|----------|----------|--------------------|
-| gan_leaks   | 0.x      | 0.x      | 0.x                |
+| gan_leaks   | 0.50     | 0.5252   | 0.5636             |
 
 

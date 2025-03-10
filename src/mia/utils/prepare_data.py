@@ -23,11 +23,6 @@ class MIADataLoader:
 
         return synthetic_data
     
-
-    def load_synthetic_data(self):
-        synthetic_data = pd.read_csv(self.synthetic_file).values
-
-        return synthetic_data
     
     def load_membership_dataset(self):
         if not os.path.exists(self.membership_test_file):
