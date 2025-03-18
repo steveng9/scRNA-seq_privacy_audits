@@ -6,7 +6,8 @@ import collections
 import matplotlib.pyplot as plt
 from abc import ABC, abstractmethod
 from sklearn.metrics import (accuracy_score, roc_curve, f1_score,
-                             roc_auc_score, average_precision_score)
+                             roc_auc_score, average_precision_score,
+                             precision_recall_curve, auc)
 
 
 
@@ -71,7 +72,8 @@ class BaseMIAModel(ABC):
         for method_name, score in scores.items():
             # compute metrics for each method
             #acc, fpr, tpr, threshold, auc, ap = self._compute_metrics(score, labels)
-            acc_median, acc_best, fpr, tpr, threshold, auc, ap, f1_median, f1_best = self._compute_metrics(score, labels)
+            (acc_median, acc_best, fpr, tpr, threshold, auc, ap, pr_auc,
+            f1_median, f1_best, tpr_at_fpr_001, tpr_at_fpr_01) = self._compute_metrics(score, labels)
 
 
             
@@ -83,8 +85,12 @@ class BaseMIAModel(ABC):
                 "accuracy_best": acc_best,
                 "aucroc": auc,
                 "average_precision": ap,
+                "pr_auc": pr_auc,
                 "f1_median": f1_median,
-                "f1_best": f1_best
+                "f1_best": f1_best,
+                "tpr_at_fpr_001": tpr_at_fpr_001,
+                "tpr_at_fpr_01": tpr_at_fpr_01
+
 
                 #"fpr": fpr.tolist(),
                 #"tpr": tpr.tolist(),
@@ -137,15 +143,24 @@ class BaseMIAModel(ABC):
         acc_median = accuracy_score(y_true, y_pred_median, sample_weight=sample_weight)
         acc_best = accuracy_score(y_true, y_pred_best, sample_weight=sample_weight)
 
-        auc = roc_auc_score(y_true, y_scores, sample_weight=sample_weight)
+        auc_sc = roc_auc_score(y_true, y_scores, sample_weight=sample_weight)
         ap = average_precision_score(y_true, y_scores)
+        precision, recall, _ = precision_recall_curve(y_true, y_scores)
+        # compute PR-AUC
+        pr_auc = auc(recall, precision)
+
         fpr, tpr, threshold = roc_curve(y_true, y_scores, pos_label=1)
+
+        # Get TPR at specific FPR thresholds
+        tpr_at_fpr_001 = tpr[(fpr >= 0.01).argmax()]
+        tpr_at_fpr_01 = tpr[(fpr >= 0.1).argmax()]
 
         f1_median = f1_score(y_true, y_pred_median, sample_weight=sample_weight) 
         f1_best= f1_score(y_true, y_pred_best, sample_weight=sample_weight) 
 
         #return acc, fpr, tpr, threshold, auc, ap
-        return acc_median, acc_best, fpr, tpr, threshold, auc, ap, f1_median, f1_best
+        return (acc_median, acc_best, fpr, tpr, threshold, 
+                auc_sc, ap, pr_auc, f1_median, f1_best, tpr_at_fpr_001, tpr_at_fpr_01)
     
 
 
