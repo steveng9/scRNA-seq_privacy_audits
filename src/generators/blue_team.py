@@ -17,7 +17,9 @@ generator_classes = {
     'dpcvae': ('models.cvae', 'CVAEDataGenerationPipeline'),
     "ctgan": ('models.sdv_ctgan', 'CTGANDataGenerationPipeline'),
     "dpctgan": ('models.dpctgan', 'DPCTGANDataGenerationPipeline'),
-    "sc_dist": ('models.sc_dist', 'ScDistributionDataGenerator')
+    "sc_dist": ('models.sc_dist', 'ScDistributionDataGenerator'),
+    "muscat": ('models.muscat', 'Muscat'),
+    "scdesign2": ('models.scdesign2', 'ScDesign2Generator')
 }
 
 ## dynamic import to avoid package versioning errors 

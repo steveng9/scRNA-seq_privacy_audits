@@ -99,6 +99,7 @@ class SingleCellEvaluator:
     def load_synthetic_anndata(self):
         try: 
             syn_data_pth = os.path.join(self.synthetic_data_path, "onek1k_annotated_synthetic.h5ad")
+            print(f"LOADING SYNTHETIC DATA FROM {syn_data_pth}")
             syn_data = sc.read_h5ad(syn_data_pth)
             #syn_data.obs[self.cell_label_col] = (
             #    syn_data.obs[self.cell_label_col]
@@ -106,9 +107,12 @@ class SingleCellEvaluator:
             #    .str.replace(" ", "_", regex=True)
             #)
 
+            print("Converting synth data to dense matrix")
             X_dense = syn_data.X.toarray() if hasattr(syn_data.X, "toarray") else syn_data.X
             # Count NaN and Inf values
+            print("Calculating NAN count")
             nan_count = np.isnan(X_dense).sum()
+            print("Calculating inf count")
             inf_count = np.isinf(X_dense).sum()
 
             if nan_count > 0 or inf_count > 0:
@@ -121,8 +125,10 @@ class SingleCellEvaluator:
         
 
     def initialize_datasets(self):
-        test_anndata = self.load_test_anndata()
+        print("Loading synthetic")
         synthetic_anndata = self.load_synthetic_anndata()
+        print("loading test")
+        test_anndata = self.load_test_anndata()
 
         print(f"Initial gene count - Real: {test_anndata.n_vars}, Synthetic: {synthetic_anndata.n_vars}")
         real_data = filter_low_quality_cells_and_genes(test_anndata)
@@ -142,9 +148,13 @@ class SingleCellEvaluator:
     def get_statistical_evals(self):
         real_data, synthetic_data = self.initialize_datasets()
         stats = Statistics(self.random_seed)
+        print("Computing scc")
         scc = stats.compute_scc(real_data, synthetic_data)
+        print("Computing MDD")
         mmd = stats.compute_mmd_optimized(real_data, synthetic_data)
+        print("Computing LISI")
         lisi = stats.compute_lisi(real_data, synthetic_data)
+        print("Computing ARI")
         ari_real_syn, ari_gt_comb = stats.compute_ari(real_data, synthetic_data, self.cell_type_col)
 
         return {

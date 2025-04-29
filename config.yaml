@@ -1,0 +1,47 @@
+dir_list:
+  home: "/home/patrick/scrna_600/Health-Privacy-Challenge" #please replace ~ with your absolute path
+  data_splits: "data_splits"
+  processed_data: "data/processed"
+  figures: "results/figures"
+  res_files: "results/files"
+  mia_files: "results/mia"
+
+
+#generator_name: "muscat"
+generator_name: "scdesign2"
+generate: True
+train: False
+load_from_checkpoint: False
+
+
+scdesign2_config:
+  out_model_path: "models"
+
+muscat_config:
+  out_model_path: "models"
+
+sc_dist_config:
+  noise_level: 0.5
+  random_seed: 42
+  distribution: "Poisson" #or NB (though not recommended)
+
+evaluator_config:
+  random_seed: 42
+
+generator_config:
+  #name: "muscat"
+  #experiment_name: "muscat"
+  name: "scdesign2"
+  experiment_name: "scdesign2"
+
+dataset_config:
+  name: "onek1k"
+    #train_count_file: "data/processed/onek1k/onek1k_annotated_train.h5ad" 
+  train_count_file: "data/processed/onek1k/subset.h5ad" 
+  test_count_file_FULL: "data/processed/onek1k/onek1k_annotated_test.h5ad" 
+  test_count_file: "data/processed/onek1k/onek1k_annotated_test_100k_subset.h5ad" 
+    #test_count_file: "data/processed/onek1k/1118_100000.h5ad" 
+  cell_type_col_name: "cell_type" 
+  cell_label_col_name: "cell_label"
+  celltypist_model: "data/meta/downloads/Immune_All_High.pkl"
+  random_seed: 42
