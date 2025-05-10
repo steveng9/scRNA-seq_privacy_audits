@@ -128,11 +128,13 @@ class BaseMIAModel(ABC):
                 y_true: np.ndarray, 
                 sample_weight: Optional[np.ndarray] = None):
         y_pred_median = y_scores > np.median(y_scores)
+        np.save("yscores.npy", y_scores)
+        np.save("ytrue.npy", y_true)
 
         # compute F1 for multiple thresholds
         thresholds = np.sort(np.unique(y_scores))
-        if len(thresholds) < 2:
-                raise ValueError("Not enough unique prediction scores..")
+        #if len(thresholds) < 2:
+        #        raise ValueError("Not enough unique prediction scores..")
             
         f1_scores = [f1_score(y_true, y_scores > t, sample_weight=sample_weight) 
                      for t in thresholds]

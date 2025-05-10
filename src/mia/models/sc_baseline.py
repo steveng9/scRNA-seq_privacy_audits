@@ -19,6 +19,8 @@ from mia.models.base import BaseMIAModel
 
 def d(X: np.ndarray, Y: np.ndarray) -> np.ndarray:
     """Compute squared L2 distances between two sets of vectors X and Y."""
+    np.save("X.npy", X)
+    np.save("Y.npy", Y)
     X_sq = np.sum(X**2, axis=1, keepdims=True)  # (m, 1)
     Y_sq = np.sum(Y**2, axis=1)  # (n,)
     XY = np.dot(X, Y.T)  # (m, n)
@@ -41,6 +43,7 @@ def d_min(X: np.ndarray, Y: np.ndarray) -> np.ndarray:
 def batch_d_min(X: np.ndarray, Y: np.ndarray, batch_size=1000) -> np.ndarray:
     min_dists = []
     for i in range(0, X.shape[0], batch_size):
+        print(f"{i} / {X.shape[0]}")
         batch = X[i:i + batch_size]
         distances = batch_d(batch, Y, batch_size)
         min_dists.append(np.min(distances, axis=1))
@@ -140,6 +143,10 @@ class DOMIASSingleCellBaselineModels(BaseMIAModel):
 
         X_test = X_test[:, combined_adata.var['highly_variable']]
         synthetic_data = synthetic_data[:, combined_adata.var['highly_variable']]
+        print("X TEST")
+        print(X_test)
+        print("SYNTHETIC DATA")
+        print(synthetic_data)
 
         X_test_dense = X_test.X.toarray() if hasattr(X_test.X, "toarray") else X_test.X
         syn_dense = synthetic_data.X.toarray() if hasattr(synthetic_data.X, "toarray") else synthetic_data.X
@@ -152,16 +159,16 @@ class DOMIASSingleCellBaselineModels(BaseMIAModel):
 
 
     def perform_donor_level_avg(self, predictions, labels):
-       
        predictions = predictions["gan_leaks"]
        assert len(predictions) == len(self.donors), f"Scores {len(predictions)} and donors {len(self.donors)} must have the same length."
 
-        # Create a DataFrame to easily group scores by donor
+       # Create a DataFrame to easily group scores by donor
        scores_df = pd.DataFrame({
             'donor': self.donors,
             'score': predictions,
             'y_test': labels,
         })
+       scores_df.to_csv("scores.csv")
        
        grp_predictions = scores_df.groupby('donor')['score'].mean().to_numpy()
        grp_labels = scores_df.groupby('donor')['y_test'].mean().to_numpy()

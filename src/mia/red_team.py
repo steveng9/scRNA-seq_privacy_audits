@@ -105,7 +105,6 @@ def run_singlecell_mia(synthetic_file:str,
     mia_model.save_predictions(predictions)
 
     if y_test is not None:
-        #donor level averaging 
         grp_preds, grp_y = mia_model.perform_donor_level_avg(predictions, y_test)
         mia_model.evaluate_attack(grp_preds, 
                                   grp_y, 

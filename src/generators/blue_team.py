@@ -19,7 +19,8 @@ generator_classes = {
     "dpctgan": ('models.dpctgan', 'DPCTGANDataGenerationPipeline'),
     "sc_dist": ('models.sc_dist', 'ScDistributionDataGenerator'),
     "muscat": ('models.muscat', 'Muscat'),
-    "scdesign2": ('models.scdesign2', 'ScDesign2Generator')
+    "scdesign2": ('models.scdesign2', 'ScDesign2Generator'),
+    "sc_ensemble": ('models.scdesign2_ensemble', 'ScDesign2EnsembleGenerator')
 }
 
 ## dynamic import to avoid package versioning errors 
