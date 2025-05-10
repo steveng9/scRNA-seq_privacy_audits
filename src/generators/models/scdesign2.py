@@ -63,15 +63,17 @@ class ScDesign2Generator(BaseSingleCellDataGenerator):
         
         sc.pp.normalize_total(X_train_adata, target_sum=1e4)
         sc.pp.log1p(X_train_adata)
-        sc.pp.highly_variable_genes(X_train_adata, min_mean=0.0125, max_mean=3, min_disp=0.5)
+        if not os.path.exists(self.hvg_path):
+            sc.pp.highly_variable_genes(X_train_adata, min_mean=0.0125, max_mean=3, min_disp=0.5)
+            self.hvg_mask = X_train_adata.var['highly_variable']
+            self.hvg_mask.to_csv(self.hvg_path)
+        else:
+            self.hvg_mask = pd.read_csv(self.hvg_path)
 
-        hvg_df = X_train_adata.var[X_train_adata.var['highly_variable']]
+        hvg_df = X_train_adata.var[self.hvg_mask]
         hvg_df = hvg_df.copy()
         hvg_df['gene'] = hvg_df.index
         print(f"Detected {len(X_train_adata.var[X_train_adata.var['highly_variable']])} HVGs")
-
-        self.hvg_mask = X_train_adata.var['highly_variable']
-        self.hvg_mask.to_csv(self.hvg_path)
 
         hvg_subset_path = os.path.join(self.tmp_dir, "hvg_train.h5ad")
         X_train_adata_hvg = X_train_adata[:, self.hvg_mask].copy()
@@ -84,7 +86,7 @@ class ScDesign2Generator(BaseSingleCellDataGenerator):
             print(copula_path)
             if not os.path.exists(copula_path):
                 print(f"Training cell type {cell_type}")
-                os.system(f"Rscript src/generators/models/scdesign2.r train {hvg_subset_path} {cell_type} {copula_path} > /dev/null 2>&1")
+                self.cmd_no_output(f"Rscript src/generators/models/scdesign2.r train {hvg_subset_path} {cell_type} {copula_path}")
 
         print("Training completed successfully!")
 
@@ -127,114 +129,24 @@ class ScDesign2Generator(BaseSingleCellDataGenerator):
             cell_indices = np.where(cell_type_mask)[0]
             num_to_gen = len(cell_indices)
 
-            out_path = f"out{cell_type}.rds"
+            out_path = os.path.join(self.tmp_dir, f"out{cell_type}.rds")
             print(f"Rscript src/generators/models/scdesign2.r gen {num_to_gen} {copula_path} {out_path}")
-            os.system(f"Rscript src/generators/models/scdesign2.r gen {num_to_gen} {copula_path} {out_path} > /dev/null 2>&1")
+            self.cmd_no_output(f"Rscript src/generators/models/scdesign2.r gen {num_to_gen} {copula_path} {out_path}")
 
             counts_res = pyreadr.read_r(out_path)
             r_matrix = list(counts_res.values())[0]
             counts_np_array = r_matrix.to_numpy() if hasattr(r_matrix, "to_numpy") else np.array(r_matrix)
             print(counts_np_array.shape)
-            #synthetic_counts[cell_indices, :] = self.mean_expression[cell_type]
-
-            #print("HVG MASK")
-            #print(self.hvg_mask)
-            #print(self.hvg_mask.shape)
-
-            #print(synthetic_counts[cell_indices][:, self.hvg_mask].shape)
-            #for i, row_idx in enumerate(cell_indices):
-            #    a = synthetic_counts[row_idx, self.hvg_mask]
-            #    #print(i, row_idx)
-            #    synthetic_counts[row_idx, self.hvg_mask] = cell_type_synth[i].X.toarray().astype(float).flatten()
             for i, row_idx in enumerate(cell_indices):
                 synthetic_counts[row_idx, self.hvg_mask] = counts_np_array[:, i]
-            #synthetic_counts[cell_indices][:, self.hvg_mask] = np.transpose(counts_np_array)
-            #synthetic_cell_types.extend([cell_type] * num_to_gen)
 
         synthetic_counts_csr = synthetic_counts.tocsr().astype(np.float64)
         synthetic_adata = ad.AnnData(X=synthetic_counts_csr)
-        #synthetic_adata.obs[self.cell_type_col_name] = synthetic_cell_types
         synthetic_adata.obs[self.cell_type_col_name] = cell_types
         synthetic_adata.var_names = X_test_adata.var_names
 
         print("RETURNING")
         return synthetic_adata
-
-        exit(1)
-
-        counts = X_test_adata.X.toarray() if isinstance(X_test_adata.X, np.ndarray) else X_test_adata.X.A
-        print("Original counts shape:", counts.shape)
-        copula_path = os.path.join(self.home_dir, self.generator_config["out_model_path"], "copula.rds")
-        if not os.path.exists(copula_path):
-            raise ValueError("Training has not yet completed")
-
-        test_data_path = os.path.join(self.home_dir, self.dataset_config["test_count_file"])
-        out_path = "out.h5ad"
-        os.system(f"Rscript src/generators/models/scdesign2.r gen {test_data_path} {copula_path} {out_path}")
-        exit(1)
-        #gen_synth_data(test_data_path, copula_path, out_path)
-
-        if self.max_real_value is None:
-            raise ValueError("Training must be completed before generating data!")
-
-        X_test_adata = self.load_test_anndata()
-        counts = X_test_adata.X.toarray() if isinstance(X_test_adata.X, np.ndarray) else X_test_adata.X.A
-        print("Original counts shape:", counts.shape)
-
-        cell_types = X_test_adata.obs[self.cell_type_col_name].values
-        synthetic_counts = sp.lil_matrix(counts.shape, dtype=np.int64)
-        synthetic_cell_types = []
-
-        for cell_type in np.unique(cell_types):
-            print(f"Generating for Cell Type: {cell_type}")
-
-            if str(cell_type) not in self.cell_type_params:
-                print(f"Cell type {cell_type} not found in training data! Skipping...")
-                continue
-
-            cell_type_mask = cell_types == cell_type
-            cell_indices = np.where(cell_type_mask)[0]
-            num_cells = len(cell_indices)
-
-            means = self.cell_type_params[str(cell_type)]['means'].astype(np.float64)
-            means = np.clip(means, 1e-6, None)  # Avoid zeros
-
-            if self.distribution == 'NB':
-                dispersions = self.cell_type_params[str(cell_type)]['dispersions'].astype(np.float64)
-                dispersions = np.clip(dispersions, 1e-3, 10)  # Prevent extreme values
-
-                # Compute Negative Binomial parameters
-                n_param = np.clip(1 / (dispersions + 1e-6), 1e-2, 10) 
-                p_param = np.clip(means / (means + n_param), 0.01, 0.99)  
-
-                # Debugging prints
-                print(f"n_param range for {cell_type}: min={n_param.min()}, max={n_param.max()}")
-                print(f"p_param range for {cell_type}: min={p_param.min()}, max={p_param.max()}")
-
-                expected_variance = means + (means ** 2) / n_param
-                print(f"Expected variance for {cell_type}: min={expected_variance.min()}, max={expected_variance.max()}")
-
-                # Generate Negative Binomial samples
-                generated_data = st.nbinom.rvs(n=n_param, p=p_param, size=(num_cells, means.shape[0])).astype(np.int64)
-
-            elif self.distribution == 'Poisson':
-                generated_data = st.poisson.rvs(means, size=(num_cells, means.shape[0])).astype(np.int64)
-
-            # Limit extreme values to prevent memory explosion
-            upper_clip = np.percentile(generated_data, 99.5)
-            generated_data = np.clip(generated_data, 0, min(upper_clip, self.max_real_value * 2))
-
-            # Store generated data
-            synthetic_counts[cell_indices, :] = generated_data
-            synthetic_cell_types.extend([cell_type] * num_cells)
-
-        synthetic_counts_csr = synthetic_counts.tocsr().astype(np.int64)
-        synthetic_adata = ad.AnnData(X=synthetic_counts_csr)
-        synthetic_adata.obs[self.cell_type_col_name] = synthetic_cell_types
-        synthetic_adata.var_names = X_test_adata.var_names
-
-        return synthetic_adata
-
 
     def load_from_checkpoint(self):
         pass

@@ -1,4 +1,5 @@
 import os
+import subprocess
 import scanpy as sc
 import anndata as ad
 from typing import Dict, Any
@@ -50,6 +51,15 @@ class BaseSingleCellDataGenerator(AbstractSingleCellDataGenerator):
 
         self.dataset_name = self.dataset_config["name"]
         self.home_dir = self.config["dir_list"]["home"]
+
+    def cmd_no_output(self, cmd):
+        try:
+            output = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT).decode('utf-8')
+            return output
+        except subprocess.CalledProcessError as e:
+            print(f"Command '{cmd}' failed with return code {e.returncode} "\
+                    f"and error {e.output}")
+            exit(1)
 
     def load_train_anndata(self):
         try:

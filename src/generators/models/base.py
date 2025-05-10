@@ -1,4 +1,5 @@
 import os
+import subprocess
 import pandas as pd
 from typing import Dict, Any
 from abc import ABC, abstractmethod

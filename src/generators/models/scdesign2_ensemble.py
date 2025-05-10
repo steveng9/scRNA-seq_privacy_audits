@@ -160,19 +160,22 @@ class ScDesign2EnsembleGenerator(BaseSingleCellDataGenerator):
         
         sc.pp.normalize_total(X_train_adata, target_sum=1e4)
         sc.pp.log1p(X_train_adata)
-        sc.pp.highly_variable_genes(X_train_adata, min_mean=0.0125, max_mean=3, min_disp=0.5)
+        if not os.path.exists(self.hvg_path):
+            sc.pp.highly_variable_genes(X_train_adata, min_mean=0.0125, max_mean=3, min_disp=0.5)
+            self.hvg_mask = X_train_adata.var['highly_variable']
+            self.hvg_mask.to_csv(self.hvg_path)
+        else:
+            self.hvg_mask = pd.read_csv(self.hvg_path)
 
-        hvg_df = X_train_adata.var[X_train_adata.var['highly_variable']]
+        hvg_df = X_train_adata.var[self.hvg_mask]
         hvg_df = hvg_df.copy()
         hvg_df['gene'] = hvg_df.index
         print(f"Detected {len(X_train_adata.var[X_train_adata.var['highly_variable']])} HVGs")
 
-        self.hvg_mask = X_train_adata.var['highly_variable']
-        self.hvg_mask.to_csv(self.hvg_path)
-
         hvg_subset_path = os.path.join(self.tmp_dir, "hvg_train.h5ad")
         X_train_adata_hvg = X_train_adata[:, self.hvg_mask].copy()
         X_train_adata_hvg.write(hvg_subset_path)
+
 
         avail_models = []
         total_cells = 0
@@ -181,7 +184,7 @@ class ScDesign2EnsembleGenerator(BaseSingleCellDataGenerator):
             print(copula_path)
             if not os.path.exists(copula_path):
                 print(f"Training cell type {cell_type}")
-                os.system(f"Rscript src/generators/models/scdesign2.r train {hvg_subset_path} {cell_type} {copula_path} > /dev/null 2>&1")
+                self.cmd_no_output(f"Rscript src/generators/models/scdesign2.r train {hvg_subset_path} {cell_type} {copula_path}")
             else:
                 print(f"Model exists for {cell_type}, skipping")
 
@@ -227,8 +230,10 @@ class ScDesign2EnsembleGenerator(BaseSingleCellDataGenerator):
             num_to_gen = len(cell_indices)
 
             out_path = os.path.join(self.tmp_dir, f"out{cell_type}.rds")
+            print(self.tmp_dir)
+            print(out_path)
             print(f"Rscript src/generators/models/scdesign2.r gen {num_to_gen} {copula_path} {out_path}")
-            os.system(f"Rscript src/generators/models/scdesign2.r gen {num_to_gen} {copula_path} {out_path} > /dev/null 2>&1")
+            self.cmd_no_output(f"Rscript src/generators/models/scdesign2.r gen {num_to_gen} {copula_path} {out_path}")
 
             counts_res = pyreadr.read_r(out_path)
             r_matrix = list(counts_res.values())[0]

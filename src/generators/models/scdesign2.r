@@ -1,11 +1,11 @@
 # Setup dependencies
-if(!require(devtools, quietly=TRUE)) install.packages("devtools")
-if(!require(SingleCellExperiment, quietly=TRUE)) install.packages("SingleCellExperiment")
+if(!require(devtools, quietly=TRUE)) install.packages("devtools", repos = "http://cran.us.r-project.org")
+if(!require(SingleCellExperiment, quietly=TRUE)) install.packages("SingleCellExperiment", repos = "http://cran.us.r-project.org")
 
 if(!require(scDesign2)) devtools::install_github("JSB-UCLA/scDesign2")
 library(scDesign2)
 
-if(!require("BiocManager", quietly = TRUE)) install.packages("BiocManager")
+if(!require("BiocManager", quietly = TRUE)) install.packages("BiocManager", repos = "http://cran.us.r-project.org")
 if(!require(zellkonverter, quietly=TRUE)) BiocManager::install("zellkonverter", ask=FALSE)
 
 suppressPackageStartupMessages(library(zellkonverter))
