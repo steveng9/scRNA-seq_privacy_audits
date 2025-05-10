@@ -165,12 +165,12 @@ class ScDesign2EnsembleGenerator(BaseSingleCellDataGenerator):
             self.hvg_mask = X_train_adata.var['highly_variable']
             self.hvg_mask.to_csv(self.hvg_path)
         else:
-            self.hvg_mask = pd.read_csv(self.hvg_path)
+            self.hvg_mask = np.array(pd.read_csv(self.hvg_path)['highly_variable'])
 
         hvg_df = X_train_adata.var[self.hvg_mask]
         hvg_df = hvg_df.copy()
         hvg_df['gene'] = hvg_df.index
-        print(f"Detected {len(X_train_adata.var[X_train_adata.var['highly_variable']])} HVGs")
+        print(f"Detected {self.hvg_mask.sum()} HVGs")
 
         hvg_subset_path = os.path.join(self.tmp_dir, "hvg_train.h5ad")
         X_train_adata_hvg = X_train_adata[:, self.hvg_mask].copy()
