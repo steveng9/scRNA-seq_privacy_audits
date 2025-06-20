@@ -22,7 +22,7 @@ class ScDesign2Generator(BaseSingleCellDataGenerator):
     def __init__(self, config: Dict[str, Any]):
         super().__init__(config)
         self.cell_type_col_name = self.dataset_config["cell_type_col_name"]
-        self.cell_label_col_name = self.dataset_config["cell_label_col_name"]
+        #self.cell_label_col_name = self.dataset_config["cell_label_col_name"]
         self.tmp_dir = os.path.join(self.home_dir, "tmp")
 
         self.means_path = os.path.join(self.home_dir, self.generator_config["out_model_path"], "mean_expr.csv")
@@ -44,27 +44,35 @@ class ScDesign2Generator(BaseSingleCellDataGenerator):
     def train(self):
         """Compute gene expression parameters for each cell type from training data."""
         X_train_adata = self.load_train_anndata()
+        print("Train dims")
+        print(X_train_adata.X.shape)
         cell_types = X_train_adata.obs[self.cell_type_col_name].values
         cell_types_dist = Counter(cell_types)
 
-        genes = X_train_adata.var.gene_ids
-        cell_ids = X_train_adata.obs.cell_label
-        cell_type_vector = X_train_adata.obs.cell_type
+        #genes = X_train_adata.var.gene_ids
+        #cell_ids = X_train_adata.obs.cell_label
+        cell_type_vector = X_train_adata.obs[self.cell_type_col_name]
         counts = X_train_adata.X
-        assert counts.shape[0] == len(cell_ids)
+        #assert counts.shape[0] == len(cell_ids)
 
         print("Calculating means")
         self.mean_expression = pd.DataFrame(
             X_train_adata.X.toarray() if not isinstance(X_train_adata.X, np.ndarray) else X_train_adata.X,
             columns=X_train_adata.var_names,
             index=X_train_adata.obs_names
-        ).groupby(X_train_adata.obs['cell_type']).mean().T
+        ).groupby(X_train_adata.obs[self.cell_type_col_name]).mean().T
         self.mean_expression.to_csv(self.means_path, index=True)
         
-        sc.pp.normalize_total(X_train_adata, target_sum=1e4)
-        sc.pp.log1p(X_train_adata)
+        print("Copying counts matrix")
+        X_train_adata.layers["counts"] = X_train_adata.X.copy()
+        print("Copied counts matrix")
         if not os.path.exists(self.hvg_path):
-            sc.pp.highly_variable_genes(X_train_adata, min_mean=0.0125, max_mean=3, min_disp=0.5)
+            print(X_train_adata[:,"HES4"].layers["counts"].mean())
+            sc.pp.normalize_total(X_train_adata, layer="counts", target_sum=1e4)
+            sc.pp.log1p(X_train_adata, layer="counts")
+            print(X_train_adata[:,"HES4"].X.mean())
+            print(X_train_adata[:,"HES4"].layers["counts"].mean())
+            sc.pp.highly_variable_genes(X_train_adata, layer="counts", min_mean=0.0125, max_mean=3, min_disp=0.5)
             self.hvg_mask = X_train_adata.var['highly_variable']
             self.hvg_mask.to_csv(self.hvg_path)
         else:
@@ -87,11 +95,13 @@ class ScDesign2Generator(BaseSingleCellDataGenerator):
             print(copula_path)
             if not os.path.exists(copula_path):
                 print(f"Training cell type {cell_type}")
+                print(f"Rscript src/generators/models/scdesign2.r train {hvg_subset_path} {cell_type} {copula_path}")
                 self.cmd_no_output(f"Rscript src/generators/models/scdesign2.r train {hvg_subset_path} {cell_type} {copula_path}")
 
         print("Training completed successfully!")
 
     def generate(self):
+        print("Generating")
         if self.mean_expression is None:
             self.mean_expression = pd.read_csv(self.means_path, index_col=0)
             self.mean_expression.columns = [int(col) if col.isdigit() else col for col in self.mean_expression.columns]
