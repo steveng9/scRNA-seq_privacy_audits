@@ -7,7 +7,7 @@ from typing import Dict, Any
 src_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.append(src_dir)
 
-from generators.models.base import BaseDataGenerator
+from src.generators.models.base import BaseDataGenerator
 
 
 class MultivariateDataGenerator(BaseDataGenerator):

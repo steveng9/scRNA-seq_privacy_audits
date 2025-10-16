@@ -1,5 +1,6 @@
 dir_list:
-  home: "/home/patrick/scrna_600/Health-Privacy-Challenge" #please replace ~ with your absolute path
+  home: "/Users/stevengolob/PycharmProjects/camda_hpc"
+  data: "/Users/stevengolob/Documents/school/PhD/Ghent_project_mia_scRNAseq/data"
   data_splits: "data_splits"
   processed_data: "data/processed"
   figures: "results/figures"
@@ -36,11 +37,16 @@ generator_config:
 
 dataset_config:
   name: "onek1k"
-    #train_count_file: "data/processed/onek1k/onek1k_annotated_train.h5ad" 
-  train_count_file: "data/processed/onek1k/subset.h5ad" 
-  test_count_file_FULL: "data/processed/onek1k/onek1k_annotated_test.h5ad" 
-  test_count_file: "data/processed/onek1k/onek1k_annotated_test_100k_subset.h5ad" 
-    #test_count_file: "data/processed/onek1k/1118_100000.h5ad" 
+#  train_count_file: "onek1k/onek1k_annotated_train_release.h5ad"
+#  train_count_file: "onek1k/onek1k_annotated_train_subset.h5ad"
+  train_count_file: "onek1k/onek1k_annotated_train_subset_100k.h5ad"
+#  train_count_file: "data/processed/onek1k/subset.h5ad"
+#  test_count_file_FULL: "onek1k/onek1k_annotated_test_release.h5ad"
+#  test_count_file: "onek1k/onek1k_annotated_test_100k_subset.h5ad"
+#  test_count_file: "onek1k/onek1k_annotated_test_release.h5ad"
+#  test_count_file: "onek1k/onek1k_annotated_test_subset.h5ad"
+  test_count_file: "onek1k/onek1k_annotated_test_subset_100k.h5ad"
+    #test_count_file: "data/processed/onek1k/1118_100000.h5ad"
   cell_type_col_name: "cell_type" 
   cell_label_col_name: "cell_label"
   celltypist_model: "data/meta/downloads/Immune_All_High.pkl"

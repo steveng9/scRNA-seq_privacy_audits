@@ -8,19 +8,21 @@ import importlib
 src_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.append(src_dir)
 
-from generators.utils.prepare_data import RealDataLoader
-from generators.models.multivariate import MultivariateDataGenerator
+
+
+from src.generators.utils.prepare_data import RealDataLoader
+from src.generators.models.multivariate import MultivariateDataGenerator
 
 generator_classes = {
-    'multivariate': ('models.multivariate', 'MultivariateDataGenerator'),
-    'cvae': ('models.cvae', 'CVAEDataGenerationPipeline'),
-    'dpcvae': ('models.cvae', 'CVAEDataGenerationPipeline'),
-    "ctgan": ('models.sdv_ctgan', 'CTGANDataGenerationPipeline'),
-    "dpctgan": ('models.dpctgan', 'DPCTGANDataGenerationPipeline'),
-    "sc_dist": ('models.sc_dist', 'ScDistributionDataGenerator'),
-    "muscat": ('models.muscat', 'Muscat'),
+    # 'multivariate': ('models.multivariate', 'MultivariateDataGenerator'),
+    # 'cvae': ('models.cvae', 'CVAEDataGenerationPipeline'),
+    # 'dpcvae': ('models.cvae', 'CVAEDataGenerationPipeline'),
+    # "ctgan": ('models.sdv_ctgan', 'CTGANDataGenerationPipeline'),
+    # "dpctgan": ('models.dpctgan', 'DPCTGANDataGenerationPipeline'),
+    # "sc_dist": ('models.sc_dist', 'ScDistributionDataGenerator'),
+    # "muscat": ('models.muscat', 'Muscat'),
     "scdesign2": ('models.scdesign2', 'ScDesign2Generator'),
-    "sc_ensemble": ('models.scdesign2_ensemble', 'ScDesign2EnsembleGenerator')
+    # "sc_ensemble": ('models.scdesign2_ensemble', 'ScDesign2EnsembleGenerator')
 }
 
 ## dynamic import to avoid package versioning errors 
@@ -97,10 +99,10 @@ def run_generator(split_no: int, experiment_name: str = None):
 ## change the corresponding keys in the config.yaml
 @click.command()
 @click.option('--experiment_name', type=str, default="")
-def run_singlecell_generator(experiment_name: str = None):
+@click.option('--cfg_file', type=str, default="config.yaml")
+def run_singlecell_generator(experiment_name: str = None, cfg_file: str = None):
     # Load the config file
-    configfile = "config.yaml"
-    config = yaml.safe_load(open(configfile))
+    config = yaml.safe_load(open(cfg_file))
 
     generator_name = config.get('generator_name')
     GeneratorClass = get_generator_class(generator_name)
@@ -113,9 +115,14 @@ def run_singlecell_generator(experiment_name: str = None):
 
 
     if not config.get("load_from_checkpoint", False):
+        # if True:
         if config.get("train", False):
+            print("training...")
             generator.train()
+        else:
+            print("not training.")
     else:
+        print("Loading from checkpoint")
         generator.load_from_checkpoint()
 
     if config.get("generate", False):

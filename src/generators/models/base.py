@@ -54,8 +54,11 @@ class BaseDataGenerator(AbstractDataGenerator):
                             synthetic_features: pd.DataFrame, 
                             synthetic_labels: pd.DataFrame,
                             experiment_name: str = ""):
-        data_save_dir = os.path.join(self.config["dir_list"]["home"],
-                                     self.config["dir_list"]["data_save_dir"])
+        # data_save_dir = os.path.join(self.config["dir_list"]["home"],
+            #                              self.config["dir_list"]["data_save_dir"])
+        data_save_dir = os.path.join(self.config["dir_list"]["data"],
+                                     self.dataset_config["name"],
+                                     "synthetic_data")
         
         syn_save_dir = os.path.join(
                                     data_save_dir, 

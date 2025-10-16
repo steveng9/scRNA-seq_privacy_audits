@@ -51,6 +51,7 @@ class BaseSingleCellDataGenerator(AbstractSingleCellDataGenerator):
 
         self.dataset_name = self.dataset_config["name"]
         self.home_dir = self.config["dir_list"]["home"]
+        self.data_dir = self.config["dir_list"]["data"]
 
     def cmd_no_output(self, cmd):
         try:
@@ -63,7 +64,7 @@ class BaseSingleCellDataGenerator(AbstractSingleCellDataGenerator):
 
     def load_train_anndata(self):
         try:
-            train_data_pth = os.path.join(self.home_dir, self.dataset_config["train_count_file"])
+            train_data_pth = os.path.join(self.data_dir, self.dataset_config["train_count_file"])
             train_data = sc.read_h5ad(train_data_pth)
 
             return train_data
@@ -73,7 +74,7 @@ class BaseSingleCellDataGenerator(AbstractSingleCellDataGenerator):
 
     def load_test_anndata(self):
         try: 
-            test_data_pth = os.path.join(self.home_dir, self.dataset_config["test_count_file"])
+            test_data_pth = os.path.join(self.data_dir, self.dataset_config["test_count_file"])
             test_data = sc.read_h5ad(test_data_pth)
 
             return test_data
@@ -94,13 +95,16 @@ class BaseSingleCellDataGenerator(AbstractSingleCellDataGenerator):
     def save_synthetic_anndata(self, 
                             synthetic_features: ad.AnnData, 
                             experiment_name: str = ""):
-        data_save_dir = os.path.join(self.config["dir_list"]["home"],
-                                     self.config["dir_list"]["data_splits"])
+        # data_save_dir = os.path.join(self.config["dir_list"]["home"],
+        #                              self.config["dir_list"]["data_splits"])
+        data_save_dir = os.path.join(self.config["dir_list"]["data"],
+                                     self.dataset_config["name"],
+                                     "synthetic_data")
         
         syn_save_dir = os.path.join(
-                                    data_save_dir, 
-                                    self.dataset_name, 
-                                    "synthetic", 
+                                    data_save_dir,
+                                    # self.dataset_name,
+                                    # "synthetic",
                                     self.generator_name,
                                     experiment_name
                                     )

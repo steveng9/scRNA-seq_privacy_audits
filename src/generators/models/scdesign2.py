@@ -16,7 +16,7 @@ import rpy2.robjects as robjects
 src_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.append(src_dir)
 
-from generators.models.sc_base import BaseSingleCellDataGenerator
+from src.generators.models.sc_base import BaseSingleCellDataGenerator
 
 class ScDesign2Generator(BaseSingleCellDataGenerator):
     def __init__(self, config: Dict[str, Any]):
@@ -66,7 +66,8 @@ class ScDesign2Generator(BaseSingleCellDataGenerator):
         print("Copying counts matrix")
         X_train_adata.layers["counts"] = X_train_adata.X.copy()
         print("Copied counts matrix")
-        if not os.path.exists(self.hvg_path):
+        if True:
+        # if not os.path.exists(self.hvg_path):
             print(X_train_adata[:,"HES4"].layers["counts"].mean())
             sc.pp.normalize_total(X_train_adata, layer="counts", target_sum=1e4)
             sc.pp.log1p(X_train_adata, layer="counts")
@@ -92,11 +93,10 @@ class ScDesign2Generator(BaseSingleCellDataGenerator):
         total_cells = 0
         for cell_type, num in cell_types_dist.items():
             copula_path = os.path.join(self.home_dir, self.generator_config["out_model_path"], f"{cell_type}.rds")
-            print(copula_path)
-            if not os.path.exists(copula_path):
-                print(f"Training cell type {cell_type}")
-                print(f"Rscript src/generators/models/scdesign2.r train {hvg_subset_path} {cell_type} {copula_path}")
-                self.cmd_no_output(f"Rscript src/generators/models/scdesign2.r train {hvg_subset_path} {cell_type} {copula_path}")
+            # if not os.path.exists(copula_path):
+            print(f"Training cell type {cell_type}")
+            print(f"Rscript generators/models/scdesign2.r train {hvg_subset_path} {cell_type} {copula_path}")
+            self.cmd_no_output(f"Rscript models/scdesign2.r train {hvg_subset_path} {cell_type} {copula_path}")
 
         print("Training completed successfully!")
 
@@ -125,7 +125,8 @@ class ScDesign2Generator(BaseSingleCellDataGenerator):
                 exit()
 
         X_test_adata = self.load_test_anndata()
-        total_counts = X_test_adata.X.toarray() if isinstance(X_test_adata.X, np.ndarray) else X_test_adata.X.A
+        # total_counts = X_test_adata.X.toarray() if isinstance(X_test_adata.X, np.ndarray) else X_test_adata.X.A
+        total_counts = X_test_adata.X.toarray()
         counts = total_counts
         num_test_cells = counts.shape[0]
 
@@ -134,22 +135,22 @@ class ScDesign2Generator(BaseSingleCellDataGenerator):
         print(f"COUNTS MAT SHAPE: {synthetic_counts.shape}")
         cell_types = X_test_adata.obs[self.cell_type_col_name].values
         for cell_type in cell_types_dist.keys():
-            print(f"Generating for {cell_type}")
+            print(f"ScDesign2!! Generating for {cell_type}")
             copula_path = os.path.join(self.home_dir, self.generator_config["out_model_path"], f"{cell_type}.rds")
             cell_type_mask = cell_types == cell_type
             cell_indices = np.where(cell_type_mask)[0]
             num_to_gen = len(cell_indices)
 
             out_path = os.path.join(self.tmp_dir, f"out{cell_type}.rds")
-            print(f"Rscript src/generators/models/scdesign2.r gen {num_to_gen} {copula_path} {out_path}")
-            self.cmd_no_output(f"Rscript src/generators/models/scdesign2.r gen {num_to_gen} {copula_path} {out_path}")
+            print(f"Rscript generators/models/scdesign2.r gen {num_to_gen} {copula_path} {out_path}")
+            # self.cmd_no_output(f"Rscript {self.home_dir}/src/generators/models/scdesign2.r gen {num_to_gen} {copula_path} {out_path}")
 
             counts_res = pyreadr.read_r(out_path)
             r_matrix = list(counts_res.values())[0]
             counts_np_array = r_matrix.to_numpy() if hasattr(r_matrix, "to_numpy") else np.array(r_matrix)
             print(counts_np_array.shape)
             for i, row_idx in enumerate(cell_indices):
-                synthetic_counts[row_idx, self.hvg_mask] = counts_np_array[:, i]
+                synthetic_counts[row_idx, self.hvg_mask.values] = counts_np_array[:, i]
 
         synthetic_counts_csr = synthetic_counts.tocsr().astype(np.float64)
         synthetic_adata = ad.AnnData(X=synthetic_counts_csr)
