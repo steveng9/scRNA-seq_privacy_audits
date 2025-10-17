@@ -47,6 +47,7 @@ class ScDesign2Generator(BaseSingleCellDataGenerator):
         print("Train dims")
         print(X_train_adata.X.shape)
         cell_types = X_train_adata.obs[self.cell_type_col_name].values
+        print("Num cell types:", len(set(cell_types)))
         cell_types_dist = Counter(cell_types)
 
         #genes = X_train_adata.var.gene_ids
@@ -68,17 +69,17 @@ class ScDesign2Generator(BaseSingleCellDataGenerator):
         print("Copied counts matrix")
         if True:
         # if not os.path.exists(self.hvg_path):
-            print(X_train_adata[:,"HES4"].layers["counts"].mean())
+            print("determining HVGs")
+            print("HES4 mean:", X_train_adata[:,"HES4"].layers["counts"].mean())
             sc.pp.normalize_total(X_train_adata, layer="counts", target_sum=1e4)
             sc.pp.log1p(X_train_adata, layer="counts")
-            print(X_train_adata[:,"HES4"].X.mean())
+            print("HES4 mean (after norm):", X_train_adata[:,"HES4"].X.mean())
             print(X_train_adata[:,"HES4"].layers["counts"].mean())
             sc.pp.highly_variable_genes(X_train_adata, layer="counts", min_mean=0.0125, max_mean=3, min_disp=0.5)
             self.hvg_mask = X_train_adata.var['highly_variable']
             self.hvg_mask.to_csv(self.hvg_path)
         else:
             self.hvg_mask = np.array(pd.read_csv(self.hvg_path)['highly_variable'])
-            print(self.hvg_mask.shape)
 
         hvg_df = X_train_adata.var[self.hvg_mask]
         hvg_df = hvg_df.copy()
