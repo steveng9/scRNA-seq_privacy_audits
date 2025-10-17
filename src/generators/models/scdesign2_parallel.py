@@ -9,6 +9,7 @@ from collections import Counter
 from typing import Dict, Any
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
+import subprocess
 import pyreadr
 import rpy2.robjects as robjects
 
@@ -18,11 +19,20 @@ sys.path.append(src_dir)
 from src.generators.models.sc_base import BaseSingleCellDataGenerator
 
 
+def cmd_no_output(cmd):
+    try:
+        output = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT).decode('utf-8')
+        return output
+    except subprocess.CalledProcessError as e:
+        print(f"Command '{cmd}' failed with return code {e.returncode} and error {e.output}")
+        exit(1)
+
 def run_rscript_train(home_dir, hvg_subset_path, cell_type, out_model_path):
     """Run one training subprocess for a given cell type."""
     copula_path = os.path.join(home_dir, out_model_path, f"{cell_type}.rds")
     cmd = f"Rscript models/scdesign2.r train {hvg_subset_path} {cell_type} {copula_path}"
-    os.system(cmd)
+    # os.system(cmd)
+    cmd_no_output(cmd)
     return cell_type
 
 
@@ -31,7 +41,8 @@ def run_rscript_generate(home_dir, tmp_dir, out_model_path, cell_type, num_to_ge
     copula_path = os.path.join(home_dir, out_model_path, f"{cell_type}.rds")
     out_path = os.path.join(tmp_dir, f"out{cell_type}.rds")
     cmd = f"Rscript models/scdesign2.r gen {num_to_gen} {copula_path} {out_path}"
-    os.system(cmd)
+    # os.system(cmd)
+    cmd_no_output(cmd)
     return cell_type
 
 

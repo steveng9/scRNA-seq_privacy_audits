@@ -144,7 +144,7 @@ class ScDesign2Generator(BaseSingleCellDataGenerator):
 
             out_path = os.path.join(self.tmp_dir, f"out{cell_type}.rds")
             print(f"Rscript generators/models/scdesign2.r gen {num_to_gen} {copula_path} {out_path}")
-            # self.cmd_no_output(f"Rscript {self.home_dir}/src/generators/models/scdesign2.r gen {num_to_gen} {copula_path} {out_path}")
+            self.cmd_no_output(f"Rscript {self.home_dir}/src/generators/models/scdesign2.r gen {num_to_gen} {copula_path} {out_path}")
 
             counts_res = pyreadr.read_r(out_path)
             r_matrix = list(counts_res.values())[0]
