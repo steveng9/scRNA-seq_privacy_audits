@@ -38,6 +38,7 @@ def run_rscript_generate(home_dir, tmp_dir, out_model_path, cell_type, num_to_ge
 class ScDesign2GeneratorParallel(BaseSingleCellDataGenerator):
     def __init__(self, config: Dict[str, Any]):
         super().__init__(config)
+        print("Attempting parallel version")
         self.cell_type_col_name = self.dataset_config["cell_type_col_name"]
         self.tmp_dir = os.path.join(self.home_dir, "tmp")
 
@@ -160,3 +161,6 @@ class ScDesign2GeneratorParallel(BaseSingleCellDataGenerator):
 
         print("Returning synthetic AnnData object")
         return synthetic_adata
+
+    def load_from_checkpoint(self):
+        pass
