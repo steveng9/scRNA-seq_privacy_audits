@@ -1,0 +1,89 @@
+# DIRECTORY STRUCTURE:
+#     BASE
+#        |_REPOSITORY_HOME
+#        |   |_SRC
+#        |      |...
+#        |
+#        |_DATA
+#            |_DATASET_1
+#            |     |-full_dataset.h5ad
+#            |     |-notes_about_dataset.txt
+#            |     |-experiment_config_file_1.yaml
+#            |     |_CONFIG_1
+#            |     |     |_MODELS (white box information)
+#            |     |     |     |-config.yaml (used to run scdesign2)
+#            |     |     |     |-hvgs.csv
+#            |     |     |     |-cell1_copula.rds
+#            |     |     |     |-cell2_copula.rds
+#            |     |     |     | ...
+#            |     |     |
+#            |     |     |_ARTIFACTS
+#            |     |     |     |-hvgs.csv
+#            |     |     |     |_SYNTH
+#            |     |     |     |    |-config.yaml (used to run scdesign2)
+#            |     |     |     |    |-cell1_copula.rds
+#            |     |     |     |    |-cell2_copula.rds
+#            |     |     |     |    | ...
+#            |     |     |     |
+#            |     |     |     |_AUX
+#            |     |     |          |-config.yaml (used to run scdesign2)
+#            |     |     |          |-cell1_copula.rds
+#            |     |     |          |-cell2_copula.rds
+#            |     |     |          | ...
+#            |     |     |
+#            |     |     |_RESULTS
+#            |     |     |     |_FIGURES
+#            |     |     |     |    |...
+#            |     |     |     |...
+#            |     |     |
+#            |     |     |_DATASETS
+#            |     |     |     |-train.h5ad
+#            |     |     |     |-holdout.h5ad
+#            |     |     |     |-aux.h5ad
+#            |     |     |     |-synth.h5ad
+#            |     |
+#            |     |-experiment_config_file_2.yaml
+#            |     |_CONFIG_2
+#            |     |     |...
+#            |     | ...
+#            |
+#            |_DATASET_2
+#            |     | ...
+#            | ...
+
+dir_list:
+  local:
+    home: /Users/stevengolob/PycharmProjects/camda_hpc
+    data: /Users/stevengolob/Documents/school/PhD/Ghent_project_mia_scRNAseq/data
+  server:
+    home: /home/golobs/scRNA-seq_privacy_audits
+    data: /home/golobs/data
+dataset_name: ok
+plot_results: true
+determine_new_hvgs: false
+parallelize: true
+
+mamamia_params:
+  IMPORTANCE_OF_CLASS_B_FPs: .17
+  epsilon: .0001
+  mahalanobis: true
+  uniform_remapping_fn: zinb_cdf
+  lin_alg_inverse_fn: pinv
+  closeness_to_correlation_fn: closeness_to_correlation_1
+
+
+mia_setting:
+  dataset_size_k: 1
+  donor_level: false
+  sample_cells_by_donor_strategy_fn: sample_cells_by_donor_strategy_1
+  n_donors_per_cell_type: 50
+  cells_per_donor_min: 5
+  cells_per_donor_max: 30
+  num_donors: 50
+  # threat model
+  white_box: false
+  use_wb_hvgs: true
+
+
+
+

@@ -1,5 +1,7 @@
 import os
 import subprocess
+import sys
+
 import scanpy as sc
 import anndata as ad
 from typing import Dict, Any
@@ -22,7 +24,8 @@ class AbstractSingleCellDataGenerator(ABC):
     @abstractmethod
     def save_synthetic_anndata(self, 
                                 synthetic_features: ad.AnnData, 
-                                experiment_name: str):
+                                experiment_name: str,
+                               synthetic_path: str = None):
         pass
 
     @abstractmethod
@@ -94,26 +97,20 @@ class BaseSingleCellDataGenerator(AbstractSingleCellDataGenerator):
 
     def save_synthetic_anndata(self, 
                             synthetic_features: ad.AnnData, 
-                            experiment_name: str = ""):
+                            experiment_name: str = "", synthetic_path=None):
         # data_save_dir = os.path.join(self.config["dir_list"]["home"],
         #                              self.config["dir_list"]["data_splits"])
-        data_save_dir = os.path.join(self.config["dir_list"]["data"],
-                                     self.dataset_config["name"],
-                                     "synthetic_data")
-        
-        syn_save_dir = os.path.join(
-                                    data_save_dir,
-                                    # self.dataset_name,
-                                    # "synthetic",
-                                    self.generator_name,
-                                    experiment_name
-                                    )
-        check_dirs(syn_save_dir)
-                
-        # save synthetic features and labels
-        synthetic_features.write(os.path.join(syn_save_dir, "onek1k_annotated_synthetic.h5ad" ),
-                                 compression="gzip")
-        print(f"Synthetic data saved in {syn_save_dir}.")
+        if synthetic_path is None:
+            data_save_dir = os.path.join(self.config["dir_list"]["data"],
+                                         self.dataset_config["name"],
+                                         "synthetic_data")
+            syn_save_dir = os.path.join(data_save_dir, self.generator_name)
+            check_dirs(syn_save_dir)
+            synthetic_path = os.path.join(syn_save_dir, self.config["dataset_config"]["synthetic_data_name"])
+            synthetic_features.write(synthetic_path, compression="gzip")
+        else:
+            synthetic_features.write(synthetic_path, compression="gzip")
+        print(f"Synthetic data saved in {synthetic_path}.")
 
 
 

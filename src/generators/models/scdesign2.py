@@ -29,7 +29,7 @@ class ScDesign2Generator(BaseSingleCellDataGenerator):
         self.mean_expression = None
 
         self.hvg_mask = None
-        self.hvg_path = os.path.join(self.home_dir, self.generator_config["out_model_path"], "hvg.csv")
+        self.hvg_path = os.path.join(self.home_dir, self.generator_config["hvg_path"], "hvg.csv")
 
         if not os.path.exists(self.tmp_dir):
             os.makedirs(self.tmp_dir, exist_ok=True)
@@ -67,8 +67,8 @@ class ScDesign2Generator(BaseSingleCellDataGenerator):
         print("Copying counts matrix")
         X_train_adata.layers["counts"] = X_train_adata.X.copy()
         print("Copied counts matrix")
-        if True:
-        # if not os.path.exists(self.hvg_path):
+        # if True:
+        if not os.path.exists(self.hvg_path):
             print("determining HVGs")
             print("HES4 mean:", X_train_adata[:,"HES4"].layers["counts"].mean())
             sc.pp.normalize_total(X_train_adata, layer="counts", target_sum=1e4)
@@ -151,7 +151,11 @@ class ScDesign2Generator(BaseSingleCellDataGenerator):
             counts_np_array = r_matrix.to_numpy() if hasattr(r_matrix, "to_numpy") else np.array(r_matrix)
             print(counts_np_array.shape)
             for i, row_idx in enumerate(cell_indices):
-                synthetic_counts[row_idx, self.hvg_mask.values] = counts_np_array[:, i]
+                try:
+                    synthetic_counts[row_idx, self.hvg_mask.values] = counts_np_array[:, i]
+                except:
+                    print()
+                    print(i, cell_type)
 
         synthetic_counts_csr = synthetic_counts.tocsr().astype(np.float64)
         synthetic_adata = ad.AnnData(X=synthetic_counts_csr)

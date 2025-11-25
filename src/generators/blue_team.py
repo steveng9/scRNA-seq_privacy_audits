@@ -21,7 +21,8 @@ generator_classes = {
     # "dpctgan": ('models.dpctgan', 'DPCTGANDataGenerationPipeline'),
     # "sc_dist": ('models.sc_dist', 'ScDistributionDataGenerator'),
     # "muscat": ('models.muscat', 'Muscat'),
-    "scdesign2": ('models.scdesign2', 'ScDesign2Generator'),
+    # "scdesign2": ('models.scdesign2', 'ScDesign2Generator'),
+    "scdesign2": ('models.scdesign2_parallel', 'ScDesign2GeneratorParallel'),
     # "sc_ensemble": ('models.scdesign2_ensemble', 'ScDesign2EnsembleGenerator')
 }
 
@@ -117,7 +118,7 @@ def run_singlecell_generator(experiment_name: str = None, cfg_file: str = None):
     if not config.get("load_from_checkpoint", False):
         # if True:
         if config.get("train", False):
-            print("training...")
+            print("training model...")
             generator.train()
         else:
             print("not training.")
@@ -127,7 +128,7 @@ def run_singlecell_generator(experiment_name: str = None, cfg_file: str = None):
 
     if config.get("generate", False):
         syn_data = generator.generate()
-        generator.save_synthetic_anndata(syn_data, experiment_name)
+        generator.save_synthetic_anndata(syn_data, experiment_name, synthetic_path=os.path.join(config["dir_list"]["data"], "synthetic.h5ad"))
 
 
 
@@ -154,3 +155,7 @@ if __name__ == '__main__':
 #        print("CUDA is NOT available.")
 
 #check_cuda_availability()
+
+
+def format_ct_name(cell_name):
+    return str(cell_name).replace(" ", "_")
