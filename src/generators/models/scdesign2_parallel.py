@@ -16,8 +16,12 @@ import rpy2.robjects as robjects
 src_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.append(src_dir)
 
-from src.generators.models.sc_base import BaseSingleCellDataGenerator
-from src.generators.blue_team import format_ct_name
+if len(sys.argv) > 1 and sys.argv[1] != "T":
+    from src.generators.models.sc_base import BaseSingleCellDataGenerator
+    from src.generators.blue_team import format_ct_name
+else:
+    from generators.models.sc_base import BaseSingleCellDataGenerator
+    from generators.blue_team import format_ct_name
 
 
 def cmd_no_output(cmd):

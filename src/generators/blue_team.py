@@ -10,8 +10,12 @@ sys.path.append(src_dir)
 
 
 
-from src.generators.utils.prepare_data import RealDataLoader
-from src.generators.models.multivariate import MultivariateDataGenerator
+if len(sys.argv) > 1 and sys.argv[1] != "T":
+    from src.generators.utils.prepare_data import RealDataLoader
+    from src.generators.models.multivariate import MultivariateDataGenerator
+else:
+    from generators.utils.prepare_data import RealDataLoader
+    from generators.models.multivariate import MultivariateDataGenerator
 
 generator_classes = {
     # 'multivariate': ('models.multivariate', 'MultivariateDataGenerator'),
