@@ -7,7 +7,11 @@ from typing import Dict, Any
 src_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.append(src_dir)
 
-from src.generators.models.base import BaseDataGenerator
+
+if len(sys.argv) > 1 and sys.argv[1] != "T":
+    from src.generators.models.base import BaseDataGenerator
+else:
+    from generators.models.base import BaseDataGenerator
 
 
 class MultivariateDataGenerator(BaseDataGenerator):
