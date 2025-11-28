@@ -29,34 +29,30 @@ else:
 
 
 def main():
-
-    # 1. Update configuration
-    cfg = get_config(config_path)
+    cfg = create_config(config_path)
 
     # 2. create data splits and necessary file structure
-    # make_dir_structure(cfg)
-    # make_experiment_config_files(cfg)
-    # create_data_splits(cfg)
-    # determine_hvgs(cfg)
-    #
-    # # 3. generate target synthetic data
-    # print("\n\n\nGENERATING TARGET DATA\n_______________________")
-    # run_singlecell_generator.callback(cfg_file=cfg.target_model_config_path)
-    #
-    # # 4. generate focal points
-    # print("\n\n\nGENERATING SYNTHETIC DATA SHADOW MODEL\n_______________________")
-    # run_singlecell_generator.callback(cfg_file=cfg.synth_model_config_path)
-    # print("\n\n\nGENERATING AUXILIARY DATA SHADOW MODEL\n_______________________")
-    # run_singlecell_generator.callback(cfg_file=cfg.aux_model_config_path)
+    make_dir_structure(cfg)
+    make_experiment_config_files(cfg)
+    resampled, cell_types = create_data_splits(cfg)
+    determine_hvgs(cfg)
+
+    # 3. generate target synthetic data
+    regenerated = generate_target_synthetic_data(cfg, cell_types, force=resampled)
+
+    # 4. generate focal points
+    if not cfg.mia_setting.white_box:
+        run_scDesign2(cfg, cfg.synth_model_config_path, cell_types, "SYNTHETIC DATA SHADOW MODEL", force=regenerated)
+    else: print("\n\n(simulating scDesign2 on synthetic data not necessary in white_box setting... skipping)")
+    run_scDesign2(cfg, cfg.aux_model_config_path, cell_types, "AUXILIARY DATA SHADOW MODEL", force=resampled)
 
     # 5. set up wandb (experiment tracking)
 
     # 6. attack
-    print("\n\n\nRUNNING MAMA-MIA\n_______________________")
     mamamia_on_scdesign2(cfg)
 
 
-def get_config(config_path):
+def create_config(config_path):
     with open(config_path) as f:
         cfg = Box(yaml.load(f, Loader=yaml.FullLoader))
         if cfg.mia_setting.donor_level:
@@ -73,13 +69,14 @@ def get_config(config_path):
         cfg.synth_artifacts_path = os.path.join(cfg.artifacts_path, "synth")
         cfg.aux_artifacts_path = os.path.join(cfg.artifacts_path, "aux")
         cfg.train_path = os.path.join(cfg.data_path, "train.h5ad")
-        cfg.synth_path = os.path.join(cfg.data_path, "synthetic.h5ad")
+        cfg.target_synthetic_data_path = os.path.join(cfg.data_path, "synthetic.h5ad")
         cfg.holdout_path = os.path.join(cfg.data_path, "holdout.h5ad")
         cfg.aux_path = os.path.join(cfg.data_path, "auxiliary.h5ad")
-        cfg.results_filename = f"results_{'wb' if cfg.mia_setting.white_box else 'bb'}.csv"
+        cfg.threat_model = 'wb' if cfg.mia_setting.white_box else 'bb'
+        cfg.results_filename = f"results_{cfg.threat_model}.csv"
 
         cfg.target_model_config_path = os.path.join(cfg.models_path, "config.yaml")
-        cfg.synth_model_config_path = os.path.join(cfg.synth_artifacts_path, "config.yaml")
+        cfg.synth_model_config_path = os.path.join(cfg.synth_artifacts_path, f"config_{cfg.threat_model}.yaml")
         cfg.aux_model_config_path = os.path.join(cfg.aux_artifacts_path, "config.yaml")
 
         cfg.parallelize = cfg.parallelize and not cfg.mamamia_params.mahalanobis
@@ -98,7 +95,10 @@ def get_config(config_path):
     if print_out:
         print("Experiment Configuration:")
         for k, v in cfg.mia_setting.to_dict().items():
-            print(f"{k}: {v}")
+            print(f"\t{k}: {v}")
+        print("mamamia parameters:")
+        for k, v in cfg.mamamia_params.to_dict().items():
+            print(f"\t{k}: {v}")
     return cfg
 
 
@@ -114,20 +114,22 @@ def make_dir_structure(cfg):
 def make_experiment_config_files(cfg):
 
     # target model
-    target_model_config = make_scdesign2_config(cfg, True, "models", cfg.models_path, "train.h5ad")
-    with open(cfg.target_model_config_path, "w") as f:
-        yaml.safe_dump(target_model_config.to_dict(), f, sort_keys=False)
-
+    if not os.path.exists(cfg.target_model_config_path):
+        target_model_config = make_scdesign2_config(cfg, True, "models", cfg.models_path, "train.h5ad")
+        with open(cfg.target_model_config_path, "w") as f:
+            yaml.safe_dump(target_model_config.to_dict(), f, sort_keys=False)
 
     # synthetic data shadow model
-    synth_model_config = make_scdesign2_config(cfg, False, "artifacts/synth", cfg.shadow_modelling_hvg_path, "synthetic.h5ad")
-    with open(cfg.synth_model_config_path, "w") as f:
-        yaml.safe_dump(synth_model_config.to_dict(), f, sort_keys=False)
+    if not os.path.exists(cfg.synth_model_config_path):
+        synth_model_config = make_scdesign2_config(cfg, False, "artifacts/synth", cfg.shadow_modelling_hvg_path, "synthetic.h5ad")
+        with open(cfg.synth_model_config_path, "w") as f:
+            yaml.safe_dump(synth_model_config.to_dict(), f, sort_keys=False)
 
     # aux data shadow model
-    aux_model_config = make_scdesign2_config(cfg, False, "artifacts/aux", cfg.shadow_modelling_hvg_path, "auxiliary.h5ad")
-    with open(cfg.aux_model_config_path, "w") as f:
-        yaml.safe_dump(aux_model_config.to_dict(), f, sort_keys=False)
+    if not os.path.exists(cfg.aux_model_config_path):
+        aux_model_config = make_scdesign2_config(cfg, False, "artifacts/aux", cfg.shadow_modelling_hvg_path, "auxiliary.h5ad")
+        with open(cfg.aux_model_config_path, "w") as f:
+            yaml.safe_dump(aux_model_config.to_dict(), f, sort_keys=False)
 
 
 def make_scdesign2_config(cfg, generate, model_path, hvg_path, train_file_name):
@@ -159,12 +161,20 @@ def make_scdesign2_config(cfg, generate, model_path, hvg_path, train_file_name):
 
 def create_data_splits(cfg):
     if os.path.exists(cfg.train_path) and os.path.exists(cfg.holdout_path) and os.path.exists(cfg.aux_path):
-        return
+        print("(skipping sampling)")
+        return False, get_cell_types_only(cfg)
 
     if cfg.mia_setting.donor_level:
-        create_data_splits_donor_MI(cfg)
+        return True, create_data_splits_donor_MI(cfg)
     else:
-        create_data_splits_cell_MI(cfg)
+        return True, create_data_splits_cell_MI(cfg)
+
+
+def get_cell_types_only(cfg):
+    all_data = ad.read_h5ad(os.path.join(cfg.top_data_dir, "full_dataset.h5ad"))
+    all_data.obs["cell_type"] = all_data.obs["cell_type"].apply(format_ct_name)
+    cell_types = list(all_data.obs["cell_type"].unique())
+    return cell_types
 
 
 def create_data_splits_donor_MI(cfg):
@@ -183,10 +193,13 @@ def create_data_splits_donor_MI(cfg):
     all_holdout.write_h5ad(cfg.holdout_path)
     all_aux.write_h5ad(cfg.aux_path)
 
+    return cell_types
+
 
 def create_data_splits_cell_MI(cfg):
     all_data = ad.read_h5ad(os.path.join(cfg.top_data_dir, "full_dataset.h5ad"))
     all_data.obs["cell_type"] = all_data.obs["cell_type"].apply(format_ct_name)
+    cell_types = list(all_data.obs["cell_type"].unique())
     n_cells = min(cfg.mia_setting.dataset_size_k * 1000, all_data.n_obs)
     subset_idx = np.random.choice(all_data.n_obs, size=n_cells*3, replace=False)
 
@@ -198,9 +211,7 @@ def create_data_splits_cell_MI(cfg):
 
     aux_data = all_data[subset_idx[n_cells*2: ], :].copy()
     aux_data.write_h5ad(cfg.aux_path)
-
-
-
+    return cell_types
 
 
 def determine_hvgs(cfg):
@@ -216,7 +227,35 @@ def determine_hvgs(cfg):
                 print("HVG mask not found, creating new HVGs")
 
 
+def generate_target_synthetic_data(cfg, cell_types, force=False):
+    if not os.path.exists(cfg.target_synthetic_data_path) or force:
+        run_scDesign2(cfg, cfg.target_model_config_path, cell_types, "TARGET DATA", force=True)
+        return True
+    else:
+        print(f"\n\n(previously generated target data... skipping)")
+        return False
+
+
+def run_scDesign2(cfg, scdesign2_cfg_path, cell_types, name, force=False):
+    if not force:
+        # check of copulas already generated from prior run
+        with open(scdesign2_cfg_path, "r") as f:
+            scdesign2_cfg = Box(yaml.load(f, Loader=yaml.FullLoader))
+            copulas_path = scdesign2_cfg.scdesign2_config.out_model_path
+            already_generated = True
+            for cell_type in cell_types:
+                if not os.path.exists(os.path.join(cfg.cfg_dir, copulas_path, f"{cell_type}.rds")):
+                    already_generated = False
+                    break
+            if already_generated:
+                print(f"\n\n(previously simulated {name}... skipping)")
+                return
+    print(f"\n\n\nGENERATING {name}\n_______________________")
+    run_singlecell_generator.callback(cfg_file=scdesign2_cfg_path)
+
+
 def mamamia_on_scdesign2(cfg):
+    print("\n\n\nRUNNING MAMA-MIA\n_______________________")
     train = ad.read_h5ad(cfg.train_path)
     holdout = ad.read_h5ad(cfg.holdout_path)
     cell_types = list(train.obs["cell_type"].unique())
@@ -245,8 +284,8 @@ def mamamia_on_scdesign2(cfg):
 
 def process_cell_type(cfg, cell_type_, train, holdout, hvgs):
     targets = create_target_dataset(cell_type_, hvgs, train, holdout)
-    copula_synth_path = cfg.models_path if cfg.mia_setting.white_box else cfg.synth_artifacts_path
-    copula_synth_path = os.path.join(copula_synth_path, f"{cell_type_}.rds")
+    copula_synth_path_ = cfg.models_path if cfg.mia_setting.white_box else cfg.synth_artifacts_path
+    copula_synth_path = os.path.join(copula_synth_path_, f"{cell_type_}.rds")
     copula_aux_path = os.path.join(cfg.aux_artifacts_path, f"{cell_type_}.rds")
     if not (os.path.exists(copula_aux_path) and os.path.exists(copula_synth_path)):
         return (cell_type_, None, None)  # skip this one
@@ -318,8 +357,10 @@ def attack_w_mahalanobis_algorithm(cfg, copula_synth, copula_aux, targets, cell_
     shared_cov_s, shared_genes_primary_marginals_s = create_shared_gene_corr_matrix(covariate_genes_in_both_copulas, primary_genes_s, cov_s, primary_marginal_params_s)
     shared_cov_a, shared_genes_primary_marginals_a = create_shared_gene_corr_matrix(covariate_genes_in_both_copulas, primary_genes_a, cov_a, primary_marginal_params_a)
     remapping_fn_vec = np.vectorize(cfg.uniform_remapping_fn)
+    error_count = 0
 
     def mahalanobis_as_FPs(target_gene_expr):
+        nonlocal error_count
         target_gene_expr_mapped_s = remapping_fn_vec(target_gene_expr, *np.moveaxis(shared_genes_primary_marginals_s, 1, 0))
         target_gene_expr_mapped_a = remapping_fn_vec(target_gene_expr, *np.moveaxis(shared_genes_primary_marginals_a, 1, 0))
         mean_s = remapping_fn_vec(shared_genes_primary_marginals_s[:,2], *np.moveaxis(shared_genes_primary_marginals_s, 1, 0))
@@ -328,13 +369,13 @@ def attack_w_mahalanobis_algorithm(cfg, copula_synth, copula_aux, targets, cell_
         delta_a = target_gene_expr_mapped_a - mean_a
         m_dist_synth = np.sqrt(delta_s.T @ cfg.lin_alg_inverse_fn(shared_cov_s) @ delta_s)
         m_dist_aux = np.sqrt(delta_a.T @ cfg.lin_alg_inverse_fn(shared_cov_a) @ delta_a)
-
         result = m_dist_aux / (m_dist_synth + m_dist_aux)
         if np.isnan(result):
-            print(f"ERROR!!! getting NaNs in cell type: ({cell_type})")
+            error_count += 1
             result = .5
         return result
 
+    if error_count > 0: print(f"encountered {error_count} nans for cell type: {cell_type}")
     FP_sums = targets[covariate_genes_in_both_copulas].apply(mahalanobis_as_FPs, axis=1)
 
     membership_true, membership_scores, auc_ = score_aggregations(cfg, FP_sums, targets)
@@ -471,7 +512,7 @@ def plot_fn(cfg, cell_type, membership_true, membership_scores):
     plt.title(f"ROC for cell type {cell_type}")
     plt.legend()
     plt.tight_layout()
-    plt.savefig(os.path.join(cfg.figures_path, f"{cell_type}_{'wb' if cfg.mia_setting.white_box else 'bb'}.png"))
+    plt.savefig(os.path.join(cfg.figures_path, f"{cfg.threat_model}_{cell_type}.png"))
     if cfg.plot_results:
         plt.show()
 

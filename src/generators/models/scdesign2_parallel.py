@@ -78,15 +78,15 @@ class ScDesign2GeneratorParallel(BaseSingleCellDataGenerator):
         cell_types = X_train_adata.obs[self.cell_type_col_name].values
         # cell_types = [format_ct_name(ct) for ct in cell_types]
         cell_types_dist = Counter(cell_types)
-        print("Num cell types:", len(cell_types_dist))
+        # print("Num cell types:", len(cell_types_dist))
 
         # compute mean expression
-        print("Calculating means")
+        # print("Calculating means")
         self.mean_expression = pd.DataFrame(
             X_train_adata.X.toarray() if not isinstance(X_train_adata.X, np.ndarray) else X_train_adata.X,
             columns=X_train_adata.var_names,
             index=X_train_adata.obs_names
-        ).groupby(X_train_adata.obs[self.cell_type_col_name]).mean().T
+        ).groupby(X_train_adata.obs[self.cell_type_col_name], observed=False).mean().T
         self.mean_expression.to_csv(self.means_path, index=True)
 
         X_train_adata.layers["counts"] = X_train_adata.X.copy()
