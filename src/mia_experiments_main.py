@@ -171,7 +171,7 @@ def create_data_splits(cfg):
 
 
 def get_cell_types_only(cfg):
-    all_data = ad.read_h5ad(os.path.join(cfg.top_data_dir, "full_dataset.h5ad"))
+    all_data = ad.read_h5ad(cfg.train_path)
     all_data.obs["cell_type"] = all_data.obs["cell_type"].apply(format_ct_name)
     cell_types = list(all_data.obs["cell_type"].unique())
     return cell_types
