@@ -2,8 +2,23 @@
 import numpy as np
 from scipy.stats import nbinom, poisson
 from scipy import stats
+import anndata as ad
 
-def sample_cells_by_donor_strategy_1(cfg, all_data, cell_type):
+
+
+
+def sample_donors_strategy_1(cfg, all_data, cell_types):
+    all_train, all_holdout, all_aux = sample_cells_from_sampled_donors(cfg, all_data, cell_types[0])
+    for cell_type in cell_types[1:]:
+        train_data, holdout_data, aux_data = sample_cells_from_sampled_donors(cfg, all_data, cell_type)
+        all_train = ad.concat([all_train, train_data])
+        all_holdout = ad.concat([all_holdout, holdout_data])
+        all_aux = ad.concat([all_aux, aux_data])
+
+    return all_train, all_holdout, all_aux
+
+
+def sample_cells_from_sampled_donors(cfg, all_data, cell_type):
     all_meta = all_data.obs
 
     # step 1: sample donors
@@ -34,6 +49,30 @@ def sample_cells_by_donor_strategy_1(cfg, all_data, cell_type):
     aux_data = get_cell_sample_from_donor(aux_donors)
 
     return train_data, holdout_data, aux_data
+
+
+
+def sample_donors_strategy_2(cfg, all_data, cell_types):
+    all_meta = all_data.obs
+
+    # step 1: sample donors
+    unique_donors = all_meta["individual"].unique()
+    n_donors_used = min(cfg.mia_setting.num_donors, len(unique_donors) // 2)
+    experiment_donors = np.random.choice(unique_donors, size=n_donors_used*2, replace=False)
+    train_donors = experiment_donors[:n_donors_used]
+    holdout_donors = experiment_donors[n_donors_used:]
+    all_train = all_data[all_data.obs["individual"].isin(train_donors)]
+    all_holdout = all_data[all_data.obs["individual"].isin(holdout_donors)]
+
+    # create aux dataset
+    non_experiment_donors = list(set(experiment_donors).difference(set(train_donors)))
+    n_aux_donors = min(cfg.mia_setting.num_donors, len(non_experiment_donors))
+    aux_donors = np.random.choice(non_experiment_donors, size=n_aux_donors, replace=False)
+    all_aux = all_data[all_data.obs["individual"].isin(aux_donors)]
+
+    print(f"Num train donors: {len(train_donors)}, Holdout: {len(holdout_donors)}, Auxiliary: {len(aux_donors)}")
+    print(f"Num train cells: {len(all_train)}, Holdout: {len(all_holdout)}, Auxiliary: {len(all_aux)}")
+    return all_train, all_holdout, all_aux
 
 
 

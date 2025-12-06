@@ -74,12 +74,11 @@ mamamia_params:
 
 mia_setting:
   dataset_size_k: 1
-  donor_level: false
-  sample_cells_by_donor_strategy_fn: sample_cells_by_donor_strategy_1
-  n_donors_per_cell_type: 50
+  donor_level: true
+  sample_donors_strategy_fn: sample_donors_strategy_2
   cells_per_donor_min: 5
   cells_per_donor_max: 30
-  num_donors: 50
+  num_donors: 100
   # threat model
   white_box: false
   use_wb_hvgs: true

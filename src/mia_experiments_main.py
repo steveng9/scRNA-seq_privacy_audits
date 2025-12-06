@@ -90,7 +90,7 @@ def create_config(config_path):
         cfg.lin_alg_inverse_fn = globals()[cfg.mamamia_params.lin_alg_inverse_fn]
         cfg.uniform_remapping_fn = globals()[cfg.mamamia_params.uniform_remapping_fn]
         cfg.closeness_to_correlation_fn = globals()[cfg.mamamia_params.closeness_to_correlation_fn]
-        cfg.sample_cells_by_donor_strategy_fn = globals()[cfg.mia_setting.sample_cells_by_donor_strategy_fn]
+        cfg.sample_donors_strategy_fn = globals()[cfg.mia_setting.sample_donors_strategy_fn]
 
     if print_out:
         print("Experiment Configuration:")
@@ -181,14 +181,9 @@ def create_data_splits_donor_MI(cfg):
     all_data = ad.read_h5ad(os.path.join(cfg.top_data_dir, "full_dataset.h5ad"))
     all_data.obs["cell_type"] = all_data.obs["cell_type"].apply(format_ct_name)
     cell_types = list(all_data.obs["cell_type"].unique())
-    sample_strategy = cfg.sample_cells_by_donor_strategy_fn
+    sample_strategy = cfg.sample_donors_strategy_fn
 
-    all_train, all_holdout, all_aux = sample_strategy(cfg, all_data, cell_types[0])
-    for cell_type in cell_types[1:]:
-        train_data, holdout_data, aux_data = sample_strategy(cfg, all_data, cell_type)
-        all_train = ad.concat([all_train, train_data])
-        all_holdout = ad.concat([all_holdout, holdout_data])
-        all_aux = ad.concat([all_aux, aux_data])
+    all_train, all_holdout, all_aux = sample_strategy(cfg, all_data, cell_types)
     all_train.write_h5ad(cfg.train_path)
     all_holdout.write_h5ad(cfg.holdout_path)
     all_aux.write_h5ad(cfg.aux_path)
@@ -269,7 +264,7 @@ def mamamia_on_scdesign2(cfg):
             futures = {executor.submit(process_cell_type, cfg, ct, train, holdout, hvgs): ct for ct in cell_types}
             for fut in as_completed(futures):
                 fut_result = fut.result()
-                print(f"\tfinished attacking cell {fut_result[0]}, {fut_result[1]}")
+                print(f"\tfinished attacking cell {fut_result[0]}")
                 results.append(fut_result)
         results.sort(key=lambda x: x[0])
     else:
@@ -277,7 +272,7 @@ def mamamia_on_scdesign2(cfg):
         for ct in cell_types:
             result = process_cell_type(cfg, ct, train, holdout, hvgs)
             results.append(result)
-            print(f"\tfinished attacking cell {ct}, {result[1]}")
+            print(f"\tfinished attacking cell {ct}")
 
     print_final_results(cfg, results)
 
@@ -288,18 +283,18 @@ def process_cell_type(cfg, cell_type_, train, holdout, hvgs):
     copula_synth_path = os.path.join(copula_synth_path_, f"{cell_type_}.rds")
     copula_aux_path = os.path.join(cfg.aux_artifacts_path, f"{cell_type_}.rds")
     if not (os.path.exists(copula_aux_path) and os.path.exists(copula_synth_path)):
-        return (cell_type_, None, None)  # skip this one
+        return (cell_type_, None)  # skip this one
 
     # scDesign2's weird, particular way of storing the copula
     copula_aux = r["readRDS"](copula_aux_path).rx2(str(cell_type_))
     copula_synth = r["readRDS"](copula_synth_path).rx2(str(cell_type_))
 
     if cfg.mamamia_params.mahalanobis:
-        _, _, score, num_targets = attack_w_mahalanobis_algorithm(cfg, copula_synth, copula_aux, targets, cell_type_)
+        result_df = attack_w_mahalanobis_algorithm(cfg, copula_synth, copula_aux, targets, cell_type_)
     else:
-        _, _, score, num_targets = attack_algorithm(cfg, copula_synth, copula_aux, targets, cell_type_)
+        result_df = attack_algorithm(cfg, copula_synth, copula_aux, targets, cell_type_)
 
-    return (cell_type_, score, num_targets)
+    return (cell_type_, result_df)
 
 
 def attack_algorithm(cfg, copula_synth, copula_aux, targets, cell_type):
@@ -344,10 +339,10 @@ def attack_algorithm(cfg, copula_synth, copula_aux, targets, cell_type):
         targetcell_vals_a_ = 1 - 2 * np.abs(targetcell_vals_a - .5)
         FP_sums += (targetcell_vals_s_ / (targetcell_vals_a_ + cfg.mamamia_params.epsilon)) * cfg.mamamia_params.IMPORTANCE_OF_CLASS_B_FPs
 
-    membership_true, membership_scores, auc_ = score_aggregations(cfg, FP_sums, targets)
-    plot_fn(cfg, cell_type, membership_true, membership_scores)
+    result_df = score_aggregations(cfg, cell_type, FP_sums, targets)
+    plot_fn(cfg, cell_type, result_df)
 
-    return membership_true, membership_scores, auc_, len(membership_true)
+    return result_df
 
 
 def attack_w_mahalanobis_algorithm(cfg, copula_synth, copula_aux, targets, cell_type):
@@ -378,10 +373,10 @@ def attack_w_mahalanobis_algorithm(cfg, copula_synth, copula_aux, targets, cell_
     if error_count > 0: print(f"encountered {error_count} nans for cell type: {cell_type}")
     FP_sums = targets[covariate_genes_in_both_copulas].apply(mahalanobis_as_FPs, axis=1)
 
-    membership_true, membership_scores, auc_ = score_aggregations(cfg, FP_sums, targets)
-    plot_fn(cfg, cell_type, membership_true, membership_scores)
+    result_df = score_aggregations(cfg, cell_type, FP_sums, targets)
+    plot_fn(cfg, cell_type, result_df)
 
-    return membership_true, membership_scores, auc_, len(membership_true)
+    return result_df
 
 
 def extract_copula_information(copula):
@@ -459,52 +454,59 @@ def create_shared_gene_corr_matrix(covariate_genes_in_both_copulas, genes, cov_m
     return shared_genes_cov_matrix, shared_genes_marginal_params
 
 
-def score_aggregations(cfg, FP_sums, targets):
-    if cfg.mia_setting.donor_level:
-        predictions = pd.DataFrame({
-            'id': targets['individual'].values,
-            'membership': targets['member'].astype(int).values,
-            'A': pd.Series(FP_sums),
-        })
-        scores = []
-        membership_true = []
-        grouped_predictions = predictions.groupby('id', observed=True)
-        individuals = targets["individual"].unique().tolist()
-        for id in individuals:
-            scores.append(grouped_predictions.get_group(id).A.mean())
-            group_membership = grouped_predictions.get_group(id).membership.mean()
-            assert group_membership == 1 or group_membership == 0, f"group membership ground truth is not consistent: {group_membership}"
-            membership_true.append(int(group_membership))
-        membership_scores = activate(np.array(scores))
-    else:
-        membership_true = targets["member"].astype(int).values
-        membership_scores = activate(np.array(FP_sums))
-
-    auc_ = roc_auc_score(membership_true, membership_scores)
-    return membership_true, membership_scores, auc_
+def score_aggregations(cfg, cell_type, FP_sums, targets):
+    result_df = pd.DataFrame({
+        'cell id': targets.index,
+        'donor id': targets['individual'].values,
+        'cell type': cell_type,
+        'membership': targets['member'].values,
+        'score': activate(np.array(FP_sums))
+    })
+    return result_df
 
 
 def print_final_results(cfg, results):
-    aucs = []
-    total_scores = 0
+    true_, predictions_, num_cells = concat_scores_for_all_celltypes(cfg, results)
+    overall_auc = roc_auc_score(true_, predictions_)
+
     with open(os.path.join(cfg.results_path, cfg.results_filename), "w") as results_file:
-        results_file.write("cell,num scores,AUC\n")
-        for cell_type, auc_, num_scores in results:
-            if auc_ is None: continue
-            message = f"{cell_type}, {num_scores}, {auc_:.3f}"
-            if print_out: print(message)
+        results_file.write("membership, prediction\n")
+        for membership, prediction in zip(true_, predictions_):
+            message = f"{membership}, {prediction:.3f}"
             results_file.write(message + "\n")
-            total_scores += num_scores
-            aucs.append(auc_ * num_scores)
-
-        mean_ = round(np.sum(aucs) / total_scores, 3)
-        print(f"Average auc: {mean_}")
-        results_file.write(f"OVERALL, {total_scores}, {mean_}" + "\n")
+        print(f"Average auc ({num_cells} cells): {overall_auc}")
+        results_file.write(f"num cells, {num_cells}" + "\n")
+        results_file.write(f"OVERALL, {overall_auc}" + "\n")
 
 
-def plot_fn(cfg, cell_type, membership_true, membership_scores):
-    auc_ = roc_auc_score(membership_true, membership_scores)
-    fpr, tpr, _ = roc_curve(membership_true, membership_scores)
+def concat_scores_for_all_celltypes(cfg, results):
+    full_result_df = pd.DataFrame(columns=['cell id', 'donor id', 'cell type', 'membership', 'score'])
+
+    for _cell_type, result_df in results:
+        if result_df is not None:
+            full_result_df = pd.concat([full_result_df, result_df])
+
+    num_cells = full_result_df.shape[0]
+    membership_true = []
+    predictions = []
+    if cfg.mia_setting.donor_level:
+        grouped_predictions = full_result_df.groupby('donor id', observed=True)
+        donors = full_result_df["donor id"].unique().tolist()
+        for donor in donors:
+            donor_membership = grouped_predictions.get_group(donor).membership.mean()
+            assert donor_membership == 1 or donor_membership == 0, f"group membership ground truth is not consistent: {donor_membership}"
+            membership_true.append(int(donor_membership))
+            predictions.append(grouped_predictions.get_group(donor).score.mean())
+        predictions = activate(np.array(predictions))
+    else:
+        membership_true = full_result_df["membership"].values
+        predictions = full_result_df["score"].values
+
+    return membership_true, predictions, num_cells
+
+def plot_fn(cfg, cell_type, result_df):
+    auc_ = roc_auc_score(result_df["membership"].values, result_df["score"].values)
+    fpr, tpr, _ = roc_curve(result_df["membership"].values, result_df["score"].values)
     plt.plot(fpr, tpr, label=f"{cell_type} (AUC={auc_:.2f})")
     plt.plot([0,1],[0,1],'k--', linewidth=0.6)
     plt.xlabel("FPR")
