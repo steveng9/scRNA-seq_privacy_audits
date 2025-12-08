@@ -340,7 +340,10 @@ def attack_algorithm(cfg, copula_synth, copula_aux, targets, cell_type):
         FP_sums += (targetcell_vals_s_ / (targetcell_vals_a_ + cfg.mamamia_params.epsilon)) * cfg.mamamia_params.IMPORTANCE_OF_CLASS_B_FPs
 
     result_df = score_aggregations(cfg, cell_type, FP_sums, targets)
-    plot_fn(cfg, cell_type, result_df)
+    try:
+        plot_fn(cfg, cell_type, result_df)
+    except ValueError:
+        pass
 
     return result_df
 
@@ -374,7 +377,10 @@ def attack_w_mahalanobis_algorithm(cfg, copula_synth, copula_aux, targets, cell_
     FP_sums = targets[covariate_genes_in_both_copulas].apply(mahalanobis_as_FPs, axis=1)
 
     result_df = score_aggregations(cfg, cell_type, FP_sums, targets)
-    plot_fn(cfg, cell_type, result_df)
+    try:
+        plot_fn(cfg, cell_type, result_df)
+    except ValueError:
+        pass
 
     return result_df
 
@@ -483,7 +489,7 @@ def concat_scores_for_all_celltypes(cfg, results):
     full_result_df = pd.DataFrame(columns=['cell id', 'donor id', 'cell type', 'membership', 'score'])
 
     for _cell_type, result_df in results:
-        if result_df is not None:
+        if (result_df is not None) and (not result_df.isna().any().any()):
             full_result_df = pd.concat([full_result_df, result_df])
 
     num_cells = full_result_df.shape[0]
