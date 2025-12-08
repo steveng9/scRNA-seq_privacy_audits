@@ -43,7 +43,7 @@ def main():
     # 4. generate focal points
     if not cfg.mia_setting.white_box:
         run_scDesign2(cfg, cfg.synth_model_config_path, cell_types, "SYNTHETIC DATA SHADOW MODEL", force=regenerated)
-    else: print("\n\n(simulating scDesign2 on synthetic data not necessary in white_box setting... skipping)")
+    else: print("\n\n(simulating scDesign2 on synthetic data not necessary in white_box setting... skipping)", flush=True)
     run_scDesign2(cfg, cfg.aux_model_config_path, cell_types, "AUXILIARY DATA SHADOW MODEL", force=resampled)
 
     # 5. set up wandb (experiment tracking)
@@ -161,7 +161,7 @@ def make_scdesign2_config(cfg, generate, model_path, hvg_path, train_file_name):
 
 def create_data_splits(cfg):
     if os.path.exists(cfg.train_path) and os.path.exists(cfg.holdout_path) and os.path.exists(cfg.aux_path):
-        print("(skipping sampling)")
+        print("(skipping sampling)", flush=True)
         return False, get_cell_types_only(cfg)
 
     if cfg.mia_setting.donor_level:
@@ -227,7 +227,7 @@ def generate_target_synthetic_data(cfg, cell_types, force=False):
         run_scDesign2(cfg, cfg.target_model_config_path, cell_types, "TARGET DATA", force=True)
         return True
     else:
-        print(f"\n\n(previously generated target data... skipping)")
+        print(f"\n\n(previously generated target data... skipping)", flush=True)
         return False
 
 
@@ -243,14 +243,14 @@ def run_scDesign2(cfg, scdesign2_cfg_path, cell_types, name, force=False):
                     already_generated = False
                     break
             if already_generated:
-                print(f"\n\n(previously simulated {name}... skipping)")
+                print(f"\n\n(previously simulated {name}... skipping)", flush=True)
                 return
-    print(f"\n\n\nGENERATING {name}\n_______________________")
+    print(f"\n\n\nGENERATING {name}\n_______________________", flush=True)
     run_singlecell_generator.callback(cfg_file=scdesign2_cfg_path)
 
 
 def mamamia_on_scdesign2(cfg):
-    print("\n\n\nRUNNING MAMA-MIA\n_______________________")
+    print("\n\n\nRUNNING MAMA-MIA\n_______________________", flush=True)
     train = ad.read_h5ad(cfg.train_path)
     holdout = ad.read_h5ad(cfg.holdout_path)
     cell_types = list(train.obs["cell_type"].unique())
@@ -259,20 +259,20 @@ def mamamia_on_scdesign2(cfg):
 
     results = []
     if cfg.parallelize:
-        print(f"\tparallelizing...")
+        print(f"\tparallelizing...", flush=True)
         with ProcessPoolExecutor() as executor:
             futures = {executor.submit(process_cell_type, cfg, ct, train, holdout, hvgs): ct for ct in cell_types}
             for fut in as_completed(futures):
                 fut_result = fut.result()
-                print(f"\tfinished attacking cell {fut_result[0]}")
+                print(f"\tfinished attacking cell {fut_result[0]}", flush=True)
                 results.append(fut_result)
         results.sort(key=lambda x: x[0])
     else:
-        print(f"\trunning sequentially...")
+        print(f"\trunning sequentially...", flush=True)
         for ct in cell_types:
             result = process_cell_type(cfg, ct, train, holdout, hvgs)
             results.append(result)
-            print(f"\tfinished attacking cell {ct}")
+            print(f"\tfinished attacking cell {ct}", flush=True)
 
     print_final_results(cfg, results)
 
