@@ -10,8 +10,8 @@ from sklearn.decomposition import PCA
 src_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.append(src_dir)
 
-from mia.utils.prepare_data import MIADataLoader
-from mia.models.base import BaseMIAModel
+from src.mia.utils.prepare_data import MIADataLoader
+from src.mia.models.base import BaseMIAModel
 from domias.bnaf.density_estimation import compute_log_p_x, density_estimator_trainer
 from domias.baselines import (MC, LOGAN_D1,
                               GAN_leaks, GAN_leaks_cal)
@@ -45,13 +45,13 @@ class DOMIASBaselineModels(BaseMIAModel):
             generator_model=self.generator_model,
             reference_file=self.reference_file
         )
-        synthetic_data = data_loader.load_synthetic_data()
-        X_test = data_loader.load_membership_dataset()
+        synthetic_data = data_loader.load_synthetic_data().to_numpy()
+        X_test = data_loader.load_membership_dataset().to_numpy()
         y_test = data_loader.load_membership_labels()
         if y_test is not None:
             assert len(X_test) == len(y_test), "mismatch in test data and label lengths."
         
-        reference = data_loader.load_reference_data()
+        reference = data_loader.load_reference_data().to_numpy()
 
         scores = run_baselines(X_test, synthetic_data, reference, reference, None)
 

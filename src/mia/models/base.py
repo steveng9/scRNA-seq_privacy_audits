@@ -49,10 +49,10 @@ class BaseMIAModel(ABC):
         check_folder(self.results_save_dir)
         config_key = f"{self.attack_model}_config"
 
-        if config_key in config:
-            self.mia_config = config[config_key]
-        else:
-            raise ValueError(f"No config found for attack model: {self.attack_model}")
+        # if config_key in config:
+        #     self.mia_config = config[config_key]
+        # else:
+        #     raise ValueError(f"No config found for attack model: {self.attack_model}")
 
 
     @abstractmethod

@@ -1,6 +1,7 @@
 import os
 import pandas as pd
 import numpy as np
+import anndata as ad
 
 class MIADataLoader:
     def __init__(self, 
@@ -19,7 +20,9 @@ class MIADataLoader:
 
 
     def load_synthetic_data(self):
-        synthetic_data = pd.read_csv(self.synthetic_file).values
+        # synthetic_data = pd.read_csv(self.synthetic_file).values
+        synthetic_data = ad.read_h5ad(self.synthetic_file).to_df()
+        print("Synth shape: ", synthetic_data.shape)
 
         return synthetic_data
     
@@ -27,11 +30,13 @@ class MIADataLoader:
     def load_membership_dataset(self):
         if not os.path.exists(self.membership_test_file):
             raise FileNotFoundError("Membership test dataset is missing.")
-        dataset = pd.read_csv(self.membership_test_file, 
-                                         sep="\t", 
-                                         index_col=0).T.values
+        # dataset = pd.read_csv(self.membership_test_file,
+        #                                  sep="\t",
+        #                                  index_col=0).T.values
+        dataset = ad.read_h5ad(self.membership_test_file).to_df()
         
-        print(f"Membership test set is loaded. Size {dataset.shape}")
+        print("Target shape: ", dataset.shape)
+
         return dataset
     
     def load_membership_labels(self):
@@ -39,8 +44,6 @@ class MIADataLoader:
         if self.membership_lbl_file is not None:
             labels = pd.read_csv(self.membership_lbl_file, index_col=0)[
                                         self.membership_label_col].values
-            print(f"Membership test labels are loaded. Size {len(labels)}")
-            
         return labels
 
 
@@ -48,10 +51,11 @@ class MIADataLoader:
     
     def load_reference_data(self):
         if self.reference_file:
-            reference = pd.read_csv(self.reference_file, 
-                                         sep="\t", 
-                                         index_col=0).T
-            #print(reference.head())
+            # reference = pd.read_csv(self.reference_file,
+            #                              sep="\t",
+            #                              index_col=0).T
+            reference = ad.read_h5ad(self.reference_file).to_df()
+            print("Aux shape:", reference.shape)
             return reference
         else:
             return None
