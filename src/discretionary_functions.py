@@ -65,14 +65,14 @@ def sample_donors_strategy_2(cfg, all_data, cell_types):
     all_holdout = all_data[all_data.obs["individual"].isin(holdout_donors)]
 
     # create aux dataset
-    non_experiment_donors = list(set(experiment_donors).difference(set(train_donors)))
+    non_experiment_donors = list(set(unique_donors).difference(set(experiment_donors)))
     n_aux_donors = min(cfg.mia_setting.num_donors, len(non_experiment_donors))
     aux_donors = np.random.choice(non_experiment_donors, size=n_aux_donors, replace=False)
     all_aux = all_data[all_data.obs["individual"].isin(aux_donors)]
 
     print(f"Num train donors: {len(train_donors)}, Holdout: {len(holdout_donors)}, Auxiliary: {len(aux_donors)}")
     print(f"Num train cells: {len(all_train)}, Holdout: {len(all_holdout)}, Auxiliary: {len(all_aux)}")
-    return all_train, all_holdout, all_aux
+    return all_train, all_holdout, all_aux, len(train_donors)
 
 
 
