@@ -1,4 +1,4 @@
-
+import sys
 import numpy as np
 from scipy.stats import nbinom, poisson
 from scipy import stats
@@ -53,26 +53,38 @@ def sample_cells_from_sampled_donors(cfg, all_data, cell_type):
 
 
 def sample_donors_strategy_2(cfg, all_data, cell_types):
+    MIN_AUX_DONORS = 10
     all_meta = all_data.obs
 
     # step 1: sample donors
-    unique_donors = all_meta["individual"].unique()
-    n_donors_used = min(cfg.mia_setting.num_donors, len(unique_donors) // 2)
-    experiment_donors = np.random.choice(unique_donors, size=n_donors_used*2, replace=False)
-    train_donors = experiment_donors[:n_donors_used]
-    holdout_donors = experiment_donors[n_donors_used:]
-    all_train = all_data[all_data.obs["individual"].isin(train_donors)]
-    all_holdout = all_data[all_data.obs["individual"].isin(holdout_donors)]
+    all_donors = all_meta["individual"].unique()
+    n_donors_used = min(cfg.mia_setting.num_donors, len(all_donors) // 2)
+    target_donors = np.random.choice(all_donors, size=n_donors_used*2, replace=False)
+    train_donors = target_donors[:n_donors_used]
+    holdout_donors = target_donors[n_donors_used:]
 
     # create aux dataset
-    non_experiment_donors = list(set(unique_donors).difference(set(experiment_donors)))
-    n_aux_donors = min(cfg.mia_setting.num_donors, len(non_experiment_donors))
-    aux_donors = np.random.choice(non_experiment_donors, size=n_aux_donors, replace=False)
-    all_aux = all_data[all_data.obs["individual"].isin(aux_donors)]
+    non_target_donors = list(set(all_donors).difference(set(target_donors)))
+    num_aux_donors = max(MIN_AUX_DONORS, n_donors_used)
+    # The following approach samples from the non_target_donors first, until it needs more donors to
+    # meet the minimum number of donors, at which point it will sample from the train + holdout donors
+    non_target_donors_shuffled = np.random.permutation(non_target_donors)
+    target_donors_shuffled = np.random.permutation(target_donors)
+    aux_donors = np.concatenate((non_target_donors_shuffled, target_donors_shuffled))[:num_aux_donors]
 
+    all_train = all_data[all_data.obs["individual"].isin(train_donors)]
+    all_holdout = all_data[all_data.obs["individual"].isin(holdout_donors)]
+    all_aux = all_data[all_data.obs["individual"].isin(aux_donors)]
     print(f"Num train donors: {len(train_donors)}, Holdout: {len(holdout_donors)}, Auxiliary: {len(aux_donors)}")
     print(f"Num train cells: {len(all_train)}, Holdout: {len(all_holdout)}, Auxiliary: {len(all_aux)}")
-    return all_train, all_holdout, all_aux, len(train_donors)
+
+    if cfg.mia_setting.num_donors > 1.95*len(train_donors):
+        print("Too few donors for MIA", flush=True)
+        print(f"Requested: {cfg.mia_setting.num_donors}, found: {len(train_donors)}.", flush=True)
+        print("exiting.", flush=True)
+        sys.exit(0)
+
+    return all_train, all_holdout, all_aux
 
 
 

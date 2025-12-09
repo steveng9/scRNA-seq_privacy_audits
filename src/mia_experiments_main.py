@@ -183,13 +183,7 @@ def create_data_splits_donor_MI(cfg):
     cell_types = list(all_data.obs["cell_type"].unique())
     sample_strategy = cfg.sample_donors_strategy_fn
 
-    all_train, all_holdout, all_aux, num_donors_used = sample_strategy(cfg, all_data, cell_types)
-
-    if cfg.mia_setting.num_donors > 1.95*num_donors_used:
-        print("Too few donors for MIA", flush=True)
-        print(f"Requested: {cfg.mia_setting.num_donors}, found: {num_donors_used}.", flush=True)
-        print("exiting.", flush=True)
-        sys.exit(0)
+    all_train, all_holdout, all_aux = sample_strategy(cfg, all_data, cell_types)
 
     all_train.write_h5ad(cfg.train_path)
     all_holdout.write_h5ad(cfg.holdout_path)
