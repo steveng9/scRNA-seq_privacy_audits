@@ -185,7 +185,7 @@ def create_data_splits_donor_MI(cfg):
 
     all_train, all_holdout, all_aux, num_donors_used = sample_strategy(cfg, all_data, cell_types)
 
-    if cfg.mia_setting.num_donors > 1.8*num_donors_used:
+    if cfg.mia_setting.num_donors > 1.95*num_donors_used:
         print("Too few donors for MIA", flush=True)
         print(f"Requested: {cfg.mia_setting.num_donors}, found: {num_donors_used}.", flush=True)
         print("exiting.", flush=True)
