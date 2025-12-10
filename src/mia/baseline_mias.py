@@ -20,7 +20,7 @@ mia_classes = {
 
 
 def main():
-    data_dir = "/Users/stevengolob/Documents/school/PhD/Ghent_project_mia_scRNAseq/data/cg/10d/datasets"
+    data_dir = "/Users/stevengolob/Documents/school/PhD/Ghent_project_mia_scRNAseq/data/ok/2d/datasets"
     train = ad.read_h5ad(os.path.join(data_dir, "train.h5ad"))
     holdout = ad.read_h5ad(os.path.join(data_dir, "holdout.h5ad"))
     # labels = pd.Series(np.concatenate((np.ones(train.shape[0], dtype=int), np.zeros(holdout.shape[0], dtype=int))), name="membership")
@@ -52,8 +52,8 @@ def main():
     mmb_labels_file:str = os.path.join(data_dir, "labels.csv")
     reference_file:str = os.path.join(data_dir, "auxiliary.h5ad")
 
-    module = importlib.import_module("models.baseline")
-    MIAClass = getattr(module, "DOMIASBaselineModels")
+    module = importlib.import_module("models.sc_baseline")
+    MIAClass = getattr(module, "DOMIASSingleCellBaselineModels")
 
     mia_model = MIAClass(cfg, synthetic_file, mmb_test_file, mmb_labels_file, mia_experiment_name, reference_file)
     

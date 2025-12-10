@@ -17,6 +17,7 @@ from domias.baselines import (MC, LOGAN_D1,
                               GAN_leaks, GAN_leaks_cal)
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print("Using device:", DEVICE)
 
 #Adapted from https://github.com/holarissun/DOMIAS/blob/main/src/domias/baselines.py
 
@@ -92,7 +93,7 @@ def perform_pca(data, n_components=2):
     pca = PCA(n_components=n_components)
     #data = StandardScaler().fit_transform(data)
     principal_components = pca.fit_transform(data)
-    print(np.sum(pca.explained_variance_ratio_))
+    print("3:::", np.sum(pca.explained_variance_ratio_))
 
     return principal_components
 

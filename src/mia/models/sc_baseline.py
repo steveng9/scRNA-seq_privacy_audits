@@ -10,7 +10,7 @@ import torch.nn.functional as F
 src_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.append(src_dir)
 
-from mia.models.base import BaseMIAModel
+from src.mia.models.base import BaseMIAModel
 #from domias.baselines import (MC, GAN_leaks)
 
 
@@ -43,7 +43,7 @@ def d_min(X: np.ndarray, Y: np.ndarray) -> np.ndarray:
 def batch_d_min(X: np.ndarray, Y: np.ndarray, batch_size=1000) -> np.ndarray:
     min_dists = []
     for i in range(0, X.shape[0], batch_size):
-        print(f"{i} / {X.shape[0]}")
+        print(f":::: {i} / {X.shape[0]}")
         batch = X[i:i + batch_size]
         distances = batch_d(batch, Y, batch_size)
         min_dists.append(np.min(distances, axis=1))
@@ -65,7 +65,7 @@ def sigmoid(x: np.ndarray) -> np.ndarray:
 def pre_filtering_before_split(adata):
     ## prefiltering before separation 
     sc.pp.filter_genes(adata, min_cells=3) # Remove genes that are detected in less than 3 cells.
-    print(adata.shape)
+    print(":::2:", adata.shape)
     adata.var['mt'] = adata.var_names.str.startswith('MT-')
     sc.pp.calculate_qc_metrics(adata, qc_vars=['mt'], percent_top=None, log1p=False, inplace=True)
     sc.pl.violin(adata,
