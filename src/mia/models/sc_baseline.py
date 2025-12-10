@@ -171,24 +171,27 @@ class DOMIASSingleCellBaselineModels(BaseMIAModel):
 
 
     def perform_donor_level_avg(self, predictions, labels):
-       predictions = predictions["gan_leaks"]
-       assert len(predictions) == len(self.donors), f"Scores {len(predictions)} and donors {len(self.donors)} must have the same length."
 
-       # Create a DataFrame to easily group scores by donor
-       scores_df = pd.DataFrame({
-            'donor': self.donors,
-            'score': predictions,
-            'y_test': labels,
-        })
-       scores_df.to_csv("scores.csv")
-       
-       grp_predictions = scores_df.groupby('donor')['score'].mean().to_numpy()
-       grp_labels = scores_df.groupby('donor')['y_test'].mean().to_numpy()
+        grp_predictions = dict()
+        unique_donors = list(np.unique(self.donors))
+        for method_name, prediction in predictions.items():
+            pred = prediction
+            assert len(pred) == len(self.donors), f"Scores {len(pred)} and donors {len(self.donors)} must have the same length."
 
-       #print(grp_predictions)
-       #print(grp_labels)
+            # Create a DataFrame to easily group scores by donor
+            scores_df = pd.DataFrame({
+                'donor': self.donors,
+                'score': pred,
+                'y_test': labels,
+            })
+            scores_df.to_csv("scores.csv")
+            grouped = scores_df.groupby('donor')
 
-       return grp_predictions, grp_labels
+            grp_predictions[method_name] = np.array([grouped.get_group(donor)['score'].mean() for donor in unique_donors])
+            grp_labels = np.array([grouped.get_group(donor)['y_test'].mean() for donor in unique_donors])
+            print(grp_labels)
+
+        return grp_predictions, grp_labels
 
 
 
