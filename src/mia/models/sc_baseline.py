@@ -11,6 +11,7 @@ src_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.append(src_dir)
 
 from src.mia.models.base import BaseMIAModel
+from src.mia.models.baseline import run_baselines
 #from domias.baselines import (MC, GAN_leaks)
 
 
@@ -113,6 +114,8 @@ class DOMIASSingleCellBaselineModels(BaseMIAModel):
         X_test = data_loader.load_membership_dataset(filter=False)
         y_test, barcodes, self.donors = data_loader.load_membership_labels(X_test.obs)
 
+        reference = data_loader.load_reference_data()
+
         #same = X_test.obs["barcode_col"].values.equals(barcodes)
         same = np.array_equal(X_test.obs["barcode_col"].to_numpy(), barcodes.to_numpy())
 
@@ -121,13 +124,13 @@ class DOMIASSingleCellBaselineModels(BaseMIAModel):
 
         if y_test is not None:
             assert len(X_test) == len(y_test), "mismatch in test data and label lengths."
-        
+
         #reference = data_loader.load_reference_data()
         #X_test_dense = X_test.X.toarray() if hasattr(X_test.X, "toarray") else X_test.X
         #syn_dense = synthetic_data.X.toarray() if hasattr(synthetic_data.X, "toarray") else synthetic_data.X
 
-        ## Testing if using HVG have an effect 
-        combined_adata = X_test.concatenate(synthetic_data)
+        ## Testing if using HVG have an effect
+        combined_adata = X_test.concatenate(synthetic_data).concatenate(reference)
         # Normalize before selecting HVGs
         sc.pp.normalize_total(combined_adata, target_sum=1e4)
         sc.pp.log1p(combined_adata)
@@ -141,20 +144,29 @@ class DOMIASSingleCellBaselineModels(BaseMIAModel):
         sc.pp.normalize_total(synthetic_data, target_sum=1e4)
         sc.pp.log1p(synthetic_data)
 
+        ### Normalize and logp
+        sc.pp.normalize_total(reference, target_sum=1e4)
+        sc.pp.log1p(reference)
+
         X_test = X_test[:, combined_adata.var['highly_variable']]
         synthetic_data = synthetic_data[:, combined_adata.var['highly_variable']]
+        reference = reference[:, combined_adata.var['highly_variable']]
         print("X TEST")
         print(X_test)
         print("SYNTHETIC DATA")
         print(synthetic_data)
+        print("REFERENCE DATA")
+        print(reference)
 
         X_test_dense = X_test.X.toarray() if hasattr(X_test.X, "toarray") else X_test.X
         syn_dense = synthetic_data.X.toarray() if hasattr(synthetic_data.X, "toarray") else synthetic_data.X
+        ref_dense = reference.X.toarray() if hasattr(reference.X, "toarray") else reference.X
 
-        scores = {}
-        scores["gan_leaks"] = batch_GAN_leaks(X_test_dense, syn_dense)
+        scores = run_baselines(X_test_dense, syn_dense, ref_dense, ref_dense, None)
+        scores["gan_leaks_sc"] = batch_GAN_leaks(X_test_dense, syn_dense)
 
         return scores, y_test
+
     
 
 
