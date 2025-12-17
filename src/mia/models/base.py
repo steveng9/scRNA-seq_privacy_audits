@@ -59,28 +59,24 @@ class BaseMIAModel(ABC):
     def run_attack(self) -> Dict[str, np.ndarray]:
         pass
 
-
-    def evaluate_attack(self, 
-                        scores: Dict[str, np.ndarray], 
-                        labels: np.ndarray, 
+    def evaluate_attack(self,
+                        scores: Dict[str, np.ndarray],
+                        labels: np.ndarray,
                         file_name: str):
 
         eval_results = {}
         if isinstance(scores, np.ndarray):
             scores = {self.attack_model: scores}
 
+        # Store all curves for combined plotting
+        all_curves = {}
+
         for method_name, score in scores.items():
             # compute metrics for each method
-            #acc, fpr, tpr, threshold, auc, ap = self._compute_metrics(score, labels)
             (acc_median, acc_best, fpr, tpr, threshold, auc, ap, pr_auc,
-            f1_median, f1_best, tpr_at_fpr_001, tpr_at_fpr_01) = self._compute_metrics(score, labels)
+             f1_median, f1_best, tpr_at_fpr_001, tpr_at_fpr_01) = self._compute_metrics(score, labels)
 
-
-            
             eval_results[method_name] = {
-                #"accuracy": acc,
-                #"aucroc": auc,
-                #"average_precision": ap,
                 "accuracy_median": acc_median,
                 "accuracy_best": acc_best,
                 "aucroc": auc,
@@ -90,17 +86,61 @@ class BaseMIAModel(ABC):
                 "f1_best": f1_best,
                 "tpr_at_fpr_001": tpr_at_fpr_001,
                 "tpr_at_fpr_01": tpr_at_fpr_01
-
-
-                #"fpr": fpr.tolist(),
-                #"tpr": tpr.tolist(),
-                #"threshold": threshold.tolist() 
             }
 
-            # plot ROC curve for each method
-            self._plot_roc_curve(method_name, fpr, tpr, auc, ap)
+            # Store curve data for combined plot
+            all_curves[method_name] = {
+                'fpr': fpr,
+                'tpr': tpr,
+                'auc': auc,
+                'ap': ap
+            }
 
+        # Plot all ROC curves together
+        self._plot_all_roc_curves(all_curves)
         self._save_eval_results(eval_results, file_name)
+    #
+    # def evaluate_attack(self,
+    #                     scores: Dict[str, np.ndarray],
+    #                     labels: np.ndarray,
+    #                     file_name: str):
+    #
+    #     eval_results = {}
+    #     if isinstance(scores, np.ndarray):
+    #         scores = {self.attack_model: scores}
+    #
+    #     for method_name, score in scores.items():
+    #         # compute metrics for each method
+    #         #acc, fpr, tpr, threshold, auc, ap = self._compute_metrics(score, labels)
+    #         (acc_median, acc_best, fpr, tpr, threshold, auc, ap, pr_auc,
+    #         f1_median, f1_best, tpr_at_fpr_001, tpr_at_fpr_01) = self._compute_metrics(score, labels)
+    #
+    #
+    #
+    #         eval_results[method_name] = {
+    #             #"accuracy": acc,
+    #             #"aucroc": auc,
+    #             #"average_precision": ap,
+    #             "accuracy_median": acc_median,
+    #             "accuracy_best": acc_best,
+    #             "aucroc": auc,
+    #             "average_precision": ap,
+    #             "pr_auc": pr_auc,
+    #             "f1_median": f1_median,
+    #             "f1_best": f1_best,
+    #             "tpr_at_fpr_001": tpr_at_fpr_001,
+    #             "tpr_at_fpr_01": tpr_at_fpr_01
+    #
+    #
+    #             #"fpr": fpr.tolist(),
+    #             #"tpr": tpr.tolist(),
+    #             #"threshold": threshold.tolist()
+    #         }
+    #
+    #         # plot ROC curve for each method
+    #         self._plot_roc_curve(method_name, fpr, tpr, auc, ap)
+    #
+    #     self._save_eval_results(eval_results, file_name)
 
 
 
@@ -176,7 +216,25 @@ class BaseMIAModel(ABC):
         plt.savefig(os.path.join(self.results_save_dir, f'roc_plot_{name}.png'))
         plt.close()
 
-    
+    def _plot_all_roc_curves(self, all_curves: Dict):
+        plt.figure(figsize=(10, 8))
+        plt.plot([0, 1], [0, 1], 'k--', linewidth=1, label='Random Classifier')
+        for method_name, curve_data in all_curves.items():
+            plt.plot(curve_data['fpr'], curve_data['tpr'],
+                     linewidth=2,
+                     label=f"{method_name} (AUC={curve_data['auc']:.3f})")
+
+        plt.xlabel('False Positive Rate', fontsize=12)
+        plt.ylabel('True Positive Rate', fontsize=12)
+        plt.title('ROC Curves - All Methods', fontsize=14)
+        plt.legend(loc='lower right', fontsize=10)
+        plt.grid(True, alpha=0.3)
+        plt.tight_layout()
+
+        # Save the combined plot
+        save_path = os.path.join(self.results_save_dir, f'roc_plot_all_generators.png')
+        plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        plt.close()
 
     def _save_eval_results(self, 
                           eval_results: Dict[str, Dict[str, float]], 

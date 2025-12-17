@@ -245,21 +245,39 @@ train_copula <- function(train_h5ad_path, type, out_copula_path) {
 	# cell types (and you can have multiple cols w/
 	# same name).
 	sprintf("Reading %s", train_h5ad_path)
-	data <- readH5AD(train_h5ad_path)
-	print("Succeeded")
-	col_data <- colData(data)
-	train_cnts <- assay(data, "X")
-	
-	# Truncate to avoid RAM errors. Extract first 500 for
-	# cell type.
-	#colnames(counts_matrix) <- lapply(colnames(counts_matrix), function(name) col_data[name, "cell_type"])
-	#correct_cell_type <- counts_matrix[, colnames(counts_matrix) == type]
-	#train_cnts <- correct_cell_type[,1:min(1000, ncol(correct_cell_type))]
-	#train_cnts <- counts_matrix[,1:1000]
-	print(dim(train_cnts))
-	colnames(train_cnts) <- lapply(colnames(train_cnts), function(name) col_data[name, "cell_type"])
 
-	cell_type_sel <- unique(col_data[, "cell_type"])
+
+    # OLD
+    # data <- readH5AD(train_h5ad_path)
+	# print("Succeeded")
+	# col_data <- colData(data)
+	# train_cnts <- assay(data, "X")
+	#
+	# # Truncate to avoid RAM errors. Extract first 500 for
+	# # cell type.
+	# #colnames(counts_matrix) <- lapply(colnames(counts_matrix), function(name) col_data[name, "cell_type"])
+	# #correct_cell_type <- counts_matrix[, colnames(counts_matrix) == type]
+	# #train_cnts <- correct_cell_type[,1:min(1000, ncol(correct_cell_type))]
+	# #train_cnts <- counts_matrix[,1:1000]
+	# print(dim(train_cnts))
+	# colnames(train_cnts) <- lapply(colnames(train_cnts), function(name) col_data[name, "cell_type"])
+    #
+	# cell_type_sel <- unique(col_data[, "cell_type"])
+
+    # NEW
+    data <- readH5AD(train_h5ad_path)
+    print("Succeeded")
+
+    col_data <- colData(data)
+    train_cnts <- assay(data, "X")
+
+    # print(dim(train_cnts))
+    # print("Formulating new colnames")
+    print(class(train_cnts))
+    colnames(train_cnts) <- col_data[colnames(train_cnts), "cell_type"]
+    # print("Assigned")
+
+    cell_type_sel <- unique(col_data$cell_type)
 	
 	RNGkind("L'Ecuyer-CMRG")
 	set.seed(1)
@@ -277,21 +295,39 @@ train_copula_all_cell_types <- function(train_h5ad_path, type, out_copula_path) 
 	# cell types (and you can have multiple cols w/
 	# same name).
 	sprintf("Reading %s", train_h5ad_path)
-	data <- readH5AD(train_h5ad_path)
-	print("Succeeded")
-	col_data <- colData(data)
-	train_cnts <- assay(data, "X")
-	
-	# Truncate to avoid RAM errors. Extract first 500 for
-	# cell type.
-	#colnames(counts_matrix) <- lapply(colnames(counts_matrix), function(name) col_data[name, "cell_type"])
-	#correct_cell_type <- counts_matrix[, colnames(counts_matrix) == type]
-	#train_cnts <- correct_cell_type[,1:min(1000, ncol(correct_cell_type))]
-	#train_cnts <- counts_matrix[,1:1000]
-	print(dim(train_cnts))
-	colnames(train_cnts) <- lapply(colnames(train_cnts), function(name) col_data[name, "cell_type"])
 
-	cell_type_sel <- unique(col_data[, "cell_type"])
+    # OLD
+	# data <- readH5AD(train_h5ad_path)
+	# print("Succeeded")
+	# col_data <- colData(data)
+	# train_cnts <- assay(data, "X")
+	#
+	# # Truncate to avoid RAM errors. Extract first 500 for
+	# # cell type.
+	# #colnames(counts_matrix) <- lapply(colnames(counts_matrix), function(name) col_data[name, "cell_type"])
+	# #correct_cell_type <- counts_matrix[, colnames(counts_matrix) == type]
+	# #train_cnts <- correct_cell_type[,1:min(1000, ncol(correct_cell_type))]
+	# #train_cnts <- counts_matrix[,1:1000]
+	# print(dim(train_cnts))
+	# colnames(train_cnts) <- lapply(colnames(train_cnts), function(name) col_data[name, "cell_type"])
+    #
+	# cell_type_sel <- unique(col_data[, "cell_type"])
+
+
+    # NEW
+    data <- readH5AD(train_h5ad_path)
+    print("Succeeded")
+
+    col_data <- colData(data)
+    train_cnts <- assay(data, "X")
+
+    # print(dim(train_cnts))
+    # print("Formulating new colnames")
+    # print(class(train_cnts))
+    colnames(train_cnts) <- col_data[colnames(train_cnts), "cell_type"]
+    # print("Assigned")
+
+    cell_type_sel <- unique(col_data$cell_type)
 	
 	RNGkind("L'Ecuyer-CMRG")
 	set.seed(1)

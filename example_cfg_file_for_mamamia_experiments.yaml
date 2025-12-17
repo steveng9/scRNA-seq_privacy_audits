@@ -10,37 +10,46 @@
 #            |     |-notes_about_dataset.txt
 #            |     |-experiment_config_file_1.yaml
 #            |     |_CONFIG_1
-#            |     |     |_MODELS (white box information)
-#            |     |     |     |-config.yaml (used to run scdesign2)
-#            |     |     |     |-hvgs.csv
-#            |     |     |     |-cell1_copula.rds
-#            |     |     |     |-cell2_copula.rds
-#            |     |     |     | ...
-#            |     |     |
-#            |     |     |_ARTIFACTS
-#            |     |     |     |-hvgs.csv
-#            |     |     |     |_SYNTH
-#            |     |     |     |    |-config.yaml (used to run scdesign2)
-#            |     |     |     |    |-cell1_copula.rds
-#            |     |     |     |    |-cell2_copula.rds
-#            |     |     |     |    | ...
+#            |     |     |_trial 1
+#            |     |     |     |_MODELS (white box information)
+#            |     |     |     |     |-config.yaml (used to run scdesign2)
+#            |     |     |     |     |-hvgs.csv
+#            |     |     |     |     |-cell1_copula.rds
+#            |     |     |     |     |-cell2_copula.rds
+#            |     |     |     |     | ...
 #            |     |     |     |
-#            |     |     |     |_AUX
-#            |     |     |          |-config.yaml (used to run scdesign2)
-#            |     |     |          |-cell1_copula.rds
-#            |     |     |          |-cell2_copula.rds
-#            |     |     |          | ...
+#            |     |     |     |_ARTIFACTS
+#            |     |     |     |     |-hvgs.csv
+#            |     |     |     |     |_SYNTH
+#            |     |     |     |     |    |-config.yaml (used to run scdesign2)
+#            |     |     |     |     |    |-cell1_copula.rds
+#            |     |     |     |     |    |-cell2_copula.rds
+#            |     |     |     |     |    | ...
+#            |     |     |     |     |
+#            |     |     |     |     |_AUX
+#            |     |     |     |          |-config.yaml (used to run scdesign2)
+#            |     |     |     |          |-cell1_copula.rds
+#            |     |     |     |          |-cell2_copula.rds
+#            |     |     |     |          | ...
+#            |     |     |     |
+#            |     |     |     |_RESULTS
+#            |     |     |     |     |-full_target_scores.csv
+#            |     |     |     |     |-mama_mia_metrics.json
+#            |     |     |     |     |-runtime.json
+#            |     |     |     |     |-baseline_mia_metrics.json
+#            |     |     |     |     |-quality_metrics.json
+#            |     |     |     |     |_FIGURES
+#            |     |     |     |     |    |...
+#            |     |     |     |
+#            |     |     |     |_DATASETS
+#            |     |     |     |     |-train.h5ad
+#            |     |     |     |     |-holdout.h5ad
+#            |     |     |     |     |-aux.h5ad
+#            |     |     |     |     |-synth.h5ad
 #            |     |     |
-#            |     |     |_RESULTS
-#            |     |     |     |_FIGURES
-#            |     |     |     |    |...
+#            |     |     |_trial 2
 #            |     |     |     |...
-#            |     |     |
-#            |     |     |_DATASETS
-#            |     |     |     |-train.h5ad
-#            |     |     |     |-holdout.h5ad
-#            |     |     |     |-aux.h5ad
-#            |     |     |     |-synth.h5ad
+#            |     |     | ...
 #            |     |
 #            |     |-experiment_config_file_2.yaml
 #            |     |_CONFIG_2
@@ -62,26 +71,23 @@ dataset_name: ok
 plot_results: true
 determine_new_hvgs: false
 parallelize: true
+min_aux_donors: 10
 
 mamamia_params:
   IMPORTANCE_OF_CLASS_B_FPs: .17
   epsilon: .0001
   mahalanobis: true
   uniform_remapping_fn: zinb_cdf
-  lin_alg_inverse_fn: pinv
+  lin_alg_inverse_fn: pinv_gpu
   closeness_to_correlation_fn: closeness_to_correlation_1
 
-
 mia_setting:
-  dataset_size_k: 1
-  donor_level: true
   sample_donors_strategy_fn: sample_donors_strategy_2
-  cells_per_donor_min: 5
-  cells_per_donor_max: 30
   num_donors: 100
   # threat model
   white_box: false
   use_wb_hvgs: true
+  use_aux: true
 
 
 

@@ -68,7 +68,8 @@ class ScDesign2GeneratorParallel(BaseSingleCellDataGenerator):
         self.mean_expression = None
 
         self.hvg_mask = None
-        self.hvg_path = os.path.join(self.home_dir, self.generator_config["hvg_path"], "hvg.csv")
+        # self.hvg_path = os.path.join(self.home_dir, self.generator_config["hvg_path"], "hvg.csv")
+        self.hvg_path = self.generator_config["hvg_path"]
 
         os.makedirs(self.tmp_dir, exist_ok=True)
 

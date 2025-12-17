@@ -5,55 +5,54 @@ from scipy import stats
 import anndata as ad
 
 
+#
+#
+# def sample_donors_strategy_1(cfg, all_data, cell_types):
+#     all_train, all_holdout, all_aux = sample_cells_from_sampled_donors(cfg, all_data, cell_types[0])
+#     for cell_type in cell_types[1:]:
+#         train_data, holdout_data, aux_data = sample_cells_from_sampled_donors(cfg, all_data, cell_type)
+#         all_train = ad.concat([all_train, train_data])
+#         all_holdout = ad.concat([all_holdout, holdout_data])
+#         all_aux = ad.concat([all_aux, aux_data])
+#
+#     return all_train, all_holdout, all_aux
+#
+#
+# def sample_cells_from_sampled_donors(cfg, all_data, cell_type):
+#     all_meta = all_data.obs
+#
+#     # step 1: sample donors
+#     all_only_cell_meta = all_meta[all_meta["cell_type"] == cell_type]
+#     unique_donors = all_meta["individual"].unique()
+#     cell_counts = all_only_cell_meta["individual"].value_counts()
+#     unique_donors_w_enough_of_celltype = list(cell_counts[cell_counts >= cfg.mia_setting.cells_per_donor_min].index)
+#     n_donors_used = min(cfg.mia_setting.num_donors, len(unique_donors_w_enough_of_celltype) // 2)
+#     train_donors = np.random.choice(unique_donors_w_enough_of_celltype, size=n_donors_used, replace=False)
+#     all_holdout_donors = list(set(unique_donors_w_enough_of_celltype).difference(set(train_donors)))
+#     used_holdout_donors = np.random.choice(all_holdout_donors, size=n_donors_used, replace=False)
+#     aux_donors = np.random.choice(unique_donors_w_enough_of_celltype, size=n_donors_used, replace=False)
+#     print(f"Selected {n_donors_used} donors of {len(unique_donors_w_enough_of_celltype)} w/ cell type {cell_type} ({len(used_holdout_donors)} holdout, {len(unique_donors)} total)")
+#
+#     # step 2: then sample cells from donors
+#     def get_cell_sample_from_donor(donors):
+#         sampled_indices = []
+#         for donor in donors:
+#             donor_mask = (all_meta["individual"] == donor) & (all_meta["cell_type"] == cell_type)
+#             donor_indices = np.where(donor_mask)[0]
+#             # if fewer than requested cells exist, sample all
+#             n_cells_from_donor = min(cfg.mia_setting.cells_per_donor_max, len(donor_indices))
+#             sampled_indices.extend(np.random.choice(donor_indices, size=n_cells_from_donor, replace=False))
+#         return all_data[sampled_indices].copy()
+#
+#     train_data = get_cell_sample_from_donor(train_donors)
+#     holdout_data = get_cell_sample_from_donor(used_holdout_donors)
+#     aux_data = get_cell_sample_from_donor(aux_donors)
+#
+#     return train_data, holdout_data, aux_data
+#
 
 
-def sample_donors_strategy_1(cfg, all_data, cell_types):
-    all_train, all_holdout, all_aux = sample_cells_from_sampled_donors(cfg, all_data, cell_types[0])
-    for cell_type in cell_types[1:]:
-        train_data, holdout_data, aux_data = sample_cells_from_sampled_donors(cfg, all_data, cell_type)
-        all_train = ad.concat([all_train, train_data])
-        all_holdout = ad.concat([all_holdout, holdout_data])
-        all_aux = ad.concat([all_aux, aux_data])
-
-    return all_train, all_holdout, all_aux
-
-
-def sample_cells_from_sampled_donors(cfg, all_data, cell_type):
-    all_meta = all_data.obs
-
-    # step 1: sample donors
-    all_only_cell_meta = all_meta[all_meta["cell_type"] == cell_type]
-    unique_donors = all_meta["individual"].unique()
-    cell_counts = all_only_cell_meta["individual"].value_counts()
-    unique_donors_w_enough_of_celltype = list(cell_counts[cell_counts >= cfg.mia_setting.cells_per_donor_min].index)
-    n_donors_used = min(cfg.mia_setting.num_donors, len(unique_donors_w_enough_of_celltype) // 2)
-    train_donors = np.random.choice(unique_donors_w_enough_of_celltype, size=n_donors_used, replace=False)
-    all_holdout_donors = list(set(unique_donors_w_enough_of_celltype).difference(set(train_donors)))
-    used_holdout_donors = np.random.choice(all_holdout_donors, size=n_donors_used, replace=False)
-    aux_donors = np.random.choice(unique_donors_w_enough_of_celltype, size=n_donors_used, replace=False)
-    print(f"Selected {n_donors_used} donors of {len(unique_donors_w_enough_of_celltype)} w/ cell type {cell_type} ({len(used_holdout_donors)} holdout, {len(unique_donors)} total)")
-
-    # step 2: then sample cells from donors
-    def get_cell_sample_from_donor(donors):
-        sampled_indices = []
-        for donor in donors:
-            donor_mask = (all_meta["individual"] == donor) & (all_meta["cell_type"] == cell_type)
-            donor_indices = np.where(donor_mask)[0]
-            # if fewer than requested cells exist, sample all
-            n_cells_from_donor = min(cfg.mia_setting.cells_per_donor_max, len(donor_indices))
-            sampled_indices.extend(np.random.choice(donor_indices, size=n_cells_from_donor, replace=False))
-        return all_data[sampled_indices].copy()
-
-    train_data = get_cell_sample_from_donor(train_donors)
-    holdout_data = get_cell_sample_from_donor(used_holdout_donors)
-    aux_data = get_cell_sample_from_donor(aux_donors)
-
-    return train_data, holdout_data, aux_data
-
-
-
-def sample_donors_strategy_2(cfg, all_data, cell_types):
-    MIN_AUX_DONORS = 10
+def sample_donors_strategy_2(cfg, all_data, _cell_types):
     all_meta = all_data.obs
 
     # step 1: sample donors
@@ -65,18 +64,13 @@ def sample_donors_strategy_2(cfg, all_data, cell_types):
 
     # create aux dataset
     non_target_donors = list(set(all_donors).difference(set(target_donors)))
-    num_aux_donors = max(MIN_AUX_DONORS, n_donors_used)
+    num_aux_donors = max(cfg.min_aux_donors, n_donors_used)
     # The following approach samples from the non_target_donors first, until it needs more donors to
     # meet the minimum number of donors, at which point it will sample from the train + holdout donors
     non_target_donors_shuffled = np.random.permutation(non_target_donors)
     target_donors_shuffled = np.random.permutation(target_donors)
     aux_donors = np.concatenate((non_target_donors_shuffled, target_donors_shuffled))[:num_aux_donors]
-
-    all_train = all_data[all_data.obs["individual"].isin(train_donors)]
-    all_holdout = all_data[all_data.obs["individual"].isin(holdout_donors)]
-    all_aux = all_data[all_data.obs["individual"].isin(aux_donors)]
     print(f"Num train donors: {len(train_donors)}, Holdout: {len(holdout_donors)}, Auxiliary: {len(aux_donors)}")
-    print(f"Num train cells: {len(all_train)}, Holdout: {len(all_holdout)}, Auxiliary: {len(all_aux)}")
 
     if cfg.mia_setting.num_donors > 1.95*len(train_donors):
         print("Too few donors for MIA", flush=True)
@@ -84,8 +78,40 @@ def sample_donors_strategy_2(cfg, all_data, cell_types):
         print("exiting.", flush=True)
         sys.exit(0)
 
-    return all_train, all_holdout, all_aux
+    return train_donors, holdout_donors, aux_donors
+    # return all_train, all_holdout, all_aux
 
+
+
+
+def sample_donors_strategy_3(cfg, all_data, _cell_types):
+    all_meta = all_data.obs
+
+    # step 1: sample donors
+    all_donors = all_meta["individual"].unique()
+    n_donors_used = min(cfg.mia_setting.num_donors, len(all_donors) // 2)
+    target_donors = np.random.choice(all_donors, size=n_donors_used*2, replace=False)
+    train_donors = target_donors[:n_donors_used]
+    holdout_donors = target_donors[n_donors_used:]
+
+    # create aux dataset
+    non_target_donors = list(set(all_donors).difference(set(target_donors)))
+    num_aux_donors = max(cfg.min_aux_donors, n_donors_used)
+    # The following approach samples from the non_target_donors first, until it needs more donors to
+    # meet the minimum number of donors, at which point it will sample from the train + holdout donors
+    non_target_donors_shuffled = np.random.permutation(non_target_donors)
+    target_donors_shuffled = np.random.permutation(target_donors)
+    aux_donors = np.concatenate((non_target_donors_shuffled, target_donors_shuffled))[:num_aux_donors]
+    print(f"Num train donors: {len(train_donors)}, Holdout: {len(holdout_donors)}, Auxiliary: {len(aux_donors)}")
+
+    if cfg.mia_setting.num_donors > 1.95*len(train_donors):
+        print("Too few donors for MIA", flush=True)
+        print(f"Requested: {cfg.mia_setting.num_donors}, found: {len(train_donors)}.", flush=True)
+        print("exiting.", flush=True)
+        sys.exit(0)
+
+    return train_donors, holdout_donors, aux_donors
+    # return all_train, all_holdout, all_aux
 
 
 
