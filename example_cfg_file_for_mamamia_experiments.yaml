@@ -69,9 +69,8 @@ dir_list:
     data: /home/golobs/data
 dataset_name: ok
 plot_results: true
-determine_new_hvgs: false
 parallelize: true
-min_aux_donors: 10
+min_aux_donors: 5
 
 mamamia_params:
   IMPORTANCE_OF_CLASS_B_FPs: .17
