@@ -289,13 +289,14 @@ def create_datasets_from_splits(cfg):
 
     # make full_results_file for target cells
     if not os.path.exists(cfg.all_scores_file):
+        cols = targets.obs.columns.tolist()
         all_scores_df = pd.DataFrame({
             'cell id': targets.to_df().index,
             'donor id': targets.obs['individual'].values,
             'cell type': targets.obs['cell_type'].values,
-            'sex': targets.obs['sex'].values,
-            'ethnicity': targets.obs['ethnicity'].values,
-            'age': targets.obs['age'].values,
+            'sex': targets.obs['sex'].values if 'sex' in cols else None,
+            'ethnicity': targets.obs['ethnicity'].values if 'ethnicity' in cols else None,
+            'age': targets.obs['age'].values if 'age' in cols else None,
             'membership': np.concatenate([np.ones(len(all_train)), np.zeros(len(all_holdout))]),
         })
         all_scores_df.to_csv(cfg.all_scores_file, index=False)
