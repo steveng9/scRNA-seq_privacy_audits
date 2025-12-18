@@ -14,7 +14,7 @@ else:
     data_dir = "/home/golobs/data"
 
 def format_ct_name(cell_name):
-    return str(cell_name).replace(" ", "_")
+    return str(cell_name).replace(" ", "_").replace(",", "_")
 
 
 def extract_age(age_str):
