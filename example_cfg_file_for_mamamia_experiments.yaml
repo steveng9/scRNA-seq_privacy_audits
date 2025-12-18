@@ -7,8 +7,13 @@
 #        |_DATA
 #            |_DATASET_1
 #            |     |-full_dataset.h5ad
+#            |     |-full_dataset_cleaned.h5ad (created with clean_data.py)
 #            |     |-notes_about_dataset.txt
-#            |     |-experiment_config_file_1.yaml
+#            |     |_exp_cfgs
+#            |     |     |-cfg1_<threat model code>.yaml
+#            |     |     |-cfg2_<threat model code>.yaml
+#            |     |     | ...
+#            |     |
 #            |     |_CONFIG_1
 #            |     |     |_trial 1
 #            |     |     |     |_MODELS (white box information)
@@ -33,25 +38,26 @@
 #            |     |     |     |          | ...
 #            |     |     |     |
 #            |     |     |     |_RESULTS
-#            |     |     |     |     |-full_target_scores.csv
-#            |     |     |     |     |-mama_mia_metrics.json
-#            |     |     |     |     |-runtime.json
+#            |     |     |     |     |-mamamia_all_scores.csv
+#            |     |     |     |     |-mamamia_results.json
+#            |     |     |     |     |-AUXILIARY_DATA_SHADOW_MODEL_runtime.csv
+#            |     |     |     |     |-SYNTHETIC_DATA_SHADOW_MODEL_runtime.csv
+#            |     |     |     |     |-TARGET_SYNTHETIC_DATA_runtime.csv
 #            |     |     |     |     |-baseline_mia_metrics.json
-#            |     |     |     |     |-quality_metrics.json
+#            |     |     |     |     |-quality_results.json
 #            |     |     |     |     |_FIGURES
 #            |     |     |     |     |    |...
 #            |     |     |     |
 #            |     |     |     |_DATASETS
-#            |     |     |     |     |-train.h5ad
-#            |     |     |     |     |-holdout.h5ad
-#            |     |     |     |     |-aux.h5ad
+#            |     |     |     |     |-train.npy (These merely hold the donor ids. H5ad files will be created during an experiment, and then removed to save space.)
+#            |     |     |     |     |-holdout.npy (These merely hold the donor ids. H5ad files will be created during an experiment, and then removed to save space.)
+#            |     |     |     |     |-aux.npy (These merely hold the donor ids. H5ad files will be created during an experiment, and then removed to save space.)
 #            |     |     |     |     |-synth.h5ad
 #            |     |     |
 #            |     |     |_trial 2
 #            |     |     |     |...
 #            |     |     | ...
 #            |     |
-#            |     |-experiment_config_file_2.yaml
 #            |     |_CONFIG_2
 #            |     |     |...
 #            |     | ...
