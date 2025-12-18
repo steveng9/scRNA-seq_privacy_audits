@@ -147,6 +147,7 @@ def create_config(config_path):
         print("mamamia parameters:")
         for k, v in cfg.mamamia_params.to_dict().items():
             print(f"\t{k}: {v}")
+        print(f"TRIAL number: {trial_num}")
     return cfg
 
 
