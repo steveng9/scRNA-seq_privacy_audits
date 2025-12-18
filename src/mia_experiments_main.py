@@ -655,7 +655,8 @@ def score_aggregations(cfg, cell_type, FP_sums, targets, distances_s=None, dista
 def save_results(cfg, results):
     tm = get_threat_model_code(cfg)
     new_full_result_df, full_runtime = concat_scores_for_all_celltypes(cfg, results)
-    # new_full_result_df = new_full_result_df.astype(str)
+    new_full_result_df = new_full_result_df.astype(str)
+    new_full_result_df['membership'] = new_full_result_df['membership'].str.lower().map({'true': 1, 'false': 0})
     prior_full_results_df = pd.read_csv(cfg.all_scores_file, dtype=str)
     print(prior_full_results_df.head())
     print(new_full_result_df.head())
