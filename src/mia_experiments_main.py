@@ -661,7 +661,7 @@ def save_results(cfg, results):
     merged = pd.merge(prior_full_results_df, new_full_results_df, on=['cell id', 'donor id', 'cell type', 'membership'], suffixes=['', '_'+tm])
     merged.to_csv(cfg.all_scores_file, index=False)
 
-    true_, predictions_ = aggregate_scores_by_donor(cfg, new_full_result_df)
+    true_, predictions_ = aggregate_scores_by_donor(cfg, new_full_results_df)
     overall_auc = roc_auc_score(true_, predictions_)
 
     experiment_column_name = "tm:" + get_threat_model_code(cfg)
@@ -674,11 +674,11 @@ def save_results(cfg, results):
     #     for membership, prediction in zip(true_, predictions_):
     #         message = f"{membership}, {prediction:.3f}"
     #         results_file.write(message + "\n")
-    #     results_file.write(f"num cells, {new_full_result_df.shape[0]}" + "\n")
+    #     results_file.write(f"num cells, {new_full_results_df.shape[0]}" + "\n")
     #     results_file.write(f"aggregation runtime, {full_runtime}" + "\n")
     #     results_file.write(f"OVERALL, {overall_auc}" + "\n")
 
-    print(f"num cells: {new_full_result_df.shape[0]}")
+    print(f"num cells: {new_full_results_df.shape[0]}")
     print(f"aggregation runtime: {full_runtime}")
     print(f"OVERALL: {overall_auc}")
 
