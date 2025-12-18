@@ -1,9 +1,7 @@
-import datetime
 import sys
 import time
 import warnings
 
-import numpy as np
 
 env = "server" if sys.argv[1] == "T" else "local"
 config_path = sys.argv[2]
@@ -11,14 +9,11 @@ print_out = (len(sys.argv) > 3 and sys.argv[3] == "P")
 
 from box import Box
 from rpy2.robjects import r
-import anndata as ad
 import pandas as pd
-import matplotlib.pyplot as plt
 from sklearn.metrics import roc_auc_score, roc_curve, auc
 import os
 import yaml
 from concurrent.futures import ProcessPoolExecutor, as_completed
-import shutil
 
 from  numpy.linalg import inv as inv
 from  numpy.linalg import solve as solve
@@ -126,7 +121,7 @@ def create_config(config_path):
         cfg.aux_path = os.path.join(cfg.datasets_path, "auxiliary.h5ad")
         cfg.all_scores_file = os.path.join(cfg.results_path, "mamamia_all_scores.csv")
         cfg.results_file = os.path.join(cfg.results_path, "mamamia_results.csv")
-        cfg.runtime_file = os.path.join(cfg.results_path, "mamamia_runtimes.csv")
+        # cfg.runtime_file = os.path.join(cfg.results_path, "mamamia_runtimes.csv")
         cfg.target_model_config_path = os.path.join(cfg.models_path, "config.yaml")
         cfg.synth_model_config_path = os.path.join(cfg.synth_artifacts_path, f"config.yaml")
         cfg.aux_model_config_path = os.path.join(cfg.aux_artifacts_path, "config.yaml")
@@ -654,13 +649,11 @@ def score_aggregations(cfg, cell_type, FP_sums, targets, distances_s=None, dista
 
 def save_results(cfg, results):
     tm = get_threat_model_code(cfg)
-    new_full_result_df, full_runtime = concat_scores_for_all_celltypes(cfg, results)
-    new_full_result_df = new_full_result_df.astype(str)
-    new_full_result_df['membership'] = new_full_result_df['membership'].str.lower().map({'true': 1, 'false': 0})
+    new_full_results_df, full_runtime = concat_scores_for_all_celltypes(cfg, results)
     prior_full_results_df = pd.read_csv(cfg.all_scores_file, dtype=str)
-    print(prior_full_results_df.head())
-    print(new_full_result_df.head())
-    merged = pd.merge(prior_full_results_df, new_full_result_df, on=['cell id', 'donor id', 'cell type', 'membership'], suffixes=['', '_'+tm])
+    prior_full_results_df['membership'] = pd.to_numeric(prior_full_results_df['membership'], errors='coerce').fillna(0).astype(int)
+    new_full_results_df['membership'] = pd.to_numeric(new_full_results_df['membership'], errors='coerce').fillna(0).astype(int)
+    merged = pd.merge(prior_full_results_df, new_full_results_df, on=['cell id', 'donor id', 'cell type', 'membership'], suffixes=['', '_'+tm])
     merged.to_csv(cfg.all_scores_file, index=False)
 
     true_, predictions_ = aggregate_scores_by_donor(cfg, new_full_result_df)
