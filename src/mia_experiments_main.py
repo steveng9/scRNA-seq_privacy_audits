@@ -1,6 +1,7 @@
 import datetime
 import sys
 import time
+import warnings
 
 import numpy as np
 
@@ -23,9 +24,10 @@ from  numpy.linalg import inv as inv
 from  numpy.linalg import solve as solve
 from  numpy.linalg import pinv as pinv
 
-# modified gpu-based mahalanobis
 import torch
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+warnings.simplefilter(action='ignore', category=FutureWarning)
 
 from discretionary_functions import *
 
@@ -652,7 +654,7 @@ def score_aggregations(cfg, cell_type, FP_sums, targets, distances_s=None, dista
 def save_results(cfg, results):
     tm = get_threat_model_code(cfg)
     new_full_result_df, full_runtime = concat_scores_for_all_celltypes(cfg, results)
-    prior_full_results_df = pd.read_csv(cfg.all_scores_file)
+    prior_full_results_df = pd.read_csv(cfg.all_scores_file, dtype=str)
     merged = pd.merge(prior_full_results_df, new_full_result_df, on=['cell id', 'donor id', 'cell type', 'membership'], suffixes=['', '_'+tm])
     merged.to_csv(cfg.all_scores_file, index=False)
 
