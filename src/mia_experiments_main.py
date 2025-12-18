@@ -655,8 +655,10 @@ def score_aggregations(cfg, cell_type, FP_sums, targets, distances_s=None, dista
 def save_results(cfg, results):
     tm = get_threat_model_code(cfg)
     new_full_result_df, full_runtime = concat_scores_for_all_celltypes(cfg, results)
-    new_full_result_df = new_full_result_df.astype(str)
+    # new_full_result_df = new_full_result_df.astype(str)
     prior_full_results_df = pd.read_csv(cfg.all_scores_file, dtype=str)
+    print(prior_full_results_df.head())
+    print(new_full_result_df.head())
     merged = pd.merge(prior_full_results_df, new_full_result_df, on=['cell id', 'donor id', 'cell type', 'membership'], suffixes=['', '_'+tm])
     merged.to_csv(cfg.all_scores_file, index=False)
 
@@ -689,7 +691,7 @@ def aggregate_scores_by_donor(cfg, full_result_df):
     grouped_predictions = full_result_df.groupby('donor id', observed=True)
     donors = full_result_df["donor id"].unique().tolist()
     for donor in donors:
-        donor_membership = grouped_predictions.get_group(donor).membership.astype(float).mean()
+        donor_membership = grouped_predictions.get_group(donor).membership.mean()
         assert donor_membership == 1 or donor_membership == 0, f"group membership ground truth is not consistent: {donor_membership}"
         membership_true.append(int(donor_membership))
         predictions.append(grouped_predictions.get_group(donor)["score:"+tm].astype(float).mean())
