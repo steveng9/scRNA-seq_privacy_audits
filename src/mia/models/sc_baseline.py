@@ -11,8 +11,12 @@ import torch.nn.functional as F
 src_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.append(src_dir)
 
-from src.mia.models.base import BaseMIAModel
-from src.mia.models.baseline import run_baselines
+if sys.argv[1] == 'T':
+    from mia.models.base import BaseMIAModel
+    from mia.models.baseline import run_baselines
+else:
+    from src.mia.models.base import BaseMIAModel
+    from src.mia.models.baseline import run_baselines
 #from domias.baselines import (MC, GAN_leaks)
 
 

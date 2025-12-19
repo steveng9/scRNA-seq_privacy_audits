@@ -11,8 +11,13 @@ from sklearn.decomposition import PCA
 src_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.append(src_dir)
 
-from src.mia.utils.prepare_data import MIADataLoader
-from src.mia.models.base import BaseMIAModel
+
+if sys.argv[1] == 'T':
+    from mia.utils.prepare_data import MIADataLoader
+    from mia.models.base import BaseMIAModel
+else:
+    from src.mia.utils.prepare_data import MIADataLoader
+    from src.mia.models.base import BaseMIAModel
 from domias.bnaf.density_estimation import compute_log_p_x, density_estimator_trainer
 from domias.baselines import (MC, LOGAN_D1,
                               GAN_leaks, GAN_leaks_cal, MC_optimized, GAN_leaks_optimized, GAN_leaks_cal_optimized)
