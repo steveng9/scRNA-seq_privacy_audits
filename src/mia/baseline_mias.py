@@ -10,10 +10,16 @@ import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 warnings.simplefilter(action='ignore', category=UserWarning)
 
-from src.mia.models.sc_baseline import DOMIASSingleCellBaselineModels
+
 
 env = "server" if sys.argv[1] == "T" else "local"
 config_path = sys.argv[2]
+
+if env == "server":
+    from mia.models.sc_baseline import DOMIASSingleCellBaselineModels
+else:
+    from src.mia.models.sc_baseline import DOMIASSingleCellBaselineModels
+
 
 src_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.append(src_dir)
