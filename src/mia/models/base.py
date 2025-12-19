@@ -61,6 +61,7 @@ class BaseMIAModel(ABC):
 
     def evaluate_attack(self,
                         scores: Dict[str, np.ndarray],
+                        runtimes: Dict[str, float],
                         labels: np.ndarray,
                         file_name: str):
 
@@ -85,7 +86,8 @@ class BaseMIAModel(ABC):
                 "f1_median": f1_median,
                 "f1_best": f1_best,
                 "tpr_at_fpr_001": tpr_at_fpr_001,
-                "tpr_at_fpr_01": tpr_at_fpr_01
+                "tpr_at_fpr_01": tpr_at_fpr_01,
+                "runtime": runtimes[method_name]
             }
 
             # Store curve data for combined plot

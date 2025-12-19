@@ -1,3 +1,4 @@
+import time
 from typing import Optional, Tuple, Dict, Any
 import sys
 import os
@@ -162,10 +163,16 @@ class DOMIASSingleCellBaselineModels(BaseMIAModel):
         syn_dense = synthetic_data.X.toarray() if hasattr(synthetic_data.X, "toarray") else synthetic_data.X
         ref_dense = reference.X.toarray() if hasattr(reference.X, "toarray") else reference.X
 
-        scores = run_baselines(X_test_dense, syn_dense, ref_dense, ref_dense, None)
-        scores["gan_leaks_sc"] = batch_GAN_leaks(X_test_dense, syn_dense)
+        scores, runtimes = run_baselines(X_test_dense, syn_dense, ref_dense, ref_dense, None)
 
-        return scores, y_test
+        print("\n\nrunning batch_gan_leaks baseline")
+        start = time.process_time()
+        scores["gan_leaks_sc"] = batch_GAN_leaks(X_test_dense, syn_dense)
+        runtime = time.process_time() - start
+        print("took %.1f seconds" % runtime)
+        runtimes["gan_leaks_sc"] = runtime
+
+        return scores, y_test, runtimes
 
     
 

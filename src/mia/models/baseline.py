@@ -1,3 +1,4 @@
+import time
 from typing import Optional, Tuple, Dict, Any
 import sys
 import os
@@ -14,7 +15,7 @@ from src.mia.utils.prepare_data import MIADataLoader
 from src.mia.models.base import BaseMIAModel
 from domias.bnaf.density_estimation import compute_log_p_x, density_estimator_trainer
 from domias.baselines import (MC, LOGAN_D1,
-                              GAN_leaks, GAN_leaks_cal)
+                              GAN_leaks, GAN_leaks_cal, MC_optimized, GAN_leaks_optimized, GAN_leaks_cal_optimized)
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print("Using device:", DEVICE)
@@ -69,31 +70,65 @@ def run_baselines(
     sample_weight: Optional[np.ndarray] = None,
 ) -> Tuple[dict, dict]:
     score = {}
-   
-    score["MC"] = MC(X_test, X_G)
-    score["gan_leaks"] = GAN_leaks(X_test, X_G)
-  
+    runtimes = {}
+
+    print("\n\nrunning MC baseline")
+    start = time.process_time()
+    score["MC"] = MC_optimized(X_test, X_G)
+    runtime = time.process_time() - start
+    print("took %.1f seconds" % runtime)
+    runtimes["MC"] = runtime
+
+    print("\n\nrunning gan_leaks baseline")
+    start = time.process_time()
+    score["gan_leaks"] = GAN_leaks_optimized(X_test, X_G)
+    runtime = time.process_time() - start
+    print("took %.1f seconds" % runtime)
+    runtimes["gan_leaks"] = runtime
+
     if X_ref is not None:
+
+        print("\n\nrunning logan baseline")
+        start = time.process_time()
         score["LOGAN_D1"] = LOGAN_D1(X_test, X_G, X_ref)
-        score["gan_leaks_cal"] = GAN_leaks_cal(X_test, X_G, X_ref_GLC)
-    
-        ### apply PCA 
+        runtime = time.process_time() - start
+        print("took %.1f seconds" % runtime)
+        runtimes["LOGAN_D1"] = runtime
+
+        print("\n\nrunning gan_leaks_cal baseline")
+        start = time.process_time()
+        score["gan_leaks_cal"] = GAN_leaks_cal_optimized(X_test, X_G, X_ref_GLC)
+        runtime = time.process_time() - start
+        print("took %.1f seconds" % runtime)
+        runtimes["gan_leaks_cal"] = runtime
+
+        ### apply PCA
+
+        print("\n\nrunning pca")
+        start = time.process_time()
         pca_ref = perform_pca(X_ref, n_components=150)
         pca_test = perform_pca(X_test, n_components=150)
         pca_synth = perform_pca(X_G, n_components=150)
+        pca_runtime = time.process_time() - start
+        print("took %.1f seconds" % pca_runtime)
 
+        print("\n\nrunning domias baseline")
+        start = time.process_time()
         score["domias_kde"] = kde_domias(pca_test, pca_synth, pca_ref)
+        runtime = time.process_time() - start
+        print("took %.1f seconds" % runtime)
+        runtimes["domias_kde"] = runtime + pca_runtime
+
         #score["domias_bnaf"] = kde_domias(pca_test, pca_synth, pca_ref, "bnaf")
 
-
-    return score
+    return score, runtimes
 
 
 def perform_pca(data, n_components=2):
     pca = PCA(n_components=n_components)
     #data = StandardScaler().fit_transform(data)
     principal_components = pca.fit_transform(data)
-    print("3:::", np.sum(pca.explained_variance_ratio_))
+    # print("3:::", np.sum(pca.explained_variance_ratio_))
 
     return principal_components
 
