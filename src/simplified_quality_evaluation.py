@@ -50,7 +50,8 @@ def create_config():
         cfg.trial_num = get_next_quality_trial_num(cfg)
 
         cfg.experiment_data_path = os.path.join(cfg.experiment_setting_path, str(cfg.trial_num), "datasets")
-        cfg.results_file = os.path.join(cfg.experiment_setting_path, str(cfg.trial_num), "results", "quality_results.csv")
+        cfg.results_path = os.path.join(cfg.experiment_setting_path, str(cfg.trial_num), "results")
+        cfg.results_file = os.path.join(cfg.results_path, "quality_results.csv")
         os.makedirs(cfg.results_path, exist_ok=True)
         cfg.train_donor_path = os.path.join(cfg.experiment_data_path, "train.npy")
         # cfg.holdout_donor_path = os.path.join(cfg.experiment_data_path, "holdout.npy")
@@ -267,9 +268,11 @@ def evaluate(real, syn):
         "discriminative_score": disc,
     }
 
+
 # ============================================================
 # =============== COMMAND-LINE INTERFACE =====================
 # ============================================================
+
 
 if __name__ == "__main__":
     main()
