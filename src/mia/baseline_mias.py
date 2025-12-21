@@ -27,7 +27,7 @@ sys.path.append(src_dir)
 
 
 def main():
-    cfg = create_config(config_path)
+    cfg = create_config()
     create_datasets_for_baseline_experiment(cfg)
     baselines_cfg = create_config_for_baselines_code(cfg)
 
@@ -61,7 +61,7 @@ def get_next_baseline_trial_num(cfg):
         sys.exit(0)
 
 
-def create_config(config_path):
+def create_config():
     with open(config_path) as f:
         cfg = Box(yaml.load(f, Loader=yaml.FullLoader))
         cfg.split_name = f"{cfg.mia_setting.num_donors}d"
@@ -102,7 +102,6 @@ def create_datasets_for_baseline_experiment(cfg):
     all_aux = all_data[all_data.obs["individual"].isin(aux_donors)]
     targets = ad.concat([all_train, all_holdout])
     targets.obs["barcode_col"] = targets.to_df().index
-
 
     labels = pd.DataFrame()
     labels["membership"] = np.concatenate((np.ones(all_train.shape[0], dtype=int), np.zeros(all_holdout.shape[0], dtype=int)))
