@@ -5,6 +5,7 @@ import sys
 import fnmatch
 import numpy as np
 import pandas as pd
+
 import scanpy as sc
 
 src_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
@@ -28,36 +29,24 @@ class SingleCellEvaluator:
         self.dataset_name = self.dataset_config["name"]
         self.cell_type_col = self.dataset_config["cell_type_col_name"]
         self.cell_label_col = self.dataset_config["cell_label_col_name"]
+        self.full_data_path = config["full_data_path"]
 
-        self.save_dir = os.path.join(self.home_dir, "data_splits")
+        self.save_dir = self.home_dir
         self.random_seed = config["evaluator_config"]["random_seed"]
 
 
         ## experiment name
-        self.experiment_name = self.config['generator_config']['experiment_name']
-        self.generator_name = self.config['generator_config']['name']
-        self.res_figures_dir = os.path.join(self.home_dir, 
-                                            config["dir_list"]["figures"], 
-                                            self.dataset_name, 
-                                            self.generator_name, 
-                                            self.experiment_name
-                                            )
+        # self.experiment_name = self.config['generator_config']['experiment_name']
+        # self.generator_name = self.config['generator_config']['name']
+        self.res_figures_dir = os.path.join(self.home_dir,
+                                            config["dir_list"]["figures"])
         self.res_files_dir = os.path.join(self.home_dir, 
-                                          config["dir_list"]["res_files"], 
-                                          self.dataset_name, 
-                                          self.generator_name, 
-                                          self.experiment_name)
+                                          config["dir_list"]["res_files"])
         check_dirs( self.res_figures_dir)
         check_dirs( self.res_files_dir)
 
-        self.synthetic_data_path = os.path.join(self.save_dir, 
-                                                self.dataset_name, 
-                                                "synthetic",
-                                                self.generator_name,
-                                                self.experiment_name, 
-                                                )
-        self.celltypist_model_path = os.path.join(self.home_dir,
-                                                 self.dataset_config["celltypist_model"])
+        self.synthetic_data_path = config["synthetic_file"]
+        self.celltypist_model_path = self.dataset_config["celltypist_model"]
         self.results = {}
     
 
@@ -69,18 +58,22 @@ class SingleCellEvaluator:
 
     def load_test_anndata(self):
         try:
-            test_data_pth = os.path.join(self.home_dir, self.dataset_config["test_count_file"])
-            test_data = sc.read_h5ad(test_data_pth)
+            test_data_pth = self.dataset_config["test_count_file"]
+            test_donors = np.load(test_data_pth, allow_pickle=True)
+            all_data = sc.read_h5ad(self.full_data_path)
+
+            test_data = all_data[all_data.obs["individual"].isin(test_donors)]
             #cell_types = test_data.obs[self.cell_type_col].values
             #cell_labels = test_data.obs[self.cell_label_col].values
 
             #self.cell_type_to_label = dict(set(zip(cell_types, cell_labels)))
 
-            test_data.obs[self.cell_label_col] = (
-                test_data.obs[self.cell_label_col]
-                .astype(str)
-                .str.replace(" ", "_", regex=True)
-            )
+            if self.cell_label_col in test_data.obs.columns:
+                test_data.obs[self.cell_label_col] = (
+                    test_data.obs[self.cell_label_col]
+                    .astype(str)
+                    .str.replace(" ", "_", regex=True)
+                )
 
             X_dense = test_data.X.toarray() if hasattr(test_data.X, "toarray") else test_data.X
             # Count NaN and Inf values
@@ -98,8 +91,8 @@ class SingleCellEvaluator:
 
     def load_synthetic_anndata(self):
         try: 
-            syn_data_pth = os.path.join(self.synthetic_data_path, "onek1k_annotated_synthetic.h5ad")
-            syn_data = sc.read_h5ad(syn_data_pth)
+            # syn_data_pth = os.path.join(self.synthetic_data_path, "onek1k_annotated_synthetic.h5ad")
+            syn_data = sc.read_h5ad(self.synthetic_data_path)
             #syn_data.obs[self.cell_label_col] = (
             #    syn_data.obs[self.cell_label_col]
             #    .astype(str)
@@ -172,13 +165,15 @@ class SingleCellEvaluator:
     def get_classification_evals(self):
         real_data, synthetic_data = self.initialize_datasets()
         classfier = VisualizeClassify(self.res_figures_dir, self.random_seed)
-        ari_score, jaccard = classfier.celltypist_classification(real_data, 
+        if os.path.exists(self.celltypist_model_path):
+            ari_score, jaccard = classfier.celltypist_classification(real_data,
                                                                  synthetic_data, 
                                                                  self.celltypist_model_path)
+        else:
+            ari_score, jaccard = None, None
         roc_score, _ = classfier.random_forest_eval(real_data, synthetic_data)
 
         return {
-
             "celltypist_ari": ari_score,
             "celltypist_jaccard": jaccard,
             "randomforest_roc": roc_score,

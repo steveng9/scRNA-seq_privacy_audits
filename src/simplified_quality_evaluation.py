@@ -1,5 +1,9 @@
-import argparse
 import sys
+env = "server" if sys.argv[1] == "T" else "local"
+config_path = sys.argv[2]
+
+
+
 import os
 import warnings
 import numpy as np
@@ -15,11 +19,15 @@ from sklearn.multiclass import OneVsRestClassifier
 from sklearn.utils import shuffle
 from sklearn.model_selection import train_test_split
 
+
+if env == "server":
+    from evaluation.sc_evaluate import SingleCellEvaluator
+else:
+    from src.evaluation.sc_evaluate import SingleCellEvaluator
+
 warnings.simplefilter(action='ignore', category=FutureWarning)
 warnings.simplefilter(action='ignore', category=UserWarning)
-
-env = "server" if sys.argv[1] == "T" else "local"
-config_path = sys.argv[2]
+warnings.simplefilter(action='ignore', category=ImportWarning)
 
 # src_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 # sys.path.append(src_dir)
@@ -34,9 +42,11 @@ def main():
     train = all_data[all_data.obs["individual"].isin(train_donors)]
     synth = ad.read_h5ad(cfg.synth_path)
 
-    results = evaluate(train, synth)
+    quality_eval_cfg = make_quality_eval_cfg(cfg)
 
-    pd.DataFrame([results]).to_csv(cfg.results_file, index=False)
+    results = evaluate(quality_eval_cfg, train, synth)
+
+    # pd.DataFrame([results]).to_csv(cfg.results_file, index=False)
     register_quality_check(cfg)
     print("\nDONE! Saved results to:", cfg.results_file)
 
@@ -45,30 +55,55 @@ def create_config():
     with open(config_path) as f:
         cfg = Box(yaml.load(f, Loader=yaml.FullLoader))
         cfg.split_name = f"{cfg.mia_setting.num_donors}d"
-        cfg.experiment_setting_path = os.path.join(cfg.dir_list[env].data, cfg.dataset_name, cfg.split_name)
-        cfg.experiment_tracking_file = os.path.join(cfg.experiment_setting_path, "tracking.csv")
+        cfg.top_data_dir = os.path.join(cfg.dir_list[env].data, cfg.dataset_name)
+        cfg.cfg_dir = os.path.join(cfg.top_data_dir, cfg.split_name)
+        cfg.experiment_tracking_file = os.path.join(cfg.cfg_dir, "tracking.csv")
         cfg.trial_num = get_next_quality_trial_num(cfg)
+        cfg.trial_dir = os.path.join(cfg.cfg_dir, str(cfg.trial_num))
 
-        cfg.experiment_data_path = os.path.join(cfg.experiment_setting_path, str(cfg.trial_num), "datasets")
-        cfg.results_path = os.path.join(cfg.experiment_setting_path, str(cfg.trial_num), "results")
+        cfg.experiment_data_path = os.path.join(cfg.trial_dir, "datasets")
+        cfg.results_path = os.path.join(cfg.trial_dir, "results")
         cfg.results_file = os.path.join(cfg.results_path, "quality_results.csv")
         os.makedirs(cfg.results_path, exist_ok=True)
         cfg.train_donor_path = os.path.join(cfg.experiment_data_path, "train.npy")
-        # cfg.holdout_donor_path = os.path.join(cfg.experiment_data_path, "holdout.npy")
-        # cfg.aux_donor_path = os.path.join(cfg.experiment_data_path, "auxiliary.npy")
-
         cfg.train_path = os.path.join(cfg.experiment_data_path, "train.h5ad")
-        # cfg.holdout_path = os.path.join(cfg.experiment_data_path, "holdout.h5ad")
-        # cfg.aux_path = os.path.join(cfg.experiment_data_path, "auxiliary.h5ad")
         cfg.synth_path = os.path.join(cfg.experiment_data_path, "synthetic.h5ad")
-        # cfg.targets_path = os.path.join(cfg.experiment_data_path, "targets.h5ad")
-        # cfg.labels_path = os.path.join(cfg.experiment_data_path, "labels.csv")
 
     print("Experiment Configuration:")
     print("dataset: ", cfg.dataset_name)
     print("num_donors: ", cfg.mia_setting.num_donors)
     print(f"TRIAL number: ", cfg.trial_num)
     return cfg
+
+def make_quality_eval_cfg(cfg):
+    quality_eval_cfg = dict()
+
+    quality_eval_cfg["dir_list"] = dict()
+    quality_eval_cfg["dir_list"]["home"] = os.path.join(cfg.results_path, "quality_eval_results")
+    quality_eval_cfg["dir_list"]["figures"] = "figures"
+    quality_eval_cfg["dir_list"]["res_files"] = "results"
+    quality_eval_cfg["full_data_path"] = os.path.join(cfg.top_data_dir, "full_dataset_cleaned.h5ad")
+    quality_eval_cfg["synthetic_file"] = cfg.synth_path
+
+
+    quality_eval_cfg["dataset_config"] = dict()
+    quality_eval_cfg["dataset_config"]["name"] = cfg.dataset_name
+    quality_eval_cfg["dataset_config"]["test_count_file"] = cfg.train_donor_path
+    quality_eval_cfg["dataset_config"]["synthetic_file"] = cfg.synth_path
+    quality_eval_cfg["dataset_config"]["cell_type_col_name"] = "cell_type"
+    quality_eval_cfg["dataset_config"]["cell_label_col_name"] = "cell_label"
+    quality_eval_cfg["dataset_config"]["celltypist_model"] = os.path.join(cfg.top_data_dir, "Immune_All_High.pkl")
+
+    quality_eval_cfg["evaluator_config"] = dict()
+    quality_eval_cfg["evaluator_config"]["random_seed"] = 1
+    quality_eval_cfg["n_hvgs"] = 1000
+
+    # quality_eval_cfg["generator_config"] = dict()
+    # quality_eval_cfg["generator_config"]["experiment_name"] = "quality_eval"
+    # quality_eval_cfg["generator_config"]["name"] =
+
+    return quality_eval_cfg
+
 
 
 def get_next_quality_trial_num(cfg):
@@ -153,57 +188,57 @@ def register_quality_check(cfg):
 #
 #     return np.hstack(ohe_data), columns_domain
 
-
-def mmd_rbf(X, Y, gamma=1.0):
-    """Simple RBF MMD for dense matrices."""
-    from sklearn.metrics.pairwise import rbf_kernel
-    XX = rbf_kernel(X, X, gamma=gamma)
-    YY = rbf_kernel(Y, Y, gamma=gamma)
-    XY = rbf_kernel(X, Y, gamma=gamma)
-    return XX.mean() + YY.mean() - 2 * XY.mean()
-
-def distance_to_closest_neighbor(X_real, X_syn):
-    """Average Euclidean distance from each synthetic cell to nearest real cell."""
-    from sklearn.metrics import pairwise_distances
-    D = pairwise_distances(X_syn, X_real)
-    return np.min(D, axis=1).mean()
-
-def discriminative_score(X_real, X_syn, seed=0):
-    """Real vs Synthetic classifier F1."""
-    X = np.vstack([X_real, X_syn])
-    y = np.array([1]*len(X_real) + [0]*len(X_syn))
-    X, y = shuffle(X, y, random_state=seed)
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=seed)
-
-    scaler = StandardScaler()
-    X_train = scaler.fit_transform(X_train)
-    X_test = scaler.transform(X_test)
-
-    clf = LogisticRegression(max_iter=1000)
-    clf.fit(X_train, y_train)
-    y_pred = clf.predict(X_test)
-    return f1_score(y_test, y_pred)
-
-def feature_overlap(feats_a, feats_b):
-    """Count overlapping top features (fake reimplementation)."""
-    a = set(feats_a)
-    b = set(feats_b)
-    overlap = len(a & b)
-    prop = overlap / max(len(a), 1)
-    return overlap, prop
-
-def top_features(model, top_n=10):
-    """Extract top features from a One-vs-Rest logistic model."""
-    feats = []
-    for est in model.estimators_:
-        coef = est.coef_[0]
-        idx = coef.argsort()[-top_n:]
-        feats.extend(idx.tolist())
-    return feats
+#
+# def mmd_rbf(X, Y, gamma=1.0):
+#     """Simple RBF MMD for dense matrices."""
+#     from sklearn.metrics.pairwise import rbf_kernel
+#     XX = rbf_kernel(X, X, gamma=gamma)
+#     YY = rbf_kernel(Y, Y, gamma=gamma)
+#     XY = rbf_kernel(X, Y, gamma=gamma)
+#     return XX.mean() + YY.mean() - 2 * XY.mean()
+#
+# def distance_to_closest_neighbor(X_real, X_syn):
+#     """Average Euclidean distance from each synthetic cell to nearest real cell."""
+#     from sklearn.metrics import pairwise_distances
+#     D = pairwise_distances(X_syn, X_real)
+#     return np.min(D, axis=1).mean()
+#
+# def discriminative_score(X_real, X_syn, seed=0):
+#     """Real vs Synthetic classifier F1."""
+#     X = np.vstack([X_real, X_syn])
+#     y = np.array([1]*len(X_real) + [0]*len(X_syn))
+#     X, y = shuffle(X, y, random_state=seed)
+#     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=seed)
+#
+#     scaler = StandardScaler()
+#     X_train = scaler.fit_transform(X_train)
+#     X_test = scaler.transform(X_test)
+#
+#     clf = LogisticRegression(max_iter=1000)
+#     clf.fit(X_train, y_train)
+#     y_pred = clf.predict(X_test)
+#     return f1_score(y_test, y_pred)
+#
+# def feature_overlap(feats_a, feats_b):
+#     """Count overlapping top features (fake reimplementation)."""
+#     a = set(feats_a)
+#     b = set(feats_b)
+#     overlap = len(a & b)
+#     prop = overlap / max(len(a), 1)
+#     return overlap, prop
+#
+# def top_features(model, top_n=10):
+#     """Extract top features from a One-vs-Rest logistic model."""
+#     feats = []
+#     for est in model.estimators_:
+#         coef = est.coef_[0]
+#         idx = coef.argsort()[-top_n:]
+#         feats.extend(idx.tolist())
+#     return feats
 
 # ========= SIMPLE EVALUATION PIPELINE =============
 
-def evaluate(real, syn):
+def evaluate(evaluator_cfg, real, syn):
 
     # Ensure dense arrays
     X_real = real.X.toarray() if hasattr(real.X, "toarray") else real.X
@@ -216,57 +251,96 @@ def evaluate(real, syn):
     X_real = real.X.toarray()
     X_syn = syn.X.toarray()
 
+
+
+    # ---------- UMAP eval ----------
+
+    evaluator = SingleCellEvaluator(config=evaluator_cfg)
+    evaluator.get_umap_evals(evaluator_cfg["n_hvgs"])
+
+
     # ---------- Train classifier on synthetic → test on real ----------
-    print("Running classification metrics...")
-    y_real = real.obs.iloc[:, 0].astype(str).values
-    y_syn = syn.obs.iloc[:, 0].astype(str).values
 
-    encoder = LabelEncoder()
-    encoder.fit(np.concatenate([y_real, y_syn]))
+    evaluator = SingleCellEvaluator(config=evaluator_cfg)
+    results = evaluator.get_classification_evals()
 
-    y_real_enc = encoder.transform(y_real)
-    y_syn_enc = encoder.transform(y_syn)
-
-    model = OneVsRestClassifier(LogisticRegression(max_iter=1000))
-    model.fit(X_syn, y_syn_enc)
-
-    y_pred = model.predict(X_real)
-    y_proba = model.predict_proba(X_real)
-
-    acc_syn = accuracy_score(y_real_enc, y_pred)
-    avgpr_syn = average_precision_score(y_real_enc, y_proba, average='macro')
-
-    # ---------- Train on real → test on real (baseline) ----------
-    model2 = OneVsRestClassifier(LogisticRegression(max_iter=1000))
-    model2.fit(X_real, y_real_enc)
-    y_pred2 = model2.predict(X_real)
-    y_proba2 = model2.predict_proba(X_real)
-    acc_real = accuracy_score(y_real_enc, y_pred2)
-    avgpr_real = average_precision_score(y_real_enc, y_proba2, average='macro')
-
-    feats_syn = top_features(model)
-    feats_real = top_features(model2)
-    overlap_cnt, overlap_prop = feature_overlap(feats_syn, feats_real)
+    output_file = os.path.join(evaluator.res_files_dir, f"classification_evals.csv")
+    ##
+    evaluator.save_results_to_csv(results, output_file)
 
     # ---------- Statistical metrics ----------
-    mmd_score = mmd_rbf(X_real, X_syn)
-    dist_syn = distance_to_closest_neighbor(X_real, X_syn)
-    dist_base = distance_to_closest_neighbor(X_real, X_real)
 
-    disc = discriminative_score(X_real, X_syn)
+    evaluator = SingleCellEvaluator(config=evaluator_cfg)
+    results = evaluator.get_statistical_evals()
 
-    return {
-        "accuracy_synthetic": acc_syn,
-        "avgpr_synthetic": avgpr_syn,
-        "accuracy_real": acc_real,
-        "avgpr_real": avgpr_real,
-        "feature_overlap_count": overlap_cnt,
-        "feature_overlap_prop": overlap_prop,
-        "mmd": mmd_score,
-        "distance_to_closest": dist_syn,
-        "distance_to_closest_base": dist_base,
-        "discriminative_score": disc,
-    }
+    output_file = os.path.join(evaluator.res_files_dir, f"statistics_evals.csv")
+    ##
+    evaluator.save_results_to_csv(results, output_file)
+
+
+
+    return None
+
+    #
+    # # ---------- Train classifier on synthetic → test on real ----------
+    # print("Running classification metrics...")
+    # y_real = real.obs.iloc[:, 0].astype(str).values
+    # y_syn = syn.obs.iloc[:, 0].astype(str).values
+    #
+    # encoder = LabelEncoder()
+    # encoder.fit(np.concatenate([y_real, y_syn]))
+    #
+    # y_real_enc = encoder.transform(y_real)
+    # y_syn_enc = encoder.transform(y_syn)
+    #
+    # model = OneVsRestClassifier(LogisticRegression(max_iter=1000))
+    # model.fit(X_syn, y_syn_enc)
+    #
+    # y_pred = model.predict(X_real)
+    # y_proba = model.predict_proba(X_real)
+    #
+    # acc_syn = accuracy_score(y_real_enc, y_pred)
+    # print("\n\ny_real_acc: ", y_real_enc)
+    # print("\n\ny_proba: ", y_proba)
+    # avgpr_syn = average_precision_score(y_real_enc, y_proba, average='macro')
+    #
+    # # ---------- Train on real → test on real (baseline) ----------
+    # print("Running baseline metrics...")
+    # model2 = OneVsRestClassifier(LogisticRegression(max_iter=1000))
+    # model2.fit(X_real, y_real_enc)
+    # y_pred2 = model2.predict(X_real)
+    # y_proba2 = model2.predict_proba(X_real)
+    # acc_real = accuracy_score(y_real_enc, y_pred2)
+    # avgpr_real = average_precision_score(y_real_enc, y_proba2, average='macro')
+    #
+    # feats_syn = top_features(model)
+    # feats_real = top_features(model2)
+    # overlap_cnt, overlap_prop = feature_overlap(feats_syn, feats_real)
+    #
+    # # ---------- Statistical metrics ----------
+    # print("Running statistical metrics...")
+    # mmd_score = mmd_rbf(X_real, X_syn)
+    # dist_syn = distance_to_closest_neighbor(X_real, X_syn)
+    # dist_base = distance_to_closest_neighbor(X_real, X_real)
+    #
+    # disc = discriminative_score(X_real, X_syn)
+    #
+    # print("Running wasserstein distance metric ...")
+    # print("Not Yet Implemented.")
+    #
+    #
+    # return {
+    #     "accuracy_synthetic": acc_syn,
+    #     "avgpr_synthetic": avgpr_syn,
+    #     "accuracy_real": acc_real,
+    #     "avgpr_real": avgpr_real,
+    #     "feature_overlap_count": overlap_cnt,
+    #     "feature_overlap_prop": overlap_prop,
+    #     "mmd": mmd_score,
+    #     "distance_to_closest": dist_syn,
+    #     "distance_to_closest_base": dist_base,
+    #     "discriminative_score": disc,
+    # }
 
 
 # ============================================================
