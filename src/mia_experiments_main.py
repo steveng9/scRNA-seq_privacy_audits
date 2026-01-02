@@ -528,7 +528,7 @@ def attack_w_mahalanobis_algorithm(cfg, targets, cell_type, copula_synth, copula
     return result_df
 
 
-def attack_w_mahalanobis_algorithm_no_aux(cfg, copula_synth, targets, cell_type, copula_aux=None):
+def attack_w_mahalanobis_algorithm_no_aux(cfg, targets, cell_type, copula_synth, copula_aux=None):
     primary_genes_s, secondary_genes_s, len_primary_s, len_secondary_s, cov_s, primary_marginal_params_s, secondary_marginal_params_s, get_correlation_fn_s, get_gene_params_fn_s = extract_copula_information(copula_synth)
     shared_cov_s, shared_genes_primary_marginals_s = create_shared_gene_corr_matrix(primary_genes_s, primary_genes_s, cov_s, primary_marginal_params_s)
     remapping_fn_vec = np.vectorize(cfg.uniform_remapping_fn)
