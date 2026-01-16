@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 from box import Box
 import warnings
+from itertools import zip_longest
 
 import os
 from typing import Dict, Any, Tuple, Optional
@@ -101,13 +102,14 @@ def main():
 
 
 def perform_donor_level_avg(donors, predictions, labels):
-
     unique_donors = list(np.unique(donors))
-    scores_df = pd.DataFrame({
-        'donor': donors,
-        'score': list(predictions),
-        'y_test': labels,
-    })
+    padded_arrays = [
+        list(zip_longest(donors.values, list(predictions), labels.values, fillvalue=0))
+    ]
+    difference_in_len = len(donors) - len(predictions)
+    if difference_in_len > 0:
+        print("Discrepency of {difference_in_len} missing predictions.")
+    scores_df = pd.DataFrame(padded_arrays[0], columns=['donor', 'score', 'y_test'])
     grouped = scores_df.groupby('donor')
     grp_predictions = np.array([grouped.get_group(donor)['score'].mean() for donor in unique_donors])
     grp_labels = np.array([grouped.get_group(donor)['y_test'].mean() for donor in unique_donors])
