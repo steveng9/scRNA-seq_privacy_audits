@@ -20,10 +20,6 @@ from sklearn.metrics import (accuracy_score, roc_curve, f1_score,
                              precision_recall_curve, auc)
 
 
-
-from src.mia.baseline_mias import create_config_for_baselines_code, create_config
-from src.mia.models.base import BaseMIAModel
-
 warnings.simplefilter(action='ignore', category=FutureWarning)
 warnings.simplefilter(action='ignore', category=UserWarning)
 
@@ -31,6 +27,7 @@ warnings.simplefilter(action='ignore', category=UserWarning)
 
 env = "server" if sys.argv[1] == "T" else "local"
 config_path = sys.argv[2]
+trial_number = int(sys.argv[3])
 
 
 src_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
@@ -161,6 +158,36 @@ def compute_metrics(
             auc_sc, ap, pr_auc, f1_median, f1_best,
             tpr_at_fpr_001, tpr_at_fpr_002, tpr_at_fpr_005,
             tpr_at_fpr_01, tpr_at_fpr_02, tpr_at_fpr_05)
+
+def create_config():
+    with open(config_path) as f:
+        cfg = Box(yaml.load(f, Loader=yaml.FullLoader))
+        cfg.split_name = f"{cfg.mia_setting.num_donors}d"
+        cfg.experiment_setting_path = os.path.join(cfg.dir_list[env].data, cfg.dataset_name, cfg.split_name)
+        cfg.experiment_tracking_file = os.path.join(cfg.experiment_setting_path, "tracking.csv")
+        cfg.trial_num = trial_number
+
+        cfg.experiment_data_path = os.path.join(cfg.experiment_setting_path, str(cfg.trial_num), "datasets")
+        cfg.results_base_path = os.path.join(cfg.experiment_setting_path, str(cfg.trial_num), "results")
+        cfg.results_path = os.path.join(cfg.experiment_setting_path, str(cfg.trial_num), "results", "baseline_mias")
+        os.makedirs(cfg.results_path, exist_ok=True)
+        cfg.train_donor_path = os.path.join(cfg.experiment_data_path, "train.npy")
+        cfg.holdout_donor_path = os.path.join(cfg.experiment_data_path, "holdout.npy")
+        cfg.aux_donor_path = os.path.join(cfg.experiment_data_path, "auxiliary.npy")
+
+        cfg.train_path = os.path.join(cfg.experiment_data_path, "train.h5ad")
+        cfg.holdout_path = os.path.join(cfg.experiment_data_path, "holdout.h5ad")
+        cfg.aux_path = os.path.join(cfg.experiment_data_path, "auxiliary.h5ad")
+        cfg.synth_path = os.path.join(cfg.experiment_data_path, "synthetic.h5ad")
+        cfg.targets_path = os.path.join(cfg.experiment_data_path, "targets.h5ad")
+        cfg.labels_path = os.path.join(cfg.experiment_data_path, "labels.csv")
+
+    print("Experiment Configuration:")
+    print("dataset: ", cfg.dataset_name)
+    print("num_donors: ", cfg.mia_setting.num_donors)
+    print(f"TRIAL number: ", cfg.trial_num)
+    return cfg
+
 
 
 if __name__ == '__main__':
