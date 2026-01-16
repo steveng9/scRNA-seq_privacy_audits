@@ -38,6 +38,18 @@ sys.path.append(src_dir)
 def main():
     cfg = create_config()
 
+
+    # MAMA-MIA
+    mamamia_file = os.path.join(cfg.results_base_path, "mamamia_all_scores.csv")
+    if not os.path.exists(mamamia_file):
+        sys.exit("mamamia results file does not exist")
+
+    mamamia_results = pd.read_csv(mamamia_file)
+    mamamia_runtimes = pd.read_csv(os.path.join(cfg.results_base_path, "mamamia_results.csv"))
+    labels = mamamia_results["membership"]
+    donors = mamamia_results["donor id"]
+
+
     results_list = []
     def save_result(mia_name, predictions, runtime_):
         grp_predictions, grp_labels = perform_donor_level_avg(donors, predictions, labels)
@@ -62,16 +74,6 @@ def main():
             "runtime": runtime_
         })
 
-
-    # MAMA-MIA
-    mamamia_file = os.path.join(cfg.results_base_path, "mamamia_all_scores.csv")
-    if not os.path.exists(mamamia_file):
-        sys.exit("mamamia results file does not exist")
-
-    mamamia_results = pd.read_csv(mamamia_file)
-    mamamia_runtimes = pd.read_csv(os.path.join(cfg.results_base_path, "mamamia_results.csv"))
-    labels = mamamia_results["membership"]
-    donors = mamamia_results["donor id"]
 
     for mm_tm in ["000", "100", "001", "101"]:
         col_name = f"tm:{mm_tm}"
@@ -103,14 +105,14 @@ def perform_donor_level_avg(donors, predictions, labels):
     unique_donors = list(np.unique(donors))
     scores_df = pd.DataFrame({
         'donor': donors,
-        'score': predictions,
+        'score': list(predictions),
         'y_test': labels,
     })
     grouped = scores_df.groupby('donor')
     grp_predictions = np.array([grouped.get_group(donor)['score'].mean() for donor in unique_donors])
     grp_labels = np.array([grouped.get_group(donor)['y_test'].mean() for donor in unique_donors])
-
     return grp_predictions, grp_labels
+
 
 def compute_metrics(
         y_scores: np.ndarray,
