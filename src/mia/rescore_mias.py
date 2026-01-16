@@ -103,12 +103,12 @@ def main():
 
 def perform_donor_level_avg(donors, predictions, labels):
     unique_donors = list(np.unique(donors))
+    difference_in_len = len(donors) - len(predictions)
+    if difference_in_len > 0:
+        print(f"  DISCREPANCY of {difference_in_len} missing predictions.")
     padded_arrays = [
         list(zip_longest(donors.values, list(predictions), labels.values, fillvalue=0))
     ]
-    difference_in_len = len(donors) - len(predictions)
-    if difference_in_len > 0:
-        print("Discrepency of {difference_in_len} missing predictions.")
     scores_df = pd.DataFrame(padded_arrays[0], columns=['donor', 'score', 'y_test'])
     grouped = scores_df.groupby('donor')
     grp_predictions = np.array([grouped.get_group(donor)['score'].mean() for donor in unique_donors])
