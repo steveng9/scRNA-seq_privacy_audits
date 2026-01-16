@@ -70,6 +70,7 @@ def create_config():
         cfg.trial_num = get_next_baseline_trial_num(cfg)
 
         cfg.experiment_data_path = os.path.join(cfg.experiment_setting_path, str(cfg.trial_num), "datasets")
+        cfg.results_base_path = os.path.join(cfg.experiment_setting_path, str(cfg.trial_num), "results")
         cfg.results_path = os.path.join(cfg.experiment_setting_path, str(cfg.trial_num), "results", "baseline_mias")
         os.makedirs(cfg.results_path, exist_ok=True)
         cfg.train_donor_path = os.path.join(cfg.experiment_data_path, "train.npy")
