@@ -146,12 +146,8 @@ def compute_metrics(
 
     fpr, tpr, threshold = roc_curve(y_true, y_scores, pos_label=1)
 
+
     # Get TPR at specific FPR thresholds
-    def tpr_at_fpr(fpr, tpr, alpha):
-        mask = fpr <= alpha
-        if not mask.any():
-            return 0.0
-        return tpr[mask].max()
 
     # tpr_at_fpr_001 = tpr[(fpr >= 0.01).argmax()]
     # tpr_at_fpr_002 = tpr[(fpr >= 0.02).argmax()]
@@ -160,6 +156,17 @@ def compute_metrics(
     # tpr_at_fpr_02 = tpr[(fpr >= 0.2).argmax()]
     # tpr_at_fpr_05 = tpr[(fpr >= 0.5).argmax()]
 
+    # def tpr_at_fpr(fpr, tpr, alpha):
+    #     mask = fpr <= alpha
+    #     if not mask.any():
+    #         return 0.0
+    #     return tpr[mask].max()
+
+    def tpr_at_fpr(fpr, tpr, alpha):
+        mask = fpr >= alpha
+        if not mask.any():
+            return 0.0
+        return tpr[mask].min()
     tpr_at_fpr_001 = tpr_at_fpr(tpr, fpr, 0.01)
     tpr_at_fpr_002 = tpr_at_fpr(tpr, fpr, 0.02)
     tpr_at_fpr_005 = tpr_at_fpr(tpr, fpr, 0.05)
