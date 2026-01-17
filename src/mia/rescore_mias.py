@@ -55,8 +55,10 @@ def main():
     def save_result(mia_name, predictions, runtime_):
         grp_predictions, grp_labels = perform_donor_level_avg(donors, predictions, labels)
         (acc_median, acc_best, fpr, tpr, threshold, auc_, ap, pr_auc, f1_median, f1_best,
-            tpr_at_fpr_001, tpr_at_fpr_002, tpr_at_fpr_005,
-            tpr_at_fpr_01, tpr_at_fpr_02, tpr_at_fpr_05) = compute_metrics(grp_predictions, grp_labels)
+         tpr_at_fpr_001_b, tpr_at_fpr_002_b, tpr_at_fpr_005_b,
+         tpr_at_fpr_01_b, tpr_at_fpr_02_b, tpr_at_fpr_05_b,
+         tpr_at_fpr_001_a, tpr_at_fpr_002_a, tpr_at_fpr_005_a,
+         tpr_at_fpr_01_a, tpr_at_fpr_02_a, tpr_at_fpr_05_a) = compute_metrics(grp_predictions, grp_labels)
         results_list.append({
             "mia": mia_name,
             "accuracy_median": acc_median,
@@ -66,12 +68,18 @@ def main():
             "pr_auc": pr_auc,
             "f1_median": f1_median,
             "f1_best": f1_best,
-            "tpr_at_fpr_001": tpr_at_fpr_001,
-            "tpr_at_fpr_002": tpr_at_fpr_002,
-            "tpr_at_fpr_005": tpr_at_fpr_005,
-            "tpr_at_fpr_01": tpr_at_fpr_01,
-            "tpr_at_fpr_02": tpr_at_fpr_02,
-            "tpr_at_fpr_05": tpr_at_fpr_05,
+            "tpr_at_fpr_001_b": tpr_at_fpr_001_b,
+            "tpr_at_fpr_001_a": tpr_at_fpr_001_a,
+            "tpr_at_fpr_002_b": tpr_at_fpr_002_b,
+            "tpr_at_fpr_002_a": tpr_at_fpr_002_a,
+            "tpr_at_fpr_005_b": tpr_at_fpr_005_b,
+            "tpr_at_fpr_005_a": tpr_at_fpr_005_a,
+            "tpr_at_fpr_01_b": tpr_at_fpr_01_b,
+            "tpr_at_fpr_01_a": tpr_at_fpr_01_a,
+            "tpr_at_fpr_02_b": tpr_at_fpr_02_b,
+            "tpr_at_fpr_02_a": tpr_at_fpr_02_a,
+            "tpr_at_fpr_05_b": tpr_at_fpr_05_b,
+            "tpr_at_fpr_05_a": tpr_at_fpr_05_a,
             "runtime": runtime_
         })
 
@@ -156,23 +164,30 @@ def compute_metrics(
     # tpr_at_fpr_02 = tpr[(fpr >= 0.2).argmax()]
     # tpr_at_fpr_05 = tpr[(fpr >= 0.5).argmax()]
 
-    # def tpr_at_fpr(fpr, tpr, alpha):
-    #     mask = fpr <= alpha
-    #     if not mask.any():
-    #         return 0.0
-    #     return tpr[mask].max()
+    def tpr_at_fpr_below(fpr, tpr, alpha):
+        mask = fpr <= alpha
+        if not mask.any():
+            return 0.0
+        return tpr[mask].max()
 
-    def tpr_at_fpr(fpr, tpr, alpha):
+    def tpr_at_fpr_above(tpr, fpr, alpha):
         mask = fpr >= alpha
         if not mask.any():
             return 0.0
         return tpr[mask].min()
-    tpr_at_fpr_001 = tpr_at_fpr(tpr, fpr, 0.01)
-    tpr_at_fpr_002 = tpr_at_fpr(tpr, fpr, 0.02)
-    tpr_at_fpr_005 = tpr_at_fpr(tpr, fpr, 0.05)
-    tpr_at_fpr_01 = tpr_at_fpr(tpr, fpr, 0.1)
-    tpr_at_fpr_02 = tpr_at_fpr(tpr, fpr, 0.2)
-    tpr_at_fpr_05 = tpr_at_fpr(tpr, fpr, 0.5)
+
+    tpr_at_fpr_001_b = tpr_at_fpr_below(tpr, fpr, 0.01)
+    tpr_at_fpr_001_a = tpr_at_fpr_above(tpr, fpr, 0.01)
+    tpr_at_fpr_002_b = tpr_at_fpr_below(tpr, fpr, 0.02)
+    tpr_at_fpr_002_a = tpr_at_fpr_above(tpr, fpr, 0.02)
+    tpr_at_fpr_005_b = tpr_at_fpr_below(tpr, fpr, 0.05)
+    tpr_at_fpr_005_a = tpr_at_fpr_above(tpr, fpr, 0.05)
+    tpr_at_fpr_01_b = tpr_at_fpr_below(tpr, fpr, 0.1)
+    tpr_at_fpr_01_a = tpr_at_fpr_above(tpr, fpr, 0.1)
+    tpr_at_fpr_02_b = tpr_at_fpr_below(tpr, fpr, 0.2)
+    tpr_at_fpr_02_a = tpr_at_fpr_above(tpr, fpr, 0.2)
+    tpr_at_fpr_05_b = tpr_at_fpr_below(tpr, fpr, 0.5)
+    tpr_at_fpr_05_a = tpr_at_fpr_above(tpr, fpr, 0.5)
 
     f1_median = f1_score(y_true, y_pred_median, sample_weight=sample_weight)
     f1_best = f1_score(y_true, y_pred_best, sample_weight=sample_weight)
@@ -180,8 +195,10 @@ def compute_metrics(
     # return acc, fpr, tpr, threshold, auc, ap
     return (acc_median, acc_best, fpr, tpr, threshold,
             auc_sc, ap, pr_auc, f1_median, f1_best,
-            tpr_at_fpr_001, tpr_at_fpr_002, tpr_at_fpr_005,
-            tpr_at_fpr_01, tpr_at_fpr_02, tpr_at_fpr_05)
+            tpr_at_fpr_001_b, tpr_at_fpr_002_b, tpr_at_fpr_005_b,
+            tpr_at_fpr_01_b, tpr_at_fpr_02_b, tpr_at_fpr_05_b,
+            tpr_at_fpr_001_a, tpr_at_fpr_002_a, tpr_at_fpr_005_a,
+            tpr_at_fpr_01_a, tpr_at_fpr_02_a, tpr_at_fpr_05_a)
 
 def create_config():
     with open(config_path) as f:
