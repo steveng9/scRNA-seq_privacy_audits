@@ -255,8 +255,8 @@ def evaluate(evaluator_cfg, real, syn):
 
     # ---------- UMAP eval ----------
 
-    evaluator = SingleCellEvaluator(config=evaluator_cfg)
-    evaluator.get_umap_evals(evaluator_cfg["n_hvgs"])
+    # evaluator = SingleCellEvaluator(config=evaluator_cfg)
+    # evaluator.get_umap_evals(evaluator_cfg["n_hvgs"])
 
 
     # ---------- Train classifier on synthetic → test on real ----------
