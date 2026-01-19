@@ -250,10 +250,10 @@ class Statistics:
         synthetic_clusters = combined_adata.obs.loc[
                             combined_adata.obs["source"] == "synthetic", "louvain"].values
         ari_real_vs_syn = adjusted_rand_score(real_clusters, synthetic_clusters)
-        ari_gt_vs_comb = adjusted_rand_score(combined_adata.obs[cell_type_col], 
-                                             combined_adata.obs["louvain"])
+        # ari_gt_vs_comb = adjusted_rand_score(combined_adata.obs[cell_type_col],
+        #                                      combined_adata.obs["louvain"])
 
-        return ari_real_vs_syn, ari_gt_vs_comb
+        return ari_real_vs_syn, None
     
 
 

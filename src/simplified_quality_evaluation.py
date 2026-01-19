@@ -241,15 +241,15 @@ def register_quality_check(cfg):
 def evaluate(evaluator_cfg, real, syn):
 
     # Ensure dense arrays
-    X_real = real.X.toarray() if hasattr(real.X, "toarray") else real.X
-    X_syn = syn.X.toarray() if hasattr(syn.X, "toarray") else syn.X
+    # X_real = real.X.toarray() if hasattr(real.X, "toarray") else real.X
+    # X_syn = syn.X.toarray() if hasattr(syn.X, "toarray") else syn.X
 
     # ---------- Basic shape alignment ----------
-    common_genes = real.var_names.intersection(syn.var_names)
-    real = real[:, common_genes]
-    syn = syn[:, common_genes]
-    X_real = real.X.toarray()
-    X_syn = syn.X.toarray()
+    # common_genes = real.var_names.intersection(syn.var_names)
+    # real = real[:, common_genes]
+    # syn = syn[:, common_genes]
+    # X_real = real.X.toarray()
+    # X_syn = syn.X.toarray()
 
 
 
@@ -261,12 +261,12 @@ def evaluate(evaluator_cfg, real, syn):
 
     # ---------- Train classifier on synthetic → test on real ----------
 
-    evaluator = SingleCellEvaluator(config=evaluator_cfg)
-    results = evaluator.get_classification_evals()
-
-    output_file = os.path.join(evaluator.res_files_dir, f"classification_evals.csv")
-    ##
-    evaluator.save_results_to_csv(results, output_file)
+    # evaluator = SingleCellEvaluator(config=evaluator_cfg)
+    # results = evaluator.get_classification_evals()
+    #
+    # output_file = os.path.join(evaluator.res_files_dir, f"classification_evals.csv")
+    # ##
+    # evaluator.save_results_to_csv(results, output_file)
 
     # ---------- Statistical metrics ----------
 
