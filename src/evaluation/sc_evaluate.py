@@ -135,8 +135,8 @@ class SingleCellEvaluator:
     def get_statistical_evals(self):
         real_data, synthetic_data = self.initialize_datasets()
         stats = Statistics(self.random_seed)
-        scc, pcc = stats.compute_scc(real_data, synthetic_data)
-        mmd = stats.compute_mmd_optimized(real_data, synthetic_data)
+        # scc, pcc = stats.compute_scc(real_data, synthetic_data)
+        # mmd = stats.compute_mmd_optimized(real_data, synthetic_data)
         lisi = stats.compute_lisi(real_data, synthetic_data)
         # ari_real_syn, _ = stats.compute_ari(real_data, synthetic_data, self.cell_type_col)
         # corr_of_corr = stats.compute_gene_correlation_similarity(real_data, synthetic_data) #n_hvgs=5000
@@ -144,9 +144,9 @@ class SingleCellEvaluator:
 
 
         return {
-            'cc_spearman': scc,
-            'cc_pearson': pcc,
-            'mmd': mmd,
+            # 'cc_spearman': scc,
+            # 'cc_pearson': pcc,
+            # 'mmd': mmd,
             'lisi': lisi,
             # 'ari_real_vs_syn': ari_real_syn,
             # 'ari_gt_vs_comb': ari_gt_comb,
