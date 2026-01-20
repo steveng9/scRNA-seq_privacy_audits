@@ -164,7 +164,7 @@ def compute_metrics(
     # tpr_at_fpr_02 = tpr[(fpr >= 0.2).argmax()]
     # tpr_at_fpr_05 = tpr[(fpr >= 0.5).argmax()]
 
-    def tpr_at_fpr_below(fpr, tpr, alpha):
+    def tpr_at_fpr_below(tpr, fpr, alpha):
         mask = fpr <= alpha
         if not mask.any():
             return 0.0
