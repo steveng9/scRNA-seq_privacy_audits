@@ -162,10 +162,11 @@ The experiment configuration file template (`example_cfg_file_for_mamamia_experi
 
 If you use this code in your research, please cite:
 ```bibtex
-@article{golob2025scmamamia,
-  title={scMAMA-MIA: Privacy Attacks on Synthetic scRNA-seq Data},
+@misc{golob2025scmamamia,
+  title={Privacy Vulnerabilities in Synthetic Single-Cell RNA-Sequence Data},
   author={Golob, Steven and McKeever, Patrick and Pentyala, Sikha and De Cock, Martine and Peck, Jonathan},
-  year={2025}
+  year={2025},
+  note={Under review}
 }
 ```
 
