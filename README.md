@@ -165,7 +165,7 @@ If you use this code in your research, please cite:
 @misc{golob2025scmamamia,
   title={Privacy Vulnerabilities in Synthetic Single-Cell RNA-Sequence Data},
   author={Golob, Steven and McKeever, Patrick and Pentyala, Sikha and De Cock, Martine and Peck, Jonathan},
-  year={2025},
+  year={2026},
   note={Under review}
 }
 ```
