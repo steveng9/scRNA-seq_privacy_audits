@@ -4,7 +4,7 @@
 sizes=(2 5 10 20 50 100 200)
 #sizes=(100 200)
 variants=(001 101 001 101)
-datasets=(ok)
+datasets=(ok aida cg)
 
 for size in "${sizes[@]}"; do
     for variant in "${variants[@]}"; do

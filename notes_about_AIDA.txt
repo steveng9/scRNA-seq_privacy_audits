@@ -1,0 +1,28 @@
+Accessed from https://cellxgene.cziscience.com/collections/ced320a1-29f3-47c1-a735-513c7084d508
+on 11/26/2025
+
+
+TITLE:
+Asian Immune Diversity Atlas (AIDA)
+CZI Cell Science
+
+ABOUT:
+The relationships of human diversity with biomedical phenotypes are pervasive, yet remain understudied, particularly in a single-cell genomics context. Here we present the Asian Immune Diversity Atlas (AIDA), a multi-national single-cell RNA-sequencing (scRNA-seq) healthy reference atlas of human immune cells. AIDA comprises 1,265,624 circulating immune cells from 619 donors, spanning 7 population groups across 5 Asian countries, and 6 controls. Though population groups are frequently compared at the continental level, we found that sub-continental diversity, age, and sex pervasively impacted cellular and molecular properties of immune cells. These included differential abundance of cell neighbourhoods, as well as cell populations and genes relevant to disease risk, pathogenesis, and diagnostics. We discovered functional genetic variants influencing cell type-specific gene expression which were under-represented in non-Asian populations, and helped contextualise disease-associated variants. AIDA enables analyses of multi-ancestry disease datasets and facilitates the development of precision medicine efforts in Asia and beyond. Please note that the AIDA Phase 1 Data Freeze v1 object comprises 1,058,909 peripheral blood mononuclear cells from 503 healthy donors from Japan, Singapore, and South Korea alongside common controls. This first AIDA data freeze was released to the research community pre-publication, and was also part of the first CZ CELLxGENE Census assembled in May 2023. Going from Data Freeze v1 to Data Freeze v2, we added additional healthy Asian donor samples and control samples - please see our publications for further details.
+
+
+Publication:
+Kock et al. (2025) Cell
+https://www.sciencedirect.com/science/article/pii/S0092867425002028?via%3Dihub
+
+Contact:
+Shyam Prabhakar
+prabhakars@gis.a-star.edu.sg
+
+Raw Data:
+https://explore.data.humancellatlas.org/projects/f0f89c14-7460-4bab-9d42-22228a91f185
+explore.data.humancellatlas.org
+
+Other:
+Github code: https://github.com/prabhakarlab/AIDA_Phase1/
+Zenodo code: https://zenodo.org/records/14722572
+celltype.info: https://celltype.info/project/336/dataset/591

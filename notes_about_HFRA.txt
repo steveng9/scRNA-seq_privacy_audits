@@ -1,0 +1,30 @@
+Accessed from https://cellxgene.cziscience.com/collections/c11009b8-b113-4a99-9890-78b2f9df9d79
+on 11/26/2025
+
+TITLE:
+Human fetal retina atlas v1 - Unraveling the developmental heterogeneity within the human retina to reconstruct the continuity of retinal ganglion cell maturation and stage-specific intrinsic and extrinsic factors
+
+ABOUT:
+Tissue development is a complex spatiotemporal process with multiple interdependent components. Anatomical, histological, sequencing, and evolutional strategies can be used to profile and explain tissue development from different perspectives. The introduction of scRNAseq methods and the computational tools allows to deconvolute developmental heterogeneity and draw a decomposed uniform map. In this manuscript, we decomposed the development of a human retina with a focus on the retinal ganglion cells (RGC). To increase the temporal resolution of retinal cell classes maturation state we assumed the working hypothesis that that maturation of retinal ganglion cells is a continuous, non-discrete process. We have assembled the scRNAseq atlas of human fetal retina from fetal week 8 to week 27 and applied the computational methods to unravel maturation heterogeneity into a uniform maturation track. We align RGC transcriptomes in pseudotime to map RGC developmental fate trajectories against the broader timeline of retinal development. Through this analysis, we identified the continuous maturation track of RGC and described the cell-intrinsic (DEGs, maturation gene profiles, regulons, transcriptional motifs) and -extrinsic profiles (neurotrophic receptors across maturation, cell-cell interactions) of different RGC maturation states. We described the genes involved in the retina and RGC maturation, including de novo RGC maturation drivers. We demonstrate the application of the human fetal retina atlas as a reference tool, allowing automated annotation and universal embedding of scRNAseq data. Altogether, our findings deepen the current knowledge of the retina and RGC maturation by bringing in the maturation dimension for the cell class vs. state analysis. We show how the pseudotime application contributes to developmental-oriented analyses, allowing to order the cells by their maturation state. This approach not only improves the downstream computational analysis but also provides a true maturation track transcriptomics profile.
+
+
+
+
+Publication:
+Kriukov et al. (2025) Developmental Biology
+https://www.sciencedirect.com/science/article/pii/S0012160625002428?via%3Dihub
+
+Contact:
+Emil Kriukov
+
+Data Source:
+Sridhar et al.
+
+Data Source:
+Lu et al.
+
+Lab Website:
+https://bnv-lab.org/data
+
+Other:
+https://github.com/mcrewcow/fetal_retina_Kriukov

@@ -1,0 +1,8 @@
+Dataset from the CAMDA 2025 Health Privacy Challenge.
+
+
+https://github.com/PMBio/Health-Privacy-Challenge
+
+https://bipress.boku.ac.at/camda2025/the-camda-contest-challenges/
+
+https://elsa-ai.eu/elsa-health-privacy-challenge/
