@@ -19,7 +19,7 @@ else:
     from src.mia.utils.prepare_data import MIADataLoader
     from src.mia.models.base import BaseMIAModel
 from domias.bnaf.density_estimation import compute_log_p_x, density_estimator_trainer
-from domias.baselines import (MC, LOGAN_D1,
+from domias.baselines_optimized import (MC, LOGAN_D1,
                               GAN_leaks, GAN_leaks_cal, MC_optimized, GAN_leaks_optimized, GAN_leaks_cal_optimized)
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
