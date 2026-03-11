@@ -74,13 +74,13 @@ FULL_DATA_PATH = (
 )
 OUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "output")
 
-N_TRAIN               = 4   # donors whose cells train the target SDG
-N_HOLDOUT             = 4   # donors held out as non-members
-N_AUX                 = 4   # donors for the auxiliary shadow model
+N_TRAIN               = 10   # donors whose cells train the target SDG
+N_HOLDOUT             = 10   # donors held out as non-members
+N_AUX                 = 10   # donors for the auxiliary shadow model
 N_CELL_TYPES          = 2   # use the N_CELL_TYPES most populous cell types
-N_GENES               = 200 # HVGs (more → richer copula, slower training)
-MAX_CELLS_PER_DONOR_CT = 50 # cap cells per (donor, cell type) for speed
-SEED = 42
+N_GENES               = 1000 # HVGs (more → richer copula, slower training)
+MAX_CELLS_PER_DONOR_CT = 100 # cap cells per (donor, cell type) for speed
+SEED = 9
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -562,16 +562,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-
-
-Traceback (most recent call last):
-  File "/Users/stevengolob/PycharmProjects/camda_hpc/experiments/playground/run_playground.py", line 562, in <module>
-    main()
-  File "/Users/stevengolob/PycharmProjects/camda_hpc/experiments/playground/run_playground.py", line 437, in main
-    synth_shadow.train()
-  File "/Users/stevengolob/PycharmProjects/camda_hpc/src/sdg/scdesign2/model.py", line 102, in train
-    self.mean_expression.to_csv(self.means_path, index=True)
-    ...
-OSError: Cannot save file into a non-existent directory: '/Users/stevengolob/PycharmProjects/camda_hpc/experiments/playground/output/scdesign2/artifacts/synth'
