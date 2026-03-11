@@ -25,7 +25,7 @@ if _SRC_DIR not in sys.path:
 
 GENERATOR_CLASSES = {
     "scdesign2": ("sdg.scdesign2.model", "ScDesign2"),
-    # "scdesign3": ("sdg.scdesign3.model", "ScDesign3"),   # not yet implemented
+    "scdesign3": ("sdg.scdesign3.model", "ScDesign3"),
     # "scvae":     ("sdg.scvae.model",     "ScVAE"),        # not yet implemented
 }
 
