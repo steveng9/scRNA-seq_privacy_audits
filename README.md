@@ -13,154 +13,137 @@
 
 ## Overview
 
-This repository contains all code needed to conduct privacy attack experiments on synthetic scRNA-seq data. While designed primarily for attacking scDesign2-generated data, the framework can be applied to any synthetic scRNA-seq dataset.
+scMAMA-MIA is a membership inference attack (MIA) against synthetic single-cell RNA-seq
+(scRNA-seq) data generators.  It exploits the Gaussian copula structure fitted by
+scDesign2 (and scDesign3) to infer which donors' cells were used to train a generator —
+from the synthetic data alone.
+
+The framework supports multiple synthetic data generators (SDGs) and threat models
+(white-box / black-box, with / without auxiliary data).  See `docs/architecture.md` for
+the full design.
 
 ---
 
 ## Datasets
 
-We investigate three scRNA-seq datasets:
+| Dataset | Cells | Donors | Cell types | Source |
+|---------|-------|--------|------------|--------|
+| **OneK1K** | 1.26M | 981 | 14 | CAMDA 2025 / onek1k.org |
+| **AIDA** | 1.06M | 508 | 33 | CZ CELLxGENE |
+| **HFRA** | 108K | 22 | 9 | CZ CELLxGENE |
 
-### 1. OneK1K (CAMDA2025 Data)
-- [Health Privacy Challenge Repository](https://github.com/PMBio/Health-Privacy-Challenge)
-- [CAMDA 2025 Contest](https://bipress.boku.ac.at/camda2025/the-camda-contest-challenges/)
-- [ELSA Health Privacy Challenge](https://elsa-ai.eu/elsa-health-privacy-challenge/)
-
-### 2. Asian Immune Diversity Atlas (AIDA) - Version 1
-- [CZ CELLxGENE Collection](https://cellxgene.cziscience.com/collections/ced320a1-29f3-47c1-a735-513c7084d508)
-
-### 3. Human Fetal Retina Atlas (HFRA)
-- [CZ CELLxGENE Collection](https://cellxgene.cziscience.com/collections/c11009b8-b113-4a99-9890-78b2f9df9d79)
-
-**Note:** Additional dataset information can be found in:
-- `./notes_about_OneK1K.txt`
-- `./notes_about_AIDA.txt`
-- `./notes_about_HFRA.txt`
+See `docs/notes_about_OneK1K.txt`, `docs/notes_about_AIDA.txt`, `docs/notes_about_HFRA.txt` for details.
 
 ---
 
 ## Installation
 
-### Environment Setup
-
-Create the Python environment using Miniconda:
 ```bash
 conda env create -f ENVIRONMENT.yaml
-conda activate <environment-name>
+conda activate camda_conda
 ```
 
 ---
 
 ## Usage
 
-### 1. Data Cleaning and Preparation
+### 1. Data Cleaning
 
-Clean the full datasets using:
 ```bash
-python ./src/clean_data.py
+python src/data/clean_data.py
 ```
 
-**Important:** Edit the `data_dir` variable at the top of the file to point to your dataset location.
+Edit the `data_dir` variable at the top of the file to point to your dataset location.
 
 ---
 
 ### 2. scMAMA-MIA Experiments
 
-#### Single Experiment
+#### Single experiment
 
-1. **Create a configuration file** using the template:
-```
-   ./example_cfg_file_for_mamamia_experiments.yaml
-```
-
-2. **Run a single experiment:**
 ```bash
-   cd ./src/generators/
-   python ../mia_experiments_main.py F <path-to-config-file> P
+python src/run_experiment.py <path-to-config>           # local
+python src/run_experiment.py T <path-to-config> P       # server, verbose
 ```
 
-   This script will:
-   - Sample donors from the full dataset
-   - Train scDesign2 on the sampled data
-   - Generate synthetic data
-   - Execute attacks according to the specified threat model
+Use `configs/template.yaml` as a starting point for your config file.
 
-#### Batch Experiments
+The script:
+1. Samples train / holdout / aux donor sets
+2. Trains the SDG (scDesign2 by default) on the train set
+3. Fits shadow copulas on synthetic data and aux data
+4. Runs scMAMA-MIA for each cell type
+5. Aggregates to donor-level AUC; saves results
 
-1. **Generate all config files:**
+Trial tracking is automatic — re-running the same config resumes incomplete trials
+(tracked in `tracking.csv` within the experiment output directory).
+
+#### Batch experiments
+
 ```bash
-   ./create_experiment_config_files.sh
+./create_experiment_config_files.sh     # generate configs for all sizes / datasets
+./run_donor_level_mia.sh               # run all (edit paths for your machine)
 ```
-   This creates config files for all size configurations and datasets.
-
-2. **Run the full experiment suite:**
-```bash
-   cd ./src/generators/
-   ./run_donor_level_mia.sh
-```
-
-**Note:** Edit script paths to match your local machine configuration.
-
-#### Experiment Tracking
-
-A `tracking.csv` file automatically logs completed trials. When `mia_experiments_main.py` runs, it checks this file and initiates new trials for incomplete experiments.
 
 ---
 
 ### 3. Baseline MIA Experiments
 
-Run baseline MIAs from the CAMDA2025 competition:
+Baselines require scMAMA-MIA trials to have already run (they reuse the same splits).
 
-#### Single Baseline Experiment
 ```bash
-cd ./src/mia/
-python ../baseline_mias.py T <path-to-config-file>
+python src/run_baselines.py <path-to-config>
 ```
-
-#### Full Baseline Suite
-```bash
-./run_baseline_mias.sh
-```
-
-**Important:** Baseline experiments only execute for trials already completed by scMAMA-MIA. Run scMAMA-MIA experiments first.
 
 ---
 
-### 4. Quality Evaluations
+### 4. Quality Evaluation
 
-Evaluate synthetic data quality using two approaches:
-
-#### CAMDA Competition Metrics
 ```bash
-cd ./src/generators/
-python ../simplified_quality_evaluation.py T <path-to-config-file> P
+python src/run_quality_eval.py <path-to-config>
 ```
-
-Or run all evaluations:
-```bash
-./run_quality_evals.sh
-```
-
-
-#### UMAP Visualization
-Generate UMAPs comparing real and synthetic data:
-```bash
-python genUmap.py
-```
-
-**Important:** Quality experiments only execute for trials already completed by scMAMA-MIA. Run scMAMA-MIA experiments first.
 
 ---
 
-## Directory Structure
+## Repository Structure
 
-The experiment configuration file template (`example_cfg_file_for_mamamia_experiments.yaml`) demonstrates the directory structure created for storing experimental results and artifacts.
+```
+camda_hpc/
+├── configs/
+│   └── template.yaml               # config template for MIA experiments
+│
+├── src/
+│   ├── run_experiment.py           # MAIN ENTRY POINT
+│   ├── sdg/                        # Synthetic Data Generators
+│   │   ├── base.py                 # abstract SDG interface
+│   │   ├── run.py                  # SDG runner (register new generators here)
+│   │   ├── scdesign2/              # scDesign2 (primary SDG)
+│   │   ├── scdesign3/              # placeholder — not yet implemented
+│   │   └── scvae/                  # placeholder — not yet implemented
+│   ├── attacks/
+│   │   ├── scmamamia/              # scMAMA-MIA attack algorithms
+│   │   └── baselines/              # CAMDA2025 baseline MIAs
+│   ├── evaluation/                 # quality metrics (LISI, ARI, MMD)
+│   └── data/                       # CDF utils, donor splitting strategies
+│
+├── experiments/
+│   ├── scdesign2/                  # scDesign2 experiment configs + runner
+│   ├── scdesign3/                  # future
+│   ├── dp/                         # differential privacy experiments (HIGH PRIORITY)
+│   ├── baselines/                  # CAMDA2025 baseline comparisons
+│   └── bulk_rna_seq/               # Track I bulk RNA-seq (not implemented)
+│
+├── docs/
+│   └── architecture.md             # full design doc
+└── outputs/                        # legacy CAMDA competition output (see outputs/README.md)
+```
+
+For the full architecture and how to add new SDGs or DP, see `docs/architecture.md`.
 
 ---
 
 ## Citation
 
-If you use this code in your research, please cite:
 ```bibtex
 @misc{golob2025scmamamia,
   title={Privacy Vulnerabilities in Synthetic Single-Cell RNA-Sequence Data},
@@ -172,20 +155,10 @@ If you use this code in your research, please cite:
 
 ---
 
-[//]: # (## License)
-
-[//]: # ()
-[//]: # ([Specify your license here - e.g., MIT, Apache 2.0, etc.])
-
-[//]: # ()
-[//]: # (---)
-
-
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT — see [LICENSE](LICENSE).
 
 ## Contact
 
-For questions or issues, please contact Steven Golob at golobs@uw.edu or open an issue on this repository.
-
+Steven Golob — golobs@uw.edu
