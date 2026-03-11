@@ -60,9 +60,13 @@ class SingleCellEvaluator:
         try:
             test_data_pth = self.dataset_config["test_count_file"]
             test_donors = np.load(test_data_pth, allow_pickle=True)
-            all_data = sc.read_h5ad(self.full_data_path)
-
-            test_data = all_data[all_data.obs["individual"].isin(test_donors)]
+            # Use backed='r' so only obs metadata is loaded initially; the X matrix
+            # for the full dataset is read lazily from disk. This avoids loading multi-GB
+            # full datasets (e.g. AIDA 57 GB) entirely into RAM.
+            all_data = sc.read_h5ad(self.full_data_path, backed='r')
+            mask = all_data.obs["individual"].isin(test_donors)
+            test_data = all_data[mask].to_memory()
+            all_data.file.close()
             #cell_types = test_data.obs[self.cell_type_col].values
             #cell_labels = test_data.obs[self.cell_label_col].values
 
@@ -136,9 +140,13 @@ class SingleCellEvaluator:
         real_data, synthetic_data = self.initialize_datasets()
         stats = Statistics(self.random_seed)
         # scc, pcc = stats.compute_scc(real_data, synthetic_data)
-        # mmd = stats.compute_mmd_optimized(real_data, synthetic_data)
+        mmd = stats.compute_mmd_optimized(real_data, synthetic_data)
         lisi = stats.compute_lisi(real_data, synthetic_data)
-        # ari_real_syn, _ = stats.compute_ari(real_data, synthetic_data, self.cell_type_col)
+        try:
+            ari_real_syn, _ = stats.compute_ari(real_data, synthetic_data, self.cell_type_col)
+        except Exception as e:
+            print(f"WARNING: ARI computation failed: {e}")
+            ari_real_syn = None
         # corr_of_corr = stats.compute_gene_correlation_similarity(real_data, synthetic_data) #n_hvgs=5000
         # emd = stats.compute_emd(real_data, synthetic_data)
 
@@ -146,9 +154,9 @@ class SingleCellEvaluator:
         return {
             # 'cc_spearman': scc,
             # 'cc_pearson': pcc,
-            # 'mmd': mmd,
+            'mmd': mmd,
             'lisi': lisi,
-            # 'ari_real_vs_syn': ari_real_syn,
+            'ari_real_vs_syn': ari_real_syn,
             # 'ari_gt_vs_comb': ari_gt_comb,
             # 'emd': emd,
             # 'corr_of_corr': corr_of_corr

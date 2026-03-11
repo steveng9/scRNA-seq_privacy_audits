@@ -281,7 +281,10 @@ def write_sdg_config_files(cfg):
 # ===========================================================================
 
 def create_data_splits(cfg):
-    all_data = ad.read_h5ad(os.path.join(cfg.top_data_dir, "full_dataset_cleaned.h5ad"))
+    # Use backed='r' so only obs metadata is loaded initially; avoids loading multi-GB
+    # full datasets (e.g. AIDA 57 GB) entirely into RAM before filtering.
+    full_path = os.path.join(cfg.top_data_dir, "full_dataset_cleaned.h5ad")
+    all_data = ad.read_h5ad(full_path, backed='r')
     cell_types = all_data.obs["cell_type"].unique()
 
     if (os.path.exists(cfg.train_donors_path)
@@ -297,15 +300,28 @@ def create_data_splits(cfg):
     holdout_donors = np.load(cfg.holdout_donors_path, allow_pickle=True)
     aux_donors     = np.load(cfg.aux_donors_path,     allow_pickle=True)
 
-    all_train   = all_data[all_data.obs["individual"].isin(train_donors)]
-    all_holdout = all_data[all_data.obs["individual"].isin(holdout_donors)]
-    all_aux     = all_data[all_data.obs["individual"].isin(aux_donors)]
-    print(f"Cells — train: {len(all_train)}, holdout: {len(all_holdout)}, aux: {len(all_aux)}")
+    # Load only the needed subsets into memory, then release the full backed file.
+    # Skip re-reading from disk if the h5ad splits already exist (saves several minutes
+    # on large datasets like AIDA where each h5ad is ~8 GB).
+    if (not resampled
+            and os.path.exists(cfg.train_path)
+            and os.path.exists(cfg.holdout_path)
+            and os.path.exists(cfg.aux_path)):
+        print("(h5ad splits already exist — skipping re-extraction)", flush=True)
+        all_data.file.close()
+        all_train   = ad.read_h5ad(cfg.train_path)
+        all_holdout = ad.read_h5ad(cfg.holdout_path)
+        all_aux     = ad.read_h5ad(cfg.aux_path)
+    else:
+        all_train   = all_data[all_data.obs["individual"].isin(train_donors)].to_memory()
+        all_holdout = all_data[all_data.obs["individual"].isin(holdout_donors)].to_memory()
+        all_aux     = all_data[all_data.obs["individual"].isin(aux_donors)].to_memory()
+        all_data.file.close()
+        all_train.write_h5ad(cfg.train_path)
+        all_holdout.write_h5ad(cfg.holdout_path)
+        all_aux.write_h5ad(cfg.aux_path)
 
-    all_train.write_h5ad(cfg.train_path)
-    all_holdout.write_h5ad(cfg.holdout_path)
-    all_aux.write_h5ad(cfg.aux_path)
-
+    print(f"Cells — train: {len(all_train)}, holdout: {len(all_holdout)}, aux: {len(all_aux)}", flush=True)
     targets = ad.concat([all_train, all_holdout])
     _initialise_results_files(cfg, targets)
 
@@ -328,7 +344,7 @@ def _initialise_results_files(cfg, targets):
         holdout_donors = np.load(cfg.holdout_donors_path, allow_pickle=True)
         membership = targets.obs["individual"].isin(train_donors).astype(int).values
         pd.DataFrame({
-            "cell id":    targets.to_df().index,
+            "cell id":    targets.obs_names,  # avoids densifying the X matrix
             "donor id":   targets.obs["individual"].values,
             "cell type":  targets.obs["cell_type"].values,
             "sex":        targets.obs["sex"].values       if "sex"       in cols else None,

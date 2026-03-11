@@ -43,14 +43,13 @@ warnings.simplefilter(action='ignore', category=ImportWarning)
 def main():
     cfg = create_config()
 
-    train_donors = np.load(cfg.train_donor_path, allow_pickle=True)
-    all_data = ad.read_h5ad(os.path.join(cfg.dir_list[_ENV].data, cfg.dataset_name, "full_dataset_cleaned.h5ad"))
-    train = all_data[all_data.obs["individual"].isin(train_donors)]
-    synth = ad.read_h5ad(cfg.synth_path)
-
+    # Note: the real and synthetic data are loaded inside SingleCellEvaluator
+    # (via load_test_anndata / load_synthetic_anndata) using backed='r' mode for
+    # large full-dataset files.  The top-level load here is unused and was causing
+    # OOM kills on large datasets (e.g. AIDA 57 GB h5ad), so it has been removed.
     quality_eval_cfg = make_quality_eval_cfg(cfg)
 
-    results = evaluate(quality_eval_cfg, train, synth)
+    results = evaluate(quality_eval_cfg, None, None)
 
     # pd.DataFrame([results]).to_csv(cfg.results_file, index=False)
     register_quality_check(cfg)
@@ -244,7 +243,7 @@ def register_quality_check(cfg):
 
 # ========= SIMPLE EVALUATION PIPELINE =============
 
-def evaluate(evaluator_cfg, real, syn):
+def evaluate(evaluator_cfg, real=None, syn=None):
 
     # Ensure dense arrays
     # X_real = real.X.toarray() if hasattr(real.X, "toarray") else real.X

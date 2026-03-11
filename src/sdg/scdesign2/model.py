@@ -91,14 +91,18 @@ class ScDesign2(BaseSingleCellDataGenerator):
         cell_types = X_train.obs[self.cell_type_col].values
         cell_type_counts = Counter(cell_types)
 
-        # Compute mean expression per cell type
-        X_dense = X_train.X.toarray() if not isinstance(X_train.X, np.ndarray) else X_train.X
-        self.mean_expression = (
-            pd.DataFrame(X_dense, columns=X_train.var_names, index=X_train.obs_names)
-            .groupby(X_train.obs[self.cell_type_col], observed=False)
-            .mean()
-            .T
-        )
+        # Compute mean expression per cell type without densifying the full matrix.
+        # Calling .toarray() on large datasets (e.g. 200K cells × 35K genes) would
+        # create a ~30+ GB dense array and OOM-kill the process.
+        import scipy.sparse as sp
+        X_sp = X_train.X if sp.issparse(X_train.X) else sp.csr_matrix(X_train.X)
+        unique_cts = list(cell_type_counts.keys())
+        ct_labels = X_train.obs[self.cell_type_col].values
+        means_dict = {
+            ct: np.asarray(X_sp[ct_labels == ct].mean(axis=0)).flatten()
+            for ct in unique_cts
+        }
+        self.mean_expression = pd.DataFrame(means_dict, index=X_train.var_names).T
         self.mean_expression.to_csv(self.means_path, index=True)
 
         X_train.layers["counts"] = X_train.X.copy()
@@ -120,9 +124,16 @@ class ScDesign2(BaseSingleCellDataGenerator):
         hvg_subset_path = os.path.join(self.tmp_dir, "hvg_train.h5ad")
         X_train[:, self.hvg_mask].copy().write(hvg_subset_path)
 
+        # Release X_train before forking worker processes to avoid CoW overhead
+        # multiplying the ~11 GB in-memory AnnData across all workers.
+        del X_train
+        import gc; gc.collect()
+
         out_model_path = self.generator_config["out_model_path"]
+        import multiprocessing
         print("Launching parallel training processes...")
-        with ProcessPoolExecutor(max_workers=15) as executor:
+        ctx = multiprocessing.get_context("spawn")  # avoids inheriting parent's memory
+        with ProcessPoolExecutor(max_workers=4, mp_context=ctx) as executor:
             futures = [
                 executor.submit(_run_train, self.home_dir, hvg_subset_path, ct, out_model_path)
                 for ct in cell_type_counts.keys()
