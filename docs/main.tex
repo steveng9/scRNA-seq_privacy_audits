@@ -1,0 +1,430 @@
+%%
+%% Copyright 2022 OXFORD UNIVERSITY PRESS
+%% (Template retained for structure; will be replaced with RECOMB-Privacy template)
+%%
+
+%%%CONTEMPORARY%%%
+\documentclass[unnumsec,webpdf,contemporary,large]{oup-authoring-template}%
+% TODO: Replace document class with RECOMB-Privacy 2026 required template.
+% For now, use \onecolumn and geometry package to approximate 10pt / 1-inch margins:
+\onecolumn
+% \usepackage[margin=1in]{geometry}  % Uncomment once template is finalized
+
+% -------------------------------------------------------
+% ALTERNATIVE TITLE (keep for consideration):
+% \title[Privacy Vulnerabilities in Synthetic scRNA-seq Data]{Privacy Vulnerabilities in Synthetic Single-Cell RNA-Sequence Data}
+% -------------------------------------------------------
+
+\graphicspath{{Fig/}}
+
+\theoremstyle{thmstyleone}%
+\newtheorem{theorem}{Theorem}%
+\newtheorem{proposition}[theorem]{Proposition}%
+\theoremstyle{thmstyletwo}%
+\newtheorem{example}{Example}%
+\newtheorem{remark}{Remark}%
+\theoremstyle{thmstylethree}%
+\newtheorem{definition}{Definition}
+
+\usepackage{soul}
+\usepackage{color}
+\usepackage{xcolor}
+\usepackage[dvipsnames]{xcolor}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{upgreek}
+\usepackage{booktabs}
+
+% Comment macros (retained for active use; remove before final submission)
+\newcommand{\magenta}[1]{\textcolor{magenta}{#1}}
+\newcommand{\martine}[1]{\textcolor{magenta}{\textbf{[Martine:]} #1}}
+\newcommand{\patrick}[1]{\textcolor{blue}{\textbf{[Patrick:]} #1}}
+\newcommand{\steven}[1]{\textcolor{Melon}{\textbf{[Steven:]} #1}}
+
+\begin{document}
+
+\journaltitle{Under review}
+\DOI{DOI HERE}
+\copyrightyear{2026}
+\pubyear{2026}
+\access{Advance Access Publication Date: Day Month Year}
+\appnotes{Paper}
+
+\firstpage{1}
+
+\title[Privacy Vulnerabilities in Synthetic scRNA-seq Data]{Privacy Vulnerabilities in \\ Synthetic Single-Cell RNA-Sequence Data}
+
+\author[1,$\ast$]{Steven Golob\ORCID{0009-0008-4442-2762}}
+\author[1]{Patrick McKeever\ORCID{0009-0000-2845-7107}}
+\author[1]{Sikha Pentyala}
+\author[1,2]{Martine De Cock\ORCID{0000-0001-7917-0771}}
+\author[2,3]{Jonathan Peck\ORCID{0000-0003-2929-4164}}
+
+\authormark{Golob et al.}
+
+\address[1]{\orgdiv{School of Engineering and Technology}, \orgname{University of Washington Tacoma}
+\orgaddress{
+\street{1900 Commerce Street, Tacoma}, \postcode{98402}, \state{WA}, \country{USA}}
+}
+\address[2]{\orgdiv{Department of Mathematics, Computer Science, and Statistics}, \orgname{Ghent University}, \orgaddress{\street{Krijgslaan 281 (S9), Gent}, \postcode{9000},  \country{Belgium}}}
+\address[3]{\orgdiv{Data Mining and Modelling for Biomedicine}, \orgname{VIB Center for Inflammation Research}, \orgaddress{\street{Technologiepark-Zwijnaarde 71}, \postcode{9052}, \state{Gent}, \country{Belgium}}}
+
+\corresp[$\ast$]{Corresponding author. \href{email:golobs@uw.edu}{golobs@uw.edu}}
+
+\received{Date}{0}{Year}
+\revised{Date}{0}{Year}
+\accepted{Date}{0}{Year}
+
+\abstract{
+% CHANGE (R1 minor + R2 minor): "begging the question" -> "raising the question"; "generative AI models" -> "generative models"
+\textbf{Motivation:} Single-cell RNA-Sequence (scRNA-seq) data is kept under strict access control because of its sensitive nature. Synthetic data generation (SDG) techniques can generate artificial scRNA-seq data, raising the question of whether leading SDG techniques like scDesign2 can sufficiently protect privacy of donors to justify relaxing access control.\\
+\textbf{Results:} We present an adversarial privacy attack against scDesign2, demonstrating that the leading technique for synthetic scRNA-seq data generation does not mask which donors were used to train the generator. The fewer the number of cell donors used in the dataset to train the SDG model, the easier an attack is. Using our experimental results, we argue for best practices to safely release synthetic data, mitigating privacy risks.\\
+\textbf{Availability and Implementation:} \url{https://github.com/steveng9/scRNA-seq_privacy_audits}\\
+\textbf{Contact:} golobs@uw.edu
+}
+\keywords{single-cell RNA-sequence, synthetic data, privacy, membership inference attack}
+
+\maketitle
+
+
+\section{Introduction}
+
+The development of RNA sequencing (RNA-seq) technologies has led to a massive upsurge in medical research and breakthroughs. Examples include revolutionizing transcriptome profiling, enabling comprehensive studies of gene expression, alternative splicing, and transcript isoforms, 
+and facilitating progress in personalized medicine and immunotherapy \cite{isaic_next-generation_2025,lang_editorial_2023}. Initially, these technologies were able to measure 
+gene expression levels across a large population of pooled cells or tissues, so-called bulk RNA-seq.
+
+More recently, single-cell RNA-seq methods (``scRNA-seq'' for short) allow gene expression levels to be measured \textit{at the cellular level}. This is tremendously useful, because we now are able to see all sorts of new detail: how expression levels vary for a given cell type; how cells with irregular expression levels impact the organism; and to characterize tumor microenvironments, bettering our understanding of therapy-resistance \cite{chang_single-cell_2024}.
+% CHANGE (R1 minor): "therapy-resistence" -> "therapy-resistance"
+Of note, single-cell sequencing was named ``Method of the Year'' by \textit{Nature} in 2013 \cite{noauthor_method_2014}.
+
+Interest in scRNA-seq research has spurred the development of techniques for generation of synthetic scRNA-seq data to benchmark new statistical methods, to augment training data for rare cell types, and to facilitate privacy-preserving sharing of scRNA-seq data \cite{luo2024scdiffusion,marouf_realistic_2020,sun2021scdesign2}. A common approach to synthetic data generation (SDG) is to train a generative model on real data, and subsequently use the trained model (or ``generator'') to create artificial data that preserves certain statistical properties of the original, real data, such as the mean expression level of each gene, or the correlations between certain genes, etc.~\cite{gronbech2020scvae,zhang2025cfdiffusion}
+% CHANGE (R1 minor): "generative AI models" -> "generative model" (scDesign2 is statistical, not a neural model)
+Because synthetic data is not real patient data, there is a growing interest in SDG as an approach to privacy-preserving data sharing \cite{hu2023sok}.
+
+Concerns regarding privacy and confidentiality of genomics data are justified \cite{NIH2025,oestreich_privacy_2021}. They have recently resulted in stricter NIH controlled-access genomic data requirements \cite{noauthor_not-od-24-157_nodate} and will become even more important with the collection of single-cell data. Recent work has demonstrated that even transcriptomic data (e.g.\ single-cell count matrices) can leak private information: for instance, it may be possible to link ostensibly anonymized scRNA-seq samples back to individuals, or infer aspects of their genotype or disease status from expression patterns. One recent study performed a linkage attack in which donors' scRNA expression counts were linked to their eQTL genotypes with near-perfect accuracy (99.9\%) \cite{walker_private_2024}. This exposure could put individuals at risk of stigmatization, discrimination, or biased decisions by insurers or employers.
+
+Furthermore, the privacy risk does not stop at the individual: because genetic variants are heritable, revealing an individual's transcriptomic or genomic data may inadvertently expose sensitive information about their biological relatives as well --- including predispositions to disease or other heritable traits. This intergenerational risk is well recognized in genomic data-sharing ethics and policy literature, which warns that disclosure of one individual's data ``may harm not only the individual\dots but also other genetically related people'' \cite{shabani_challenges_2015}.
+
+Stricter health data policies are known to lead to a ``privacy chill'', 
+incentivizing risk-averse behavior among data custodians, and stifling data access \cite{10.1093/idpl/ipae017}. Giving access to synthetic data instead of real data has been advertised as a way to enable data sharing in sensitive domains such as healthcare and biomedicine. Recently, the European Genome Data Infrastructure project has begun publishing synthetic genomic data derived from cancer patients in order to comply with European Union privacy regulations \cite{pascucci_progressing_2024}.
+
+It has been shown, however, that synthetic data can reveal information about the real data that was used to train the generator \cite{golob_privacy_2025,zhang_membership_2022}. 
+Yet the privacy risks of synthetic genomic data remain severely understudied. 
+Many membership inference attacks (MIAs) have been proposed to audit tabular synthetic data generators, but are usually studied on demographic or smaller datasets \cite{houssiau2022tapas,wu2025winning} with only a few dozen features. When applied to genomic data which has thousands of features, they rarely perform better than random guessing \cite{oprisanu_utility_2022, zhang_membership_2022}. There are not currently any MIAs designed specifically for auditing the privacy of genomic data that clearly beat random guessing.
+
+The importance and open nature of this problem was acknowledged by the CAMDA Health Privacy Challenge at ISBM2025,\footnote{\url{https://bipress.boku.ac.at/camda2025/the-camda-contest-challenges/}} which called for private synthetic data generation methods of bulk and single-cell RNA-seq data along with evaluations of their privacy protections. 
+Interestingly, none of the challenge participants successfully mounted an adversarial attack to reveal privacy leakage.
+
+In this paper, we present such an attack on \textit{scDesign2} \cite{sun2021scdesign2}, the method that generated the highest quality scRNA-seq data according to the metrics used in the CAMDA2025 competition \cite{mckeevercomparison_manual}. For each gene and cell type, scDesign2 fits an individual marginal distribution. For some subset of genes exceeding a threshold of non-zero entries, scDesign2 captures the correlation structure using a Gaussian copula. Once the model is fitted, scDesign2 generates synthetic scRNA-seq data by sampling from the learned individual and joint distributions. We show that having access to such a synthetic dataset is sufficient to infer which donors' data was used to fit the model.
+
+The remainder of this paper is structured as follows: after presenting preliminaries,
+we propose scMAMA-MIA, a single-cell--specific adaptation of the MAMA-MIA membership inference attack \cite{golob_privacy_2025}, designed to exploit the generative structure of scDesign2. 
+We show on a series of scRNA-seq datasets that scMAMA-MIA can infer which donors were used in the training data at an accuracy that far surpasses other tabular attack models. 
+Using our experimental results, we argue for best practices to safely release synthetic scRNA-seq data, mitigating privacy risks.
+
+
+
+\section{Preliminaries}
+
+\subsection{Synthetic Data Generation with scDesign2}
+
+We consider scRNA-seq data to have the form $D \in \mathbb{Z}_{\small\geq0}^{n \times m}$, where $n$ is the number of cells in the sample and $m$ is the number of genes. There are $C$ cell types and $P$ donors (as in ``patients''). Each row in $D$ has one cell type and one donor. $D_{c}$ denotes all the cells in $D$ of type $c$ while $D_{p}$ denotes cells only from donor $p$ in $D$. 
+
+\subsubsection{Gaussian Copula}
+
+A copula is a type of multivariate distribution defined in terms of individual marginals along with some dependency structure between them. More specifically, a function $C: [0,1]^k\rightarrow[0,1]$ is a k-dimensional copula if it satisfies: (1) $\forall u_i \in [0,1]: C(1,...,1,u_i,1,...,1)=u_i$; (2) $\forall u_i \in [0,1], C(u_1,...,u_k)=0$ if any $u_i=0$; and (3) $C$ is $k$-increasing \cite{nelsen2006introduction}. Intuitively, each input $u_i$ is a uniformly distributed random variable derived from the CDF of a random variable $X_i$. The probability integral transform (PIT) theorem states that, given a random variable $X$ with continuous CDF $F_X$, the random variable $U=F_X(X)$ has a CDF $F_U(u) =\text{Pr}(F_X(X)\leq u)=u$ which is uniformly distributed over [0,1]. Applying the PIT componentwise to a random vector produces a vector of random variables whose joint distribution is a copula.
+
+In the Gaussian copula, dependency is preserved by use of the covariance matrix between individual Gaussian marginals. Formally, let $\Phi$ denote the Gaussian CDF, let $\Phi^{-1}$ denote the inverse Gaussian CDF, and let $\Phi_{\mathcal{R},k}$ denote the multivariate standard normal CDF with mean zero, unit variance, and the covariance matrix $\mathcal{R}$. Then the distribution of a Gaussian copula is defined as follows:
+\begin{eqnarray}
+    C_{\mathcal{R},k}(u_1,...,u_k) & = &\text{P}(U_1\leq u_1,...,U_k\leq u_k) \\
+    &=&\Phi_{\mathcal{R},k}(\Phi^{-1}(u_1), ...,\Phi^{-1}(u_k)) 
+\end{eqnarray}
+Sampling from a Gaussian copula consists in sampling $Z \sim \mathcal{N}(0,\mathcal{R})$ and applying the PIT to each component of $Z$ to obtain $U_i=\Phi(Z_i)$. This gives a vector $U$ with uniform marginals and joint distribution $C_{\mathcal{R},k}$. Applying inverse CDFs $F^{-1}_1, ...,F^{-1}_k$ then yields a random variable $X = (F^{-1}_1(U_1),...,F^{-1}_k(U_k))$ on the scale of the distributions specified by $F_1,...,F_k$ while preserving the correlations specified by $\mathcal{R}$. This allows the construction of joint distributions over diverse types of marginal distributions.
+
+\subsubsection{scDesign2 and scDesign3}\label{sec:scdesign}
+
+scDesign2 \cite{sun2021scdesign2} relies on a Gaussian copula for generation of single-cell RNA counts data. For each gene and each cell type, it fits an individual marginal distribution, using Maximum Likelihood Estimates of Negative Binomial or Zero-Inflated Negative Binomial (ZINB) distributions for over-dispersed genes and Poisson or Zero-Inflated Poisson distributions for all others.
+For the majority of genes (``group 1''), scDesign2 samples from these individual distributions to create synthetic data. For some subset of genes exceeding a threshold of non-zero entries (``group 2''), scDesign2 incorporates individual distributions into a Gaussian copula and samples from this.\footnote{Because these distributions are discrete, scDesign2 relies on a \textit{distributional transform technique} \cite{copulaDistTransform}.} For context, the average amount of genes scDesign2 selects for each of these groups is given in Table \ref{tab:gene_counts_all}. Exact criteria for selecting genes is given in the scDesign2 paper \citep{sun2021scdesign2}. 
+
+scDesign3 \cite{sun2023scdesign3} is a more recent framework with several enhancements on scDesign2. It has spatial capabilities and simulates other omics modalities such as single-cell ATAC-seq, DNA methylation, protein abundance (CITE-seq), etc. However, we focus on scDesign2 in our work, because scDesign3 employs essentially the same copula-based model as scDesign2 for single-cell expression counts. Therefore, scDesign2 is still considered the state-of-the-art for this modality.
+% TODO (R2 major concern 3): Reviewer 2 is PARTIALLY CORRECT. scDesign3 supports BOTH Gaussian
+% and Vine copulas (user-selectable). Its DEFAULT is Gaussian, same as scDesign2. The Vine option
+% is slow and not recommended for >1000 genes. So the claim that scDesign3 uses "essentially the
+% same copula-based model" holds for its default mode, but needs nuance. Revise this paragraph to:
+% (1) acknowledge scDesign3 also supports Vine copulas, (2) clarify that scMAMA-MIA applies to
+% scDesign3 when using the default Gaussian copula, (3) note that extending scMAMA-MIA to Vine
+% copulas is future/ongoing work.
+
+When running scDesign2 on our experimental training samples, we select and only use the highly-variable genes for training, as is recommended by the authors in \cite{sun2021scdesign2}. 
+Highly variable gene (HVG) selection was performed using the Scanpy Python library. 
+We applied \texttt{sc.pp.highly\_variable\_genes} to the training dataset using raw count values. 
+Genes were filtered based on mean expression and dispersion, using the parameters \texttt{min\_mean}=0.0125, \texttt{max\_mean}=3, and \texttt{min\_disp}=0.5, following Scanpy's recommended defaults.
+
+
+\subsection{Membership Inference Attack (MIA)}
+
+% CHANGE (R2 minor): Broadened the definition of MIA to avoid the overly narrow "AI model" framing.
+A membership inference attack (MIA) is a method for empirically assessing the privacy risk of any system --- including statistical models, generative models, or aggregate data releases --- that is derived from real data. While MIAs can be conducted on discriminative models (i.e.\ those that make predictions) \cite{shokri_membership_2017}, we focus on MIAs on generative models (i.e.\ those that generate novel data). The overall goal is to infer which real data samples were used to train the model based on the model's output. Specifically, in our setup, we consider that the adversary has access to a synthetic dataset $D_{synth}$. Given a set $D_{target}$ of instances, the adversary tries to infer which of these target instances were used to train the generator that produced $D_{synth}$ (see Fig.~\ref{fig:mia}).
+
+\begin{figure}[t!]
+\centering
+\includegraphics[width=8cm]{./graphics/MIA_overview_icml.drawio.png}
+\caption{In a membership inference attack (MIA), the adversary has access to the synthetic data $D_{synth}$ but not the training data $D_{train}$. The adversary is presented with a set of instances $D_{target}$ and challenged to infer which of these instances were used to train the synthetic data generator, i.e.~to determine $D_{train} \cap D_{target}$. The adversary may or may not have access to an auxiliary dataset $D_{aux}$.
+% TODO (R3 minor): Reviewer 3 notes that the illustration of auxiliary data in Fig. 1 (overlap
+% with training and target sets) is inconsistent with the paper's description and Algorithm 1.
+% Please check and fix the figure.
+} 
+\label{fig:mia}
+\end{figure}
+
+
+\subsubsection{Threat Model}
+
+An MIA can be set up in a variety of settings, wherein the adversary is assumed to have different kinds of information. This is referred to as the ``threat model''. In the most conservative threat model, an adversary has access only to synthetic data generated by a model. In \textit{stronger} threat models, an adversary has access to some auxiliary dataset of real instances from the same distribution as the training data. They may also have access to the trained model itself, which would make it a \textbf{white-box} (WB) threat model, as opposed to a \textbf{black-box} (BB) threat model. 
+
+\begin{table}[h]
+\centering
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{l c|c|cc}
+\toprule
+\multirow{2}{*}{Dataset} & total genes & HVGs & \multicolumn{2}{c}{group 1,     group 2 (mean $\pm$ std)} \\
+ & in dataset & (filtered) & \multicolumn{2}{c}{(scDesign2's choice)} \\
+\midrule
+OneK1K & 25{,}834 & 1{,}118 & $864 \pm 284$  & $145 \pm 73$  \\
+AIDA   & 35{,}240 & 2{,}021 & $1{,}214 \pm 465$  & $446 \pm 98$  \\
+HFRA   & 32{,}802 & 3{,}664 & $3{,}044 \pm 816$ & $363 \pm 110$ \\
+\bottomrule
+\end{tabular}
+\caption{Amount of genes in each dataset, the amount of HVGs we reduce it to for all experiments, and the average number of genes selected by scDesign2 for its group 1 and group 2 genes. Only group 2 genes are included in the copula's covariance matrix.}
+\label{tab:gene_counts_all}
+\end{table}
+
+When conducting a MIA on scDesign2, we consider both the WB and BB setting. In the WB setting, the model that the adversary has access to consists solely of the Gaussian copula generated by scDesign2. 
+
+Additionally, we consider threat models where an adversary has access to an auxiliary dataset, as is done in \cite{allard2023snake,houssiau2022tapas}, and when they do not, for a total of four threat models (i.e.\ WB+aux, WB-aux, BB+aux, BB-aux). In all of these settings, the attacker does not know which genes were included in group 1 and group 2 when scDesign2 executed over the hidden data.
+
+When the attack is carried out, the attacker has the expression levels of a set of target cells, $D_{target}$, each with a donor ID, and a cell type. (The synthetic scRNA-seq data are not given donor IDs.) Our model assumes that (1) all cells from a single donor are either in $D_{train}$ or not in $D_{train}$, i.e.\ $D_{holdout}$; and (2) $D_{train} \subseteq D_{target}$.
+% CHANGE (R1 minor): Removed typo "all cells from a single donor are cells from a single donor are either..." -- cleaned up the sentence.
+
+
+\subsubsection{MAMA-MIA}\label{sec:mamamia}
+
+The Marginals Measurement Aggregation-based MIA (``MAMA-MIA'') is a class of MIAs which leverages knowledge about SDG architectures to effectively target diverse SDG algorithms \cite{golob_privacy_2025}. It is highly effective when an adversary knows which marginal statistics of the hidden training data were preserved by the generation algorithm.
+
+The heuristic is to:
+\begin{itemize}
+    \item \textbf{Step 1: identify} which types of statistics are maintained from the training data (called ``focal-points'') and how the SDG algorithm chooses them,
+    \item \textbf{Step 2: simulate} the SDG method, recording which focal-points are chosen, and
+    \item \textbf{Step 3: aggregate} these focal-points, measured on the target data, in order to determine which targets are more similar to the synthetic data focal-point measurements.
+\end{itemize} 
+
+MAMA-MIA has been shown to be effective against several SDGs on demographic data, but it has never before been applied to genomic data. In this work, we propose scMAMA-MIA, an adaptation of MAMA-MIA in which we apply the heuristic described above to scDesign2, based on knowledge of how scDesign2 works, to unveil its privacy vulnerabilities. 
+
+
+\section{Our Approach to Privacy Auditing: scMAMA-MIA}\label{sec:scmamamia}
+
+In showing privacy vulnerabilities in scRNA-seq synthetic data generators, we adapt the MAMA-MIA membership inference attack, tailoring it based on knowledge about how scDesign2 fits a generative model on the data. We outline the main steps of the resulting scMAMA-MIA attack below. 
+
+\subsection{Choice of Focal-Points}
+
+In \textbf{Step 1} of MAMA-MIA (see above), we consider the Gaussian copulas of each cell type to be its focal-points, since these are the direct statistical measurements taken on the real data and preserved in the synthetic data. 
+That is, the synthetic data's similarity to the real data is concentrated in these statistics, so we cannot learn more about the real data than what these statistics reveal.
+Specifically, these Gaussian copulas include
+individual distribution parameters of a subset of genes (group 2), as well as a covariance matrix between them. We use only the distribution parameters from group 2 (those included in the Gaussian copula) in our attack.
+
+In the \textit{white-box threat model} scenario, the attacker has access to the true copula defining the covariance matrix, i.e., the copula fit by scDesign2 directly on the hidden training data $D_{train}$. 
+In the \textit{black-box threat model}, the attacker has no such access to the true copula. As a work-around, 
+the attacker creates a proxy for the true copula  
+by running scDesign2 on the synthetic dataset $D_{synth}$, extracting the measured copula, and terminating before the ``generate'' phase. Because scDesign2 conditions inclusion in the copula on a gene's sparsity, and because its per-gene marginals include zero inflation parameters which explicitly model this, it follows that most group 2 genes identified from the hidden training data will be identified as such when training on the synthetic data.
+
+To provide context, Table \ref{tab:gene_counts_all} lists the average amount of genes included in the covariance matrices across trials, for each dataset. Notice that the amount of genes in group 2 is orders of magnitude less than the total genes, as explained above.
+
+\textbf{Step 2} of MAMA-MIA (i.e.~simulating scDesign2 many times) is mainly important when the choice of focal-points is non-deterministic, which is typically the case for SDG algorithms where differential privacy \cite{dwork2014algorithmic} is applied (see \cite{golob_privacy_2025}). In scDesign2, the choice of focal-points is deterministic and adds no such stochastic differential privacy protections. Therefore in our adaptation of MAMA-MIA for scDesign2, we skip this step.
+
+\subsection{Measuring and Aggregating}
+
+\input{algorithm}
+
+Our instantiation of \textbf{Step 3} of MAMA-MIA on scDesign2 is the most involved step. 
+The challenge is to extract the key statistics (focal-points) from the synthetic data $D_{synth}$ and use \textit{solely} these statistics to infer whether a cell's gene expression levels likely contributed to them, i.e., whether the cell was used to train the generator. These include, for each cell type, three parameters (zero-inflation probability $\hat\rho$, dispersion $\hat\psi$, and mean $\hat\mu$) defining the distributions of a small subset of genes, as well as a covariance matrix of these distributions. 
+
+To accomplish this, we measure the Mahalanobis distance \citep{de_maesschalck_mahalanobis_2000} between the covariance matrix $\mathcal{R}$ and a target cell's expression values $x$ (a vector containing only the genes present in the covariance matrix).\footnote{Before leveraging the covariances from the copula in taking the distance, it is important to map the target cell expression values into the range [0, 1], based on each gene's marginal distribution parameters. This is because the covariance matrix, as part of the copula that scDesign2 constructs, is originally calculated based on mapping the marginal distributions into uniform distributions.}
+
+\begin{equation}
+    d_s = \sqrt{(x-\hat\mu)^T\mathcal{R}^{-1}(x-\hat\mu)}.
+\end{equation}\label{eqn:mahala}
+
+Intuitively, the greater the distance $d_s$, the more out-of-distribution a target cell's expression levels are, smartly accounting for gene-gene covariances. 
+We therefore assume that this distance is inversely proportional to the likelihood of cell $x$ being a member of the SDG's training algorithm. During aggregation, we compute $\lambda = d_s^{-1}$ for all cells of all target donors. In any individual cell, a high Mahalanobis distance may simply indicate non-typical expression patterns, but when aggregated over many cells from the same donor, it provides a clear signal.
+
+Finally, to make membership inferences at the donor-level, we convert all $\lambda$ measurements into membership probabilities $[0, 1]$, using a simple sigmoid function (i.e.,~$p = \sigma(\lambda)$). We then finish by simply averaging all the cell-level membership predictions for each donor, creating a donor-level prediction within $[0, 1]$.
+
+
+\subsubsection{Modification when auxiliary data is available (primary threat model considered)}
+
+An enhanced variation on this is to leverage an auxiliary dataset $D_{aux}$, i.e., a dataset with real scRNA-seq instances from the same distribution as the training data. The intuition here is that this allows an attacker to compare how well a cell's expression levels fit into the synthetic data's distributions, i.e., $D_{synth}$ to how well they fit into those of a dataset \textit{not} used to train the generator, namely $D_{aux}$.
+
+To operationalize this, instead of setting $\lambda = d_s^{-1}$, we calculate the Mahalanobis distances $d_a$ according to the copula based on the auxiliary data as well, as determined by running scDesign2 on it. Then set $\lambda = d_a /(d_s+d_a)$.  In practice, this variant significantly improves accuracy, as discussed in the experimental results below. This is despite the fact that we have to even further reduce the set of genes to construct $\lambda$ based on those in \textit{both} the copulas. On average, 86.6\% of the genes from the covariance matrices of the synthetic and auxiliary data copulas are in both, for a given trial.
+
+Algorithm \ref{alg:mamamia_scdesign2} provides the pseudocode for the auxiliary-enhanced, black-box variant of scMAMA-MIA. On lines 1--2, we run scDesign2 $\phi$ on the synthetic and auxiliary data to get the associated copulas for each cell type $C^s$, $C^a$. In the white-box setting, an adversary knows the copula parameters learned by scDesign2 from the training data, $\phi(D_{train})$, and uses those instead of running $\phi(D_{synth})$ on line 1. Lines 11 and 12 is where we transform each cell's expression levels, $x$, into the uniform distribution, according to the marginal distribution parameters $M$ in the synthetic and auxiliary copulas. On lines 15--16, we calculate the Mahalanobis distance $\uppsi(\cdot)$ between the transformed expression levels and the covariance matrix $\mathcal{R}$. Lastly, we transform the scores for each cell $\lambda[x]$ into a probability using the sigmoid function $\sigma(\cdot)$.
+
+
+\begin{figure}[t!]
+\centering
+\includegraphics[width=8.6cm]{./graphics/umaps.png}
+\caption{UMAPs for real data samples and the corresponding synthetic data to illustrate how much information scDesign2 is able to preserve. Datasets from one trial are used from OneK1K with 200 donors, AIDA with 50 donors, and the HFRA data with 11 donors.} 
+\label{fig:all_umaps}
+\end{figure}
+
+
+\begin{figure*}[t!]
+\centering
+\includegraphics[width=\textwidth]{./graphics/mias_aucs.png}
+\caption{Success rate of scMAMA-MIA and baseline attacks, measured in AUC on different datasets (OneK1K, AIDA, HFRA) and for a varying number of donors. (The average number of cells for samples is given below.) All attacks are in the black-box (BB) model with access to an auxiliary dataset.  
+% TODO (R1 minor): Consider moving average cell counts to a supplementary table to reduce
+% visual clutter in this figure.
+\label{fig:mia_aucs}}
+\end{figure*}
+
+
+\begin{figure}[t!]
+\centering
+\includegraphics[width=8cm]{./graphics/aucs_tms.png}
+\caption{Success rate of scMAMA-MIA under different threat models, including white-box (WB) and black-box (BB) threat models, with and without auxiliary data. Conducted on the OneK1K data.
+\label{fig:tm_aucs}}
+\end{figure}
+
+
+\section{Experiments}\label{sec:results}
+
+To demonstrate privacy vulnerabilities in synthetic scRNA-seq data, we evaluate scMAMA-MIA on datasets generated by scDesign2. We perform inference at the donor-level (as opposed to at the cell-level), since that is where privacy matters most. We evaluate scMAMA-MIA on synthetic data originating from three different real datasets, demonstrating the robustness of our approach.
+For all experiments, we average results across 5 trials, each trial beginning with a different sample of donors for the training, holdout, and auxiliary datasets. 
+
+The implementation of scDesign2, scMAMA-MIA, as well as code for conducting all of our experiments can be found in our GitHub repository: \url{https://github.com/steveng9/scRNA-seq_privacy_audits}.
+
+\subsection{Datasets}\label{sec:datasets}
+
+\subsubsection{OneK1K dataset} 
+
+The OneK1K dataset, which was used for utility and privacy benchmarking during the CAMDA Health Privacy Challenge, consists of over 1.2 million peripheral mononuclear blood cells collected from 981 donors \cite{onek1k}. Using a combination of marker-gene-based and unsupervised clustering techniques, the dataset curators identified 14 distinct cell types. This was the dataset used in track 2 of the CAMDA Health Privacy Challenge. There are expression levels for 25,834 genes, and we consider 1,118 highly variable.
+
+\subsubsection{Asian Immune Diversity Atlas--version 1 (AIDA)} This dataset is comprised of healthy immune cells from donors representing seven population groups across five Asian countries \cite{kock2025asian}. There are 1,058,909 cells, 33 cell types, and 508 total donors. We consider this dataset because of its demographic component which heightens its sensitivity. This is retrieved from the \textit{CZ Cell x Gene} database.\footnote{\url{https://cellxgene.cziscience.com/}} There are 35,240 genes present, 2,021 of which are HVGs.
+
+\subsubsection{Human Fetal Retina Atlas (HFRA)} Also retrieved from the \textit{CZ Cell x Gene} database, this depicts retina cells in the development stage \cite{kriukov2025unraveling}. 
+It is smaller and has 108,838 cells, 9 cell types, taken from 22 donors (so there are many more cells per donor in this dataset than in the other two). This dataset has 32,802 genes, of which 3,664 are highly variable.
+
+UMAPs are provided in Figure \ref{fig:all_umaps} for training data samples from each of these, and the corresponding synthetic datasets generated by scDesign2. Training samples have 200 donors from the OneK1K data, 50 donors from the AIDA data, and 11 donors from the HFRA data.
+
+
+\subsubsection{Sampling of Training Data for Experiments}
+We perform experiments for 
+\{2, 5, 10, 20, 50, 100, 200\} donors. 
+We sample this many donors from a real dataset (see above), and use all of their cells for the training data. Then for the target dataset (i.e., the dataset for which we will classify donors as members of the training data or not), we take a disjoint sample of the same number of donors from the full dataset, and concatenate it to the training data. So half of the donors in the target dataset are members, and half are not, which is the standard setup of membership inference attacks in the literature \cite{allard2023snake, houssiau2022tapas, meeus2023achilles, wu2025winning}. Auxiliary datasets are sampled in the same way, and have the same respective sizes, but are not made to be disjoint from the train or holdout donors. 
+
+The amount of cells in each sample size varies, depending on which donors were selected. For reference, the average number of cells in the samples from each size setting is provided below the graphs in Figure \ref{fig:mia_aucs}. 
+
+Since the full HFRA dataset only has 22 donors, experiment settings with more than 11 donors in $D_{train}$ and $D_{holdout}$ are excluded. Memory constraints prevented running all experiments greater than 50 donors from the AIDA dataset.
+% TODO (R1 minor): Clarify whether the memory constraints affecting baseline attacks (CAMDA2025
+% implementations) are a fundamental algorithmic limitation (e.g., KDE scalability in high
+% dimensions) or an implementation issue. scMAMA-MIA has no such limitation.
+% TODO (R1 minor): Note in text that ARI values are missing for all AIDA configurations in
+% Table 2 -- add a brief explanation (e.g., implementation incompatibility with the AIDA data).
+
+
+\subsection{Privacy Leakage}
+
+Figure \ref{fig:mia_aucs} shows the success of donor-level membership inference attacks of scMAMA-MIA and all attacks used in CAMDA2025 (LOGAN \cite{hayes2017logan}, GAN-Leaks and its single-cell variation \cite{chen2020gan}, DOMIAS using KDE \cite{van2023membership}, and Monte Carlo \cite{hilprecht2019monte}) against synthetic data generated by scDesign2, using training data samples from all three datasets. Scores are calculated in terms of ROC AUC. 
+For the baseline attacks, we use the implementations given in CAMDA2025, which could not execute on datasets larger than the 20 donors setting.
+All attacks in Figure \ref{fig:mia_aucs} are operating under the black-box threat model with knowledge of an auxiliary dataset. 
+scMAMA-MIA is by far the most accurate attack across all donor sample sizes and datasets. Importantly, it scores perfect AUCs in cases where samples of only a small number of donors are used to train the generator. The success of scMAMA-MIA can be attributed to the fact that, unlike the existing attacks, it leverages knowledge about the way in which scDesign2 fits a model on the real data. 
+
+Next, we study how scMAMA-MIA performs under different threat models. The four scenarios are black-box with access to an auxiliary dataset (used in Figure \ref{fig:mia_aucs}), black-box \textit{without} auxiliary data (a slightly weaker threat model), and then white-box access (a stronger threat model), both with and without auxiliary data. Figure \ref{fig:tm_aucs} shows the AUC scores of the associated scMAMA-MIA variants on the OneK1K dataset. As expected, scores are higher for the two settings where access to auxiliary data is assumed than when not, and for the two settings where white-box access to the target generator parameters is assumed than when not. However, it is interesting to see which variant scores higher between the white-box-no-auxiliary-data setting and the black-box-with-auxiliary-data setting. scMAMA-MIA using the former threat model appears stronger, suggesting that an attacker with white-box access can use this to learn more about the hidden data than when they leverage an auxiliary dataset.
+
+We validate the high attack accuracies of scMAMA-MIA by showing the distributions of Mahalanobis distances (measured at the core of our attack, step 3). In Figure \ref{fig:mahala_dist}, for each dataset, we produce two ridge distributions per cell type; one for member cells and one for non-members. These are the distances measured between the cells' expression levels and the covariance matrix from the copula learned from the training data. As expected, the distribution of distances tend to be lower when the cell was a member of the data, which is why our attack is effective. 
+Though the distributions of Mahalanobis distances of member and non-member cells mostly overlap, the mean value of the former is consistently smaller than that of the latter; when aggregating across many cells, it is possible to determine with high accuracy whether a donor was part of the model's training dataset.\footnote{When instead using the copula learned over the \textit{synthetic data} (as in the black-box setting), we observed the same distinction between member and non-member distances. But there is more overlap, since this copula is only a proxy for the training data copula. 
+Finally, using the copulas learned from the \textit{auxiliary data} showed no consistent distinction between member and non-member distances, as expected, since the auxiliary dataset is equally likely to contain training data members and non-members.} Distances are taken from one random trial, in the 50 donor configuration for the OneK1K data, 20 donors for AIDA, and 10 donors for the HFRA data, for variety. Verifying why distances to some cell types are much greater than others will require further investigation, and is not relevant to this work. 
+
+
+\begin{figure*}[t!]
+\centering
+\includegraphics[width=\textwidth]{./graphics/mahala_dists.png}
+\caption{The distribution of Mahalanobis distances taken during the attack, between member and non-member cells and the copula's covariance matrix $\mathcal{R}$ learned from the training data. The trend of member distances being less than non-member distances validates why our attack is effective.} 
+\label{fig:mahala_dist}
+\end{figure*}
+
+
+\begin{figure}[t!]
+\centering
+\includegraphics[width=8cm]{./graphics/aucs_bysubgroup.png}
+\caption{scMAMA-MIA attack accuracies of different demographic subgroups, sex (left) and ethnicity (right). We accompany these scores with the proportion that the subgroup has in the data (below the bars).} 
+\label{fig:aucs_subgroup}
+\end{figure}
+
+
+\subsubsection{By Demographic Subgroup}
+
+The consequences of privacy leakage could be more severe for demographic subgroups, as has been shown by Bagdasaryan et al.~\cite{bagdasaryan2019differential}. This is because machine learning models, such as scDesign2, perform differently on subgroups that are underrepresented in the data. To this end, we show in Figure \ref{fig:aucs_subgroup} how the success of scMAMA-MIA varies across subgroups. We perform this experiment on the AIDA dataset, since it has both sex and ethnicity attributes. We perform the WB and BB attack, both with access to auxiliary data, averaged across sample sizes 5, 10, 20, 50 donors. Surprisingly, there is not a high degree of disparate impact across subgroups. However, the privacy leakage was higher for females (the overrepresented group), likely because scDesign2 produces data more \textit{similar} to the larger subgroup, which makes for a more effective attack. For ethnicity, the discrepancies in privacy leakage do not meaningfully correlate with group size.
+
+
+\begin{table*}[t]
+\centering
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{cccccccccc}
+\toprule
+& \multicolumn{3}{c}{\textbf{OneK1K}} & \multicolumn{3}{c}{\textbf{AIDA}} & \multicolumn{3}{c}{\textbf{HFRA}} \\
+\cmidrule(lr){2-4} \cmidrule(lr){5-7} \cmidrule(lr){8-10}
+\textbf{Donors} & \textbf{LISI ($\uparrow$)} & \textbf{ARI ($\uparrow$)} & \textbf{MMD ($\times$10^2$ $\downarrow$)} & \textbf{LISI ($\uparrow$)} & \textbf{ARI ($\uparrow$)} & \textbf{MMD ($\times$10^2$ $\downarrow$)} & \textbf{LISI ($\uparrow$)} & \textbf{ARI ($\uparrow$)} & \textbf{MMD ($\times$10^2$ $\downarrow$)} \\
+\midrule
+2 & 0.91 $\pm$ .01 & 0.52 $\pm$ .19 & 0.08 $\pm$ .01 & 0.87 $\pm$ .01 & --$^{\dagger}$ & 0.06 $\pm$ .01 & 0.56 $\pm$ .03 & 0.29 $\pm$ .12 & 0.02 $\pm$ .00 \\
+5 & 0.90 $\pm$ .01 & 0.48 $\pm$ .04 & 0.04 $\pm$ .00 & 0.83 $\pm$ .02 & --$^{\dagger}$ & 0.02 $\pm$ .01 & 0.39 $\pm$ .08 & 0.32 $\pm$ .06 & 0.01 $\pm$ .00 \\
+10 & 0.88 $\pm$ .01 & 0.41 $\pm$ .09 & 0.02 $\pm$ .00 & 0.81 $\pm$ .01 & --$^{\dagger}$ & 0.01 $\pm$ .00 & 0.28 $\pm$ .04 & 0.26 $\pm$ .02 & 0.01 $\pm$ .00 \\
+20 & 0.88 $\pm$ .00 & 0.47 $\pm$ .04 & 0.01 $\pm$ .00 & 0.78 $\pm$ .02 & --$^{\dagger}$ & 0.01 $\pm$ .00 & -- & -- & -- \\
+50 & 0.87 $\pm$ .00 & 0.43 $\pm$ .03 & 0.01 $\pm$ .00 & -- & -- & -- & -- & -- & -- \\
+100 & 0.86 $\pm$ .00 & 0.43 $\pm$ .04 & 0.01 $\pm$ .00 & -- & -- & -- & -- & -- & -- \\
+200 & 0.86 $\pm$ .00 & 0.42 $\pm$ .05 & 0.01 $\pm$ .00 & -- & -- & -- & -- & -- & -- \\
+\bottomrule
+\end{tabular}
+% CHANGE (R1 minor): Added dagger footnote to explain missing ARI values for AIDA.
+\caption{Quality metrics (LISI, ARI, and MMD) across datasets and donor sizes. Values shown as mean $\pm$ standard deviation. $\uparrow$ indicates higher is better, $\downarrow$ indicates lower is better. MMD values are scaled by 100 for readability. Implementations taken from CAMDA2025 could not execute over larger settings on the AIDA and HFRA data. $^{\dagger}$ARI values could not be computed for the AIDA dataset due to an incompatibility between the CAMDA2025 ARI implementation and the AIDA data format.
+% TODO: Verify the exact reason for missing ARI values and update the footnote text accordingly.
+}
+\label{tab:qualities}
+\end{table*}
+
+
+\subsection{Contextualizing Privacy Leakage with the Synthetic Data Quality}
+
+One important thing to keep in mind when discussing the success of a privacy attack is that attack resistance may simply mean that the generated data has low quality or fidelity to the real data, which is of course undesirable. To this end we provide several quality metrics to accompany our privacy attacks in order to help contextualize their success. Table \ref{tab:qualities} offers the metrics Local Inverse Simpson's Index (LISI; measuring how well clusters of the training and synthetic data mix, higher values indicating better mixture) \citep{korsunsky_fast_2019}, Adjusted Rand Index (ARI; higher values indicating better co-clustering between the training and synthetic data) \citep{hubert_comparing_1985}, 
+and maximum mean discrepancy (MMD; measures distance between PCA representations of training and synthetic data features, lower values indicating greater similarity). Implementations are taken from CAMDA2025. 
+
+The synthetic data produced from the OneK1K dataset seems to maintain a much higher LISI across size configurations than that of the HFRA data. This is made apparent by the UMAPs given in Figure \ref{fig:all_umaps}, where clearly the synthetic HFRA data is not as information-rich as the training data. This might be because there appears to be a high degree of overlap between the retinal cell types in the training data that scDesign2 might not be able to distinguish in a very detailed manner. 
+
+
+\section{Discussion}
+
+In this work, we show how synthetic scRNA-seq data generated by a prominent SDG algorithm can reveal information about the real data used to train the generator. Our novel attack, scMAMA-MIA, leverages the internal measurements taken by the SDG algorithm itself to determine whether a donor's cells were used to create the synthetic data. While numerous other works have shown leakage via membership inference attacks against other data types with much smaller domains, to our knowledge, scMAMA-MIA is the first effective against genomic data. This is especially important because of the highly sensitive nature of genomic data, both to the donors and to their relatives. Against all datasets that were used to train the model, scMAMA-MIA achieved extremely high AUC predictions compared to the baseline attacks, even when the adversary had limited information (i.e.\ under the black-box threat model).
+
+The quality evaluation we conducted showed that data generated by the SDG algorithm scDesign2 had very different levels of quality, depending on which dataset was used for training and how large it was. An encouraging result was that, when more donors are used to train the generator, the quality always seems to go up according to some of the metrics, as does the privacy. Both are expected, as more training data typically leads to more accurate results, i.e., higher quality, and allows individual donors to better ``hide among the crowd'', i.e., better privacy. 
+% CHANGE (R2 minor): "A optimistic result" -> "An encouraging result"
+
+Lastly, we conclude by recommending defenses that can be taken to mitigate privacy leakages, based on our experiments. As emphasized, having a sufficient number of donors in the training dataset reduced leakage by preventing individuals with outlying expression levels from greatly impacting the training dataset's overall statistics. Additionally, scMAMA-MIA using white-box information always scored higher than without. Thus, it is imperative, when releasing synthetic scRNA-seq data, for the copula parameters generated by scDesign2, or other model parameters not to be disclosed. An interesting enhancement to scDesign2 would be to incorporate differential privacy (DP) protections \cite{dwork2014algorithmic}. DP would obscure the presence of individual donors in the training data by adding a calibrated amount of random noise to the model parameters. DP tends to be well-suited for similar marginals-based SDG methods, since the perturbation is not spread across deep neural network parameters. The main benefit would be that the protections would be quantified in a framework commonly used and applied to generative models \cite{abadi_deep_2016_manual,chaudhuri2011differentially}. We hope this work encourages a more cautious interpretation of privacy guarantees in synthetic genomic data and motivates the development of stronger disclosure protections.
+
+
+\section{Competing interests}
+The authors declare that they have no competing interests.
+
+\section{Author contributions statement}
+All authors worked together on the overall design of the solution. Steven Golob implemented the attack, designed and ran the experiments. All authors discussed results and wrote the manuscript together. 
+
+\section{Acknowledgments}
+Steven Golob is supported by an NSF CSGrad4US fellowship and an IEEE Computational Intelligence Society Graduate Student Research Grant. This material is based upon work supported by the National Science Foundation under Grant
+No.~2451163 and No.~2523406, and by NSF NAIRR 240485 (Cloudbank AWS) and NSF NAIRR 240091 (TACC Frontera).
+This research was, in part, funded by the National Institutes of Health (NIH) Agreement No. 1OT2OD032581. The views and conclusions contained in this document are those of the authors and should not be interpreted as representing the official policies, either expressed or implied, of the NIH.
+
+\bibliographystyle{plain}
+\bibliography{references, manual_references}
+
+\end{document}
