@@ -249,19 +249,14 @@ class Statistics:
                             combined_adata.obs["source"] == "real", "louvain"].values
         synthetic_clusters = combined_adata.obs.loc[
                             combined_adata.obs["source"] == "synthetic", "louvain"].values
-        # adjusted_rand_score requires equal-length arrays.
-        # scDesign2 always generates the same number of cells as the input, so sizes
-        # are normally equal.  If they differ (e.g. for other SDGs), subsample the
-        # larger set to match — but only truncate, never shuffle, to preserve the
-        # positional correspondence that this metric relies on.
-        n_real, n_synth = len(real_clusters), len(synthetic_clusters)
-        if n_real != n_synth:
-            min_size = min(n_real, n_synth)
-            real_clusters = real_clusters[:min_size]
-            synthetic_clusters = synthetic_clusters[:min_size]
-        ari_real_vs_syn = adjusted_rand_score(real_clusters, synthetic_clusters)
-        # ari_gt_vs_comb = adjusted_rand_score(combined_adata.obs[cell_type_col],
-        #                                      combined_adata.obs["louvain"])
+        # ARI between known cell-type labels and Louvain clusters on the combined
+        # real+synthetic data.  High ARI means synthetic cells mix with real cells of
+        # the same type (biology preserved).  This is the standard scib bio-conservation
+        # metric and is meaningful regardless of real/synthetic cell counts.
+        ari_real_vs_syn = adjusted_rand_score(
+            combined_adata.obs[cell_type_col].astype(str).values,
+            combined_adata.obs["louvain"].astype(str).values,
+        )
 
         return ari_real_vs_syn, None
     

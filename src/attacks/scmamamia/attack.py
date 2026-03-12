@@ -99,6 +99,10 @@ def attack_mahalanobis(cfg, targets, cell_type, copula_synth_r, copula_aux_r=Non
 
     Membership score:  λ = d_aux / (d_synth + d_aux)
     Higher λ → cell is closer to the synthetic copula → more likely a member.
+
+    Vectorized: iterates over G genes (not N cells), calling the CDF once per gene
+    with all N cell values — O(G) Python calls instead of O(N).  The quadratic form
+    δᵀΣ⁻¹δ is then computed for all cells in one einsum.
     """
     cs = parse_copula(copula_synth_r)
     ca = parse_copula(copula_aux_r)
@@ -114,37 +118,43 @@ def attack_mahalanobis(cfg, targets, cell_type, copula_synth_r, copula_aux_r=Non
         covariate_genes, ca["primary_genes"], ca["cov_matrix"], ca["primary_marginals"]
     )
 
-    remap = np.vectorize(cfg.uniform_remapping_fn)
     inv_s = cfg.lin_alg_inverse_fn(shared_cov_s)
     inv_a = cfg.lin_alg_inverse_fn(shared_cov_a)
 
-    distances_s = []
-    distances_a = []
-    error_count = 0
+    X = targets[covariate_genes].values  # (N, G)
+    G = len(covariate_genes)
+    pi_s, theta_s, mu_s = shared_marginals_s[:, 0], shared_marginals_s[:, 1], shared_marginals_s[:, 2]
+    pi_a, theta_a, mu_a = shared_marginals_a[:, 0], shared_marginals_a[:, 1], shared_marginals_a[:, 2]
 
-    def _score_one_cell(gene_expr):
-        nonlocal error_count
-        mapped_s = remap(gene_expr, *np.moveaxis(shared_marginals_s, 1, 0))
-        mapped_a = remap(gene_expr, *np.moveaxis(shared_marginals_a, 1, 0))
-        mean_s = remap(shared_marginals_s[:, 2], *np.moveaxis(shared_marginals_s, 1, 0))
-        mean_a = remap(shared_marginals_a[:, 2], *np.moveaxis(shared_marginals_a, 1, 0))
-        delta_s = mapped_s - mean_s
-        delta_a = mapped_a - mean_a
-        d_s = float(np.sqrt(delta_s.T @ inv_s @ delta_s))
-        d_a = float(np.sqrt(delta_a.T @ inv_a @ delta_a))
-        distances_s.append(d_s)
-        distances_a.append(d_a)
-        result = d_a / (d_s + d_a)
-        if np.isnan(result):
-            error_count += 1
-            return 0.5
-        return result
+    # Map all cells to uniform space gene-by-gene; each call is vectorized over N cells.
+    mapped_s = np.empty_like(X, dtype=float)
+    mapped_a = np.empty_like(X, dtype=float)
+    mean_s   = np.empty(G, dtype=float)
+    mean_a   = np.empty(G, dtype=float)
+    remap = cfg.uniform_remapping_fn
+    for j in range(G):
+        mapped_s[:, j] = remap(X[:, j], pi_s[j], theta_s[j], mu_s[j])
+        mapped_a[:, j] = remap(X[:, j], pi_a[j], theta_a[j], mu_a[j])
+        mean_s[j]      = remap(mu_s[j],  pi_s[j], theta_s[j], mu_s[j])
+        mean_a[j]      = remap(mu_a[j],  pi_a[j], theta_a[j], mu_a[j])
 
-    scores = targets[covariate_genes].apply(_score_one_cell, axis=1)
+    delta_s = mapped_s - mean_s   # (N, G)
+    delta_a = mapped_a - mean_a
+
+    # Mahalanobis for all N cells in one batched quadratic form
+    d_s = np.sqrt(np.einsum("ij,jk,ik->i", delta_s, inv_s, delta_s))  # (N,)
+    d_a = np.sqrt(np.einsum("ij,jk,ik->i", delta_a, inv_a, delta_a))
+
+    scores = d_a / (d_s + d_a)
+    nan_mask = np.isnan(scores)
+    error_count = int(nan_mask.sum())
     if error_count > 0:
+        scores = scores.copy()
+        scores[nan_mask] = 0.5
         print(f"  [WARN] {error_count} NaN scores for cell type {cell_type} — set to 0.5")
 
-    return compute_cell_scores(cfg, cell_type, scores, targets, distances_s, distances_a)
+    return compute_cell_scores(cfg, cell_type, scores, targets,
+                               d_s.tolist(), d_a.tolist())
 
 
 # ---------------------------------------------------------------------------
@@ -155,33 +165,36 @@ def attack_mahalanobis_no_aux(cfg, targets, cell_type, copula_synth_r, copula_au
     """
     Mahalanobis-based attack when no auxiliary data is available.
     Membership score: 1 / (d_synth + ε)   (inverse distance to synth copula)
+
+    Vectorized the same way as attack_mahalanobis.
     """
     cs = parse_copula(copula_synth_r)
     shared_cov_s, shared_marginals_s = build_shared_covariance_matrix(
         cs["primary_genes"], cs["primary_genes"], cs["cov_matrix"], cs["primary_marginals"]
     )
 
-    remap = np.vectorize(cfg.uniform_remapping_fn)
     inv_s = cfg.lin_alg_inverse_fn(shared_cov_s)
 
-    distances_s = []
-    error_count = 0
+    X = targets[cs["primary_genes"]].values  # (N, G)
+    G = len(cs["primary_genes"])
+    pi_s, theta_s, mu_s = shared_marginals_s[:, 0], shared_marginals_s[:, 1], shared_marginals_s[:, 2]
 
-    def _score_one_cell(gene_expr):
-        nonlocal error_count
-        mapped_s = remap(gene_expr, *np.moveaxis(shared_marginals_s, 1, 0))
-        mean_s = remap(shared_marginals_s[:, 2], *np.moveaxis(shared_marginals_s, 1, 0))
-        delta_s = mapped_s - mean_s
-        d_s = float(np.sqrt(delta_s.T @ inv_s @ delta_s))
-        distances_s.append(d_s)
-        result = 1.0 / (d_s + cfg.mamamia_params.epsilon)
-        if np.isnan(result):
-            error_count += 1
-            return 0.5
-        return result
+    mapped_s = np.empty_like(X, dtype=float)
+    mean_s   = np.empty(G, dtype=float)
+    remap = cfg.uniform_remapping_fn
+    for j in range(G):
+        mapped_s[:, j] = remap(X[:, j], pi_s[j], theta_s[j], mu_s[j])
+        mean_s[j]      = remap(mu_s[j],  pi_s[j], theta_s[j], mu_s[j])
 
-    scores = targets[cs["primary_genes"]].apply(_score_one_cell, axis=1)
+    delta_s = mapped_s - mean_s  # (N, G)
+    d_s = np.sqrt(np.einsum("ij,jk,ik->i", delta_s, inv_s, delta_s))  # (N,)
+
+    scores = 1.0 / (d_s + cfg.mamamia_params.epsilon)
+    nan_mask = np.isnan(scores)
+    error_count = int(nan_mask.sum())
     if error_count > 0:
+        scores = scores.copy()
+        scores[nan_mask] = 0.5
         print(f"  [WARN] {error_count} NaN scores for cell type {cell_type} — set to 0.5")
 
-    return compute_cell_scores(cfg, cell_type, scores, targets, distances_s, None)
+    return compute_cell_scores(cfg, cell_type, scores, targets, d_s.tolist(), None)

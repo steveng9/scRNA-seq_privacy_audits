@@ -27,7 +27,8 @@ import anndata as ad
 import yaml
 from box import Box
 from sklearn.metrics import roc_auc_score
-from concurrent.futures import ProcessPoolExecutor, as_completed
+from concurrent.futures import ProcessPoolExecutor, as_completed, BrokenExecutor
+import multiprocessing
 import torch
 
 # ---------------------------------------------------------------------------
@@ -181,8 +182,7 @@ def create_config(path):
         else cfg.artifacts_path
     )
 
-    # Mahalanobis is too CPU-intensive to parallelize well
-    cfg.parallelize = cfg.parallelize and not cfg.mamamia_params.mahalanobis
+    cfg.parallel_workers = cfg.get("parallel_workers", 4)
 
     cfg.lin_alg_inverse_fn        = FUNCTION_REGISTRY[cfg.mamamia_params.lin_alg_inverse_fn]
     cfg.uniform_remapping_fn      = FUNCTION_REGISTRY[cfg.mamamia_params.uniform_remapping_fn]
@@ -408,30 +408,126 @@ def run_sdg(cfg, sdg_cfg_path, cell_types, label, force=False):
 def run_mamamia_attack(cfg):
     """Run scMAMA-MIA over all cell types (parallel or sequential per config)."""
     print("\n\nRUNNING scMAMA-MIA\n" + "_" * 40, flush=True)
-    train   = ad.read_h5ad(cfg.train_path)
-    holdout = ad.read_h5ad(cfg.holdout_path)
-    cell_types = list(train.obs["cell_type"].unique())
+
+    # Use backed='r' just to read cell type list without loading the full X matrix.
+    _train_meta = ad.read_h5ad(cfg.train_path, backed="r")
+    cell_types = list(_train_meta.obs["cell_type"].unique())
+    _train_meta.file.close()
 
     results = []
     if cfg.parallelize:
-        print("  parallelising across cell types...", flush=True)
-        with ProcessPoolExecutor() as executor:
-            futures = {
-                executor.submit(_attack_cell_type, cfg, ct, train, holdout): ct
-                for ct in cell_types
-            }
-            for fut in as_completed(futures):
-                result = fut.result()
-                print(f"  finished: {result[0]}", flush=True)
-                results.append(result)
-        results.sort(key=lambda x: x[0])
+        print(f"  parallelising across cell types (max_workers={cfg.parallel_workers})...",
+              flush=True)
+        results = _run_parallel_attack(cfg, cell_types, cfg.parallel_workers)
     else:
+        train   = ad.read_h5ad(cfg.train_path)
+        holdout = ad.read_h5ad(cfg.holdout_path)
         for ct in cell_types:
             result = _attack_cell_type(cfg, ct, train, holdout)
             results.append(result)
             print(f"  finished: {ct}", flush=True)
 
+    results.sort(key=lambda x: x[0])
     return results
+
+
+def _run_parallel_attack(cfg, cell_types, max_workers):
+    """
+    Run cell-type attacks in parallel batches with automatic OOM recovery.
+
+    When the OOM killer sends SIGKILL to a worker the entire ProcessPoolExecutor
+    pool breaks (BrokenExecutor).  Recovery: identify incomplete cell types,
+    halve the worker count, and relaunch just those cell types.  Repeats until
+    max_workers==1; at that point attempts sequential fallback.
+    """
+    results = []
+    pending = list(cell_types)
+    current_workers = max_workers
+
+    while pending:
+        batch = pending[:current_workers]
+        batch_results, failed_cts = _try_parallel_batch(cfg, batch, current_workers)
+        results.extend(batch_results)
+
+        if failed_cts:
+            if current_workers > 1:
+                current_workers = max(1, current_workers // 2)
+                print(f"  [OOM] Reducing to {current_workers} workers; "
+                      f"retrying {len(failed_cts)} cell types", flush=True)
+                pending = failed_cts + pending[len(batch):]
+            else:
+                # Already at 1 worker — last-resort sequential retry
+                print(f"  [FALLBACK] Sequential retry for: {failed_cts}", flush=True)
+                train   = ad.read_h5ad(cfg.train_path)
+                holdout = ad.read_h5ad(cfg.holdout_path)
+                for ct in failed_cts:
+                    try:
+                        result = _attack_cell_type(cfg, ct, train, holdout)
+                        results.append(result)
+                        print(f"  finished (sequential): {result[0]}", flush=True)
+                    except Exception as e:
+                        print(f"  [ERROR] {ct} failed sequentially: {e}", flush=True)
+                        results.append((ct, None, None))
+                pending = pending[len(batch):]
+        else:
+            pending = pending[len(batch):]
+
+    return results
+
+
+def _try_parallel_batch(cfg, batch, max_workers):
+    """
+    Attempt to run one batch of cell types in parallel.
+
+    Uses 'spawn' start method to avoid rpy2/R fork-safety issues on Linux.
+    Returns (completed_results, failed_cell_types).
+    """
+    completed = []
+    failed = []
+    completed_cts = set()
+    ctx = multiprocessing.get_context("spawn")
+
+    try:
+        with ProcessPoolExecutor(max_workers=max_workers, mp_context=ctx) as executor:
+            futures = {
+                executor.submit(_attack_cell_type_from_disk, cfg, ct): ct
+                for ct in batch
+            }
+            for fut in as_completed(futures):
+                ct = futures[fut]
+                try:
+                    result = fut.result()
+                    completed.append(result)
+                    completed_cts.add(ct)
+                    print(f"  finished: {result[0]}", flush=True)
+                except Exception as e:
+                    print(f"  failed: {ct} ({type(e).__name__}: {e})", flush=True)
+                    failed.append(ct)
+                    completed_cts.add(ct)
+    except Exception as e:
+        # Pool itself broke (typically OOM kill of a worker process)
+        print(f"  [WARN] Worker pool broke: {type(e).__name__}", flush=True)
+        failed.extend([ct for ct in batch if ct not in completed_cts])
+
+    return completed, failed
+
+
+def _attack_cell_type_from_disk(cfg, cell_type):
+    """
+    Subprocess entry point for parallel execution.
+
+    Loads only the slice of train/holdout data needed for this cell type using
+    backed='r', so each worker holds only one cell type in RAM rather than the
+    full multi-GB AnnData.
+    """
+    import anndata as _ad
+    train_backed   = _ad.read_h5ad(cfg.train_path,   backed="r")
+    holdout_backed = _ad.read_h5ad(cfg.holdout_path, backed="r")
+    train_ct   = train_backed  [train_backed  .obs["cell_type"] == cell_type].to_memory()
+    holdout_ct = holdout_backed[holdout_backed.obs["cell_type"] == cell_type].to_memory()
+    train_backed.file.close()
+    holdout_backed.file.close()
+    return _attack_cell_type(cfg, cell_type, train_ct, holdout_ct)
 
 
 def _resolve_attack_fn(cfg):
