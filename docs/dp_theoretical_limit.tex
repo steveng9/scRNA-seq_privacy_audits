@@ -1,0 +1,178 @@
+\documentclass{article}
+
+% Language setting
+% Replace `english' with e.g. `spanish' to change the document language
+\usepackage[english]{babel}
+
+% Set page size and margins
+% Replace `letterpaper' with `a4paper' for UK/EU standard size
+\usepackage[letterpaper,top=2cm,bottom=2cm,left=3cm,right=3cm,marginparwidth=1.75cm]{geometry}
+
+% Useful packages
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsthm}
+\usepackage{tikz}
+\usepackage{graphicx}
+\usepackage{xparse}
+\usepackage{chngcntr}
+\usepackage{mathtools}
+\counterwithin*{subsection}{section}
+\renewcommand{\thesubsection}{\thesection.\alph{subsection}}
+\usepackage[colorlinks=true, allcolors=blue]{hyperref}
+\usepackage[utf8]{inputenc}
+
+
+
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{icomma}
+\usepackage{soul}
+\usepackage{subcaption}
+\usepackage{graphicx}
+\usepackage{multirow}
+\usepackage{multicol}
+\usepackage{caption}
+\usepackage{algorithm}
+\usepackage{algorithmic}
+\renewcommand{\theHalgorithm}{\arabic{algorithm}}
+% For theorems and such
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{mathtools}
+\usepackage{amsthm}
+\usepackage{wrapfig}
+\usepackage{booktabs} 
+\usepackage{enumitem}
+
+\usepackage{pdfpages}
+
+% \usepackage[bottom]{footmisc}
+\usepackage{dblfloatfix}
+\usepackage{indentfirst}
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+
+
+\fancyhead[R]{Steven Golob}
+
+% \title{scratch document}
+% \author{Steven Golob}
+
+\begin{document}
+% \maketitle
+What is the theoretical limit to the success of a membership inference attack on DP-synthetic data?
+
+
+\vspace{20pt}
+\textbf{Differential Privacy}: 
+
+Let $\mathcal{A}$ be a synthetic data generation (SDG) algorithm, then  $\mathcal{A}$ is $\epsilon$-DP iff, for all neighboring datasets $D$ and $D'$ and any subset $\mathcal{O}$ of the range of $\mathcal{A}$:
+
+\begin{equation}\label{DPEQ}
+    P[\mathcal{A}(D) \in \mathcal{O}] \leq e^\epsilon \cdot P[\mathcal{A}(D') \in \mathcal{O}]
+\end{equation}
+
+$D$ and $D'$ are real datasets that $\mathcal{A}$ is applied to, to generate synthetic datasets $\mathcal{A}(D)$ and $\mathcal{A}(D')$. The fact that inequality (\ref{DPEQ}) holds for all neighboring datasets $D$ and $D'$ and for any subset $\mathcal{O}$ of the range of $\mathcal{A}$, implies that (\ref{DPEQ}) holds in particular for 
+\begin{itemize}
+\item say how you pick $D$ and $D'$; differ in one record $t$
+\item say how you pick $\mathcal{O}$
+\end{itemize}
+
+Let's say that some target $t \notin D$ and $t \in D'$. What can we consider $\mathcal{O}$ to be?
+
+Let's say that $\mathcal{O}$ is the set of all datasets that, when given as input to some arbitrary attacker, would cause that attacker to classify $t$ as a member of the training data (i.e. the attacker decides that $t \in D_{train}$). Conversely, any data set not in $\mathcal{O}$ would cause the attacker to give a ``no'', when given to the attacker as input.
+
+If this is an adequate way of thinking about $\mathcal{O}$, then we can calculate the following:
+
+\vspace{20pt}
+Fix $\epsilon = 1$. So if the SDG algorithm is 1-DP, then the following holds:
+\begin{equation}
+    \frac{P[\mathcal{A}(D) \in \mathcal{O}]}{P[\mathcal{A}(D') \in \mathcal{O}]} \leq e \approx 2.718
+\end{equation}
+
+Because this has to hold for any neighboring $D$ and $D'$, we can further say
+\begin{equation}
+    0.368 \approx \frac{1}{e} \leq \frac{P[\mathcal{A}(D) \in \mathcal{O}]}{P[\mathcal{A}(D') \in \mathcal{O}]} \leq e \approx 2.718
+\end{equation}
+
+I believe it is correct to say that $P[\mathcal{A}(D') \in \mathcal{O}]$ is the true positive rate (TPR), since we are saying $t \in D'$ and $\mathcal{A}$ yields a dataset in $\mathcal{O}$ that the attacker would correctly classify. Similarly, $P[\mathcal{A}(D) \in \mathcal{O}]$ is the false positive rate (FPR), since $t \notin D$, and so the attacker would incorrectly give a ``yes''. 
+
+I'm going to try to calculate the theoretical maximum AUC an attacker can achieve. To do that, I will try to calculate the theoretical maximum TPR/FPR curves. First, if the attacker gives all ``yes''s, then the TPR is 100\%, and so the attacker's FPR must be
+\begin{equation}
+    0.368 \approx \frac{1}{e} \leq \frac{P[\mathcal{A}(D) \in \mathcal{O}] = FPR}{1} \leq e \approx 2.718
+\end{equation}
+so,
+\begin{equation}
+    FPR \geq \frac{1}{e} 
+\end{equation}
+
+By plugging in different TPRs, we get a linear lower bound for the FPR.
+
+\begin{figure}[ht!]
+\centering
+\includegraphics[width=.46\textwidth]{./e1_minFPR.png}
+\end{figure}
+
+
+But what if we plug in different FPRs (for example, if the attacker always gives ``yes''s, then the FPR is 100\%)? Then we get the same boundary line. Take FPR = .2, for example.
+\begin{equation}
+    \frac{1}{e} \leq \frac{.2}{TPR} \leq e
+\end{equation}
+then,
+\begin{equation}
+    TPR \leq .2 e \approx .544
+\end{equation}
+
+\begin{figure}[ht!]
+\centering
+\includegraphics[width=.7\textwidth]{./e1_maxTPR.png}
+\end{figure}
+
+(I am leaving out the other side of the inequalities, i.e. when $FPR = .2$, $TPR \geq .2/e$. Or, when $FPR = 1$, $TPR \leq e$, because they yield boundary lines above 1.0 or below the ``random guess'' TPR = FPR line.)
+
+Here is the TPR/FPR boundary for different $\epsilon$:
+
+\begin{figure}[ht!]
+\centering
+\includegraphics[width=.7\textwidth]{./several_e.png}
+\end{figure}
+
+Surprisingly, for the reasonable setting when $\epsilon = 5$, the theoretical AUC is very very close to 1.0. But, as we expect, as $\epsilon$ approaches 0, the boundary approaches the random guessing line.
+
+
+\newpage
+Lastly, if these calculations are correct, then calculating maximum AUC is as simple as calculating the area of a triangle plus the area of a rectangle:
+
+\begin{figure}[ht!]
+\centering
+\includegraphics[width=.7\textwidth]{./triangle_square.png}
+\end{figure}
+
+
+Here is what the maximum theoretical AUCs look like superimposed onto our MAMA-MIA attack results:
+
+
+\begin{figure}[ht!]
+\centering
+\includegraphics[width=\textwidth]{./mama_mia_dp_boundary.png}
+\caption{The yellow line is my``MAMA-MIA'' attack, and the other lines are the successes of other MIAs}
+\end{figure}
+
+
+
+\textbf{Note:} This analysis assumes pure DP, and does not yet calculate the bounds for $(\epsilon, \delta)$-DP or $(\alpha, \epsilon)$-DP. If my analysis above is correct, then it would be straightforward to calculate $(\epsilon, \delta)$-DP boundaries.
+
+
+
+
+\end{document}
