@@ -176,8 +176,7 @@ class ScDesign2(BaseSingleCellDataGenerator):
                 print(f"  Generated cell type: {f.result()}")
 
         print("Assembling synthetic AnnData...")
-        total_counts = X_test.X.toarray()
-        synthetic_counts = sp.lil_matrix(total_counts.shape, dtype=np.int64)
+        synthetic_counts = sp.lil_matrix(X_test.shape, dtype=np.int64)
 
         for ct in cell_type_counts.keys():
             out_path = os.path.join(self.tmp_dir, f"out{ct}.rds")

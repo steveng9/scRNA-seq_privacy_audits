@@ -309,9 +309,11 @@ def create_data_splits(cfg):
             and os.path.exists(cfg.aux_path)):
         print("(h5ad splits already exist — skipping re-extraction)", flush=True)
         all_data.file.close()
-        all_train   = ad.read_h5ad(cfg.train_path)
-        all_holdout = ad.read_h5ad(cfg.holdout_path)
-        all_aux     = ad.read_h5ad(cfg.aux_path)
+        # Use backed='r' so only obs metadata is loaded — the X matrices are not
+        # needed here and densifying them (especially at 200d) causes OOM.
+        all_train   = ad.read_h5ad(cfg.train_path,   backed='r')
+        all_holdout = ad.read_h5ad(cfg.holdout_path, backed='r')
+        all_aux     = ad.read_h5ad(cfg.aux_path,     backed='r')
     else:
         all_train   = all_data[all_data.obs["individual"].isin(train_donors)].to_memory()
         all_holdout = all_data[all_data.obs["individual"].isin(holdout_donors)].to_memory()
@@ -322,7 +324,15 @@ def create_data_splits(cfg):
         all_aux.write_h5ad(cfg.aux_path)
 
     print(f"Cells — train: {len(all_train)}, holdout: {len(all_holdout)}, aux: {len(all_aux)}", flush=True)
-    targets = ad.concat([all_train, all_holdout])
+    # _initialise_results_files only needs obs metadata, not X.
+    # Build a lightweight AnnData from obs to avoid densifying large matrices.
+    targets = ad.AnnData(obs=pd.concat([all_train.obs, all_holdout.obs]))
+    if hasattr(all_train, 'file'):
+        all_train.file.close()
+    if hasattr(all_holdout, 'file'):
+        all_holdout.file.close()
+    if hasattr(all_aux, 'file'):
+        all_aux.file.close()
     _initialise_results_files(cfg, targets)
 
     return resampled, cell_types
