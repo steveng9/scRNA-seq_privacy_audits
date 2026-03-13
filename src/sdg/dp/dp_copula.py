@@ -46,7 +46,7 @@ def apply_gaussian_dp(
     n_cells: int,
     k_max: int,
     clip_value: float = 3.0,
-    rng: np.random.Generator | None = None,
+    rng=None,
 ) -> dict:
     """
     Inject (ε, δ)-DP Gaussian noise into a parsed copula dict.

@@ -79,7 +79,7 @@ def _parse_and_noise(copula_r, dp_params: dict) -> dict:
 # ---------------------------------------------------------------------------
 
 def attack_mahalanobis_dp(cfg, targets, cell_type, copula_synth_r,
-                           copula_aux_r=None, dp_params: dict | None = None):
+                           copula_aux_r=None, dp_params=None):
     """
     DP-aware version of attack_mahalanobis.
 
@@ -158,7 +158,7 @@ def attack_mahalanobis_dp(cfg, targets, cell_type, copula_synth_r,
 
 
 def attack_mahalanobis_no_aux_dp(cfg, targets, cell_type, copula_synth_r,
-                                  copula_aux_r=None, dp_params: dict | None = None):
+                                  copula_aux_r=None, dp_params=None):
     """
     DP-aware version of attack_mahalanobis_no_aux.
 

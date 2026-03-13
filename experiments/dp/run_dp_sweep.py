@@ -112,6 +112,68 @@ def compute_donor_cell_counts(train_h5ad_path: str) -> dict[str, dict]:
 # Minimal config object (mirrors what run_experiment.py creates)
 # ---------------------------------------------------------------------------
 
+def _ensure_h5ad_splits(trial_dir: str) -> None:
+    """
+    If datasets/train.h5ad or datasets/holdout.h5ad are missing, generate them from
+    the full dataset filtered to the donor IDs in train.npy / holdout.npy, applying
+    the HVG mask.  This is a one-time cost; the files are cached afterward.
+    """
+    datasets_dir = os.path.join(trial_dir, "datasets")
+    train_h5  = os.path.join(datasets_dir, "train.h5ad")
+    holdout_h5 = os.path.join(datasets_dir, "holdout.h5ad")
+
+    if os.path.exists(train_h5) and os.path.exists(holdout_h5):
+        return
+
+    print("datasets/train.h5ad or holdout.h5ad missing — generating from full dataset...",
+          flush=True)
+
+    train_npy   = os.path.join(datasets_dir, "train.npy")
+    holdout_npy = os.path.join(datasets_dir, "holdout.npy")
+    if not os.path.exists(train_npy) or not os.path.exists(holdout_npy):
+        raise FileNotFoundError(
+            f"Cannot create H5AD splits: missing {train_npy} or {holdout_npy}"
+        )
+
+    train_donors   = np.load(train_npy,   allow_pickle=True)
+    holdout_donors = np.load(holdout_npy, allow_pickle=True)
+
+    # Full dataset lives two levels up from trial_dir (e.g. data/ok/50d/1 → data/ok/)
+    full_path = None
+    for rel in ["../../full_dataset_cleaned.h5ad", "../../../full_dataset_cleaned.h5ad"]:
+        candidate = os.path.normpath(os.path.join(trial_dir, rel))
+        if os.path.exists(candidate):
+            full_path = candidate
+            break
+    if full_path is None:
+        raise FileNotFoundError(
+            f"Could not find full_dataset_cleaned.h5ad relative to {trial_dir}"
+        )
+
+    # Apply HVG filter
+    hvg_path = _find_hvg_path(trial_dir)
+    hvg_df   = pd.read_csv(hvg_path)
+    hvgs     = hvg_df[hvg_df["highly_variable"]].iloc[:, 0].values
+
+    print(f"  Loading {full_path} ...", flush=True)
+    full = ad.read_h5ad(full_path, backed="r")
+
+    hvg_mask = full.var_names.isin(hvgs)
+
+    if not os.path.exists(train_h5):
+        print(f"  Writing {train_h5} ...", flush=True)
+        subset = full[full.obs["individual"].isin(train_donors)].to_memory()
+        subset[:, hvg_mask].write_h5ad(train_h5)
+
+    if not os.path.exists(holdout_h5):
+        print(f"  Writing {holdout_h5} ...", flush=True)
+        subset = full[full.obs["individual"].isin(holdout_donors)].to_memory()
+        subset[:, hvg_mask].write_h5ad(holdout_h5)
+
+    full.file.close()
+    print("  Done.", flush=True)
+
+
 def make_minimal_cfg(trial_dir: str, use_aux: bool) -> Box:
     cfg = Box()
     cfg.trial_dir            = trial_dir
@@ -283,6 +345,9 @@ def run_sweep(
     print(f"  device:    {DEVICE}\n", flush=True)
 
     cfg = make_minimal_cfg(trial_dir, use_aux)
+    _train_h5_preexisted   = os.path.exists(cfg.train_path)
+    _holdout_h5_preexisted = os.path.exists(cfg.holdout_path)
+    _ensure_h5ad_splits(trial_dir)
 
     # Cell types
     _meta = ad.read_h5ad(cfg.train_path, backed="r")
@@ -349,12 +414,37 @@ def run_sweep(
     results_df.to_csv(out_path, index=False)
     print(f"\nSweep complete.  Results saved to {out_path}")
 
-    # Quick summary
+    # Summary table
     summary = (results_df.groupby("epsilon")["auc"]
-               .agg(["mean", "std"])
-               .rename(columns={"mean": "auc_mean", "std": "auc_std"}))
-    print(f"\nBaseline AUC (no DP): {baseline_auc:.4f}")
-    print(summary.to_string())
+               .agg(["mean", "std", "count"])
+               .rename(columns={"mean": "auc_mean", "std": "auc_std", "count": "n_seeds"}))
+    summary["auc_vs_baseline"] = summary["auc_mean"] - baseline_auc
+    summary["privacy_reduction_pct"] = (
+        (baseline_auc - summary["auc_mean"]) / (baseline_auc - 0.5) * 100
+    ).clip(0, 100)
+
+    n_donors = os.path.basename(os.path.dirname(trial_dir)).replace("d", "")
+    trial_id = os.path.basename(trial_dir)
+    print(f"\n{'='*65}")
+    print(f"  RESULTS — {n_donors} donors, trial {trial_id}, c={clip_value}, δ={delta}")
+    print(f"  Baseline AUC (no DP): {baseline_auc:.4f}   (random chance = 0.5000)")
+    print(f"{'='*65}")
+    print(f"  {'epsilon':>10}  {'AUC mean':>9}  {'± std':>7}  {'vs base':>8}  {'attack weakened':>15}")
+    print(f"  {'-'*60}")
+    for eps, row in summary.iterrows():
+        print(f"  {eps:>10.0f}  {row['auc_mean']:>9.4f}  "
+              f"±{row['auc_std']:>6.4f}  {row['auc_vs_baseline']:>+8.4f}  "
+              f"{row['privacy_reduction_pct']:>13.1f}%")
+    print(f"{'='*65}", flush=True)
+
+    # Clean up H5AD splits we generated (donor IDs are preserved in .npy files)
+    for path, preexisted in [
+        (cfg.train_path,   _train_h5_preexisted),
+        (cfg.holdout_path, _holdout_h5_preexisted),
+    ]:
+        if not preexisted and os.path.exists(path):
+            os.remove(path)
+            print(f"Removed temporary {path}", flush=True)
 
 
 # ---------------------------------------------------------------------------

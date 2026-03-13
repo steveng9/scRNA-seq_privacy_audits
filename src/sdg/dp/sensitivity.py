@@ -189,7 +189,7 @@ def sensitivity_report(
     k_max: int,
     n_genes: int,
     clip_value: float,
-    epsilons: list | None = None,
+    epsilons=None,
     delta: float = 1e-5,
 ) -> dict:
     """
