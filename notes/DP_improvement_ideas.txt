@@ -1,0 +1,63 @@
+The sensitivity formula is:
+
+  Δ_F = 4 · k_max · c² · G / (N − k_max)
+
+  Looking at where the budget goes:
+  - G ≈ 400 group-2 genes in the copula — this is the dominant factor
+  - k_max can be large (one donor may have many more cells than average)
+  - c² = 4 at c=2.0
+
+  The Frobenius norm of a 400×400 correlation matrix just has a lot of "room" to change.
+
+  ---
+  Ideas, ranked by expected impact
+
+  1. Contribution bounding — rigorous, high impact
+
+  Cap each donor's contribution to at most k_cap cells before fitting the copula. Subsample uniformly per donor. This changes the
+  sensitivity formula to:
+
+  Δ_F = 4 · c² · G / (n_donors − 1)
+
+  k_max cancels out entirely. For 50 donors, G=400, c=2.0: Δ_F ≈ 131. That's already better than the uncapped case when k_max is large, and
+  it's the rigorous path — the noise level no longer depends on how unequally cells are distributed across donors. This is standard practice
+   in DP federated learning.
+
+  2. Empirical sensitivity — potentially 10–100× reduction, but requires justification
+
+  The theoretical bound assumes all k_max cells from one donor sit simultaneously at the clipping boundary in every gene, which is wildly
+  pessimistic for scRNA-seq data (genes are sparse and correlated). You could compute the actual LOO sensitivity: refit the copula leaving
+  each donor out, measure the true Frobenius norm change, take the max. If the empirical max is, say, 10× smaller than Δ_F, you can use that
+   as the sensitivity — this is the "smooth sensitivity" / "propose-test-release" direction. Steven flagged this in the handoff note and I
+  think this is the most interesting result to report in the paper.
+
+  3. Lower c — quadratic, easy
+
+  c=1.0 → Δ_F reduced by 4× vs c=2.0. Worth running. The cost is more clipping distortion in the uniform transform step (cells with extreme
+  gene expression get compressed), but for scRNA-seq where the marginals are already NB/ZINB-transformed, the quantile-normal values rarely
+  hit c=1.0 anyway. I'd suggest testing c=1.0 and c=1.5.
+
+  4. Reduce G — linear, model-changing
+
+  Restricting the number of group-2 genes (those entering the Gaussian copula) from ~400 to ~100 would give a 4× sensitivity reduction. You
+  could do this by tightening the non-zero entry threshold for group-2 gene inclusion. This changes the model and would need quality eval,
+  but it's a legitimate knob.
+
+  5. Increase δ — marginal (~14% for δ=1e-3 vs 1e-5)
+
+  The σ formula goes as √(2 ln(1.25/δ)). Changing δ from 1e-5 to 1e-3 only helps ~14%. Not worth the weakened guarantee.
+
+  ---
+  My recommendation
+
+  The two things I'd do next:
+
+  1. Run the empirical sensitivity measurement (leave-one-donor-out on one trial) — this will tell you whether the formal bound is wildly
+  conservative or roughly tight. If it's 10× conservative (which I'd bet on), you can justify reporting results at ε ≈ 1000–3000 as
+  corresponding to a realistic effective privacy level, with a note that the theoretical bound is conservative.
+  2. Implement contribution bounding (k_cap subsampling per donor) and re-run — this makes the DP guarantee donor-count-uniform and is the
+  right approach for the paper's formal claim.
+
+  Both are independent and can be framed together: "we show that with contribution bounding and empirical sensitivity calibration,
+  meaningful DP (ε ~ 100–1000) reduces scMAMA-MIA AUC to near-random while preserving synthetic data quality."
+
