@@ -35,21 +35,21 @@ from sdg.base import BaseSingleCellDataGenerator
 # ---------------------------------------------------------------------------
 
 def _run_train(home_dir, hvg_subset_path, cell_type, out_model_path,
-               family_use, copula_type):
+               family_use, copula_type, trunc_lvl):
     """Fit a copula for one cell type via Rscript."""
     model_path = os.path.join(home_dir, out_model_path, f"{cell_type}.rds")
     # Cell type names may contain spaces — quote the argument
     cmd = (
         f'Rscript {_R_SCRIPT} train '
         f'{hvg_subset_path} "{cell_type}" {model_path} '
-        f'{family_use} {copula_type}'
+        f'{family_use} {copula_type} {trunc_lvl}'
     )
     try:
         subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
         return cell_type
     except subprocess.CalledProcessError as e:
         output = e.output.decode("utf-8", errors="replace")
-        print(f"[SKIP] scDesign3 training failed for '{cell_type}': {output[:300]}")
+        print(f"[SKIP] scDesign3 training failed for '{cell_type}':\n{output[-800:]}")
         return None
 
 
@@ -82,6 +82,7 @@ class ScDesign3(BaseSingleCellDataGenerator):
         hvg_path        : path to/from which the HVG mask CSV is read/written
         copula_type     : "gaussian" (default) or "vine"
         family_use      : "nb" (default), "zinb", "poisson", or "gaussian"
+        trunc_lvl       : vine truncation level — integer or "Inf" (default "Inf")
     """
 
     def __init__(self, config: Dict[str, Any]):
@@ -94,6 +95,7 @@ class ScDesign3(BaseSingleCellDataGenerator):
         self.hvg_path     = self.generator_config["hvg_path"]
         self.copula_type  = self.generator_config.get("copula_type", "gaussian")
         self.family_use   = self.generator_config.get("family_use", "nb")
+        self.trunc_lvl    = self.generator_config.get("trunc_lvl", "Inf")
         self.mean_expression = None
         self.hvg_mask        = None
         os.makedirs(self.tmp_dir, exist_ok=True)
@@ -146,7 +148,7 @@ class ScDesign3(BaseSingleCellDataGenerator):
             futures = [
                 executor.submit(
                     _run_train, self.home_dir, hvg_subset_path, ct, out_model_path,
-                    self.family_use, self.copula_type
+                    self.family_use, self.copula_type, self.trunc_lvl
                 )
                 for ct in cell_type_counts.keys()
             ]

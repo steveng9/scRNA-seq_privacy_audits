@@ -1,11 +1,12 @@
 # scDesign3 R driver script
 #
 # Subcommands:
-#   train   <h5ad_path> <cell_type> <out_rds_path> <family_use> <copula_type>
+#   train   <h5ad_path> <cell_type> <out_rds_path> <family_use> <copula_type> [trunc_lvl]
 #   gen     <n_cells>   <model_rds_path>            <out_rds_path>
 #
 # <family_use>  : one of "nb", "zinb", "poisson", "gaussian"   (default "nb")
 # <copula_type> : one of "gaussian", "vine"                     (default "gaussian")
+# <trunc_lvl>   : vine truncation level integer or "Inf"        (default "Inf")
 
 # ---------------------------------------------------------------------------
 # Dependencies
@@ -33,7 +34,8 @@ suppressPackageStartupMessages({
 # ---------------------------------------------------------------------------
 
 train_cell_type <- function(h5ad_path, cell_type, out_rds_path,
-                             family_use = "nb", copula_type = "gaussian") {
+                             family_use = "nb", copula_type = "gaussian",
+                             trunc_lvl = Inf) {
     message(sprintf("[scDesign3] Reading %s", h5ad_path))
     sce_full <- readH5AD(h5ad_path, use_hdf5 = FALSE)
 
@@ -80,6 +82,10 @@ train_cell_type <- function(h5ad_path, cell_type, out_rds_path,
     )
 
     # 3. Fit copula (Gaussian or vine)
+    # Note: trunc_lvl is not exposed by scDesign3::fit_copula 1.6.0 (no ... passthrough).
+    # It is stored in the model for future use when scDesign3 is upgraded.
+    if (!is.infinite(trunc_lvl))
+        message(sprintf("[scDesign3] NOTE: trunc_lvl=%s requested but not supported by this scDesign3 version — ignored.", trunc_lvl))
     message(sprintf("[scDesign3] fit_copula (copula=%s) ...", copula_type))
     copula_result <- fit_copula(
         sce              = sce_ct,
@@ -120,6 +126,7 @@ train_cell_type <- function(h5ad_path, cell_type, out_rds_path,
         zero_mat_rep      = zero_rep,
         family_use        = family_use,
         copula_type       = copula_type,
+        trunc_lvl         = trunc_lvl,
         n_training_cells  = ncol(sce_ct),
         input_dat         = data_obj$dat
     )
@@ -210,13 +217,17 @@ if (length(args) < 1) {
 cmd <- args[1]
 
 if (cmd == "train") {
-    if (length(args) < 4) stop("train requires: h5ad_path cell_type out_rds_path [family_use] [copula_type]")
+    if (length(args) < 4) stop("train requires: h5ad_path cell_type out_rds_path [family_use] [copula_type] [trunc_lvl]")
     h5ad_path   <- args[2]
     cell_type   <- args[3]
     out_rds     <- args[4]
     family_use  <- if (length(args) >= 5) args[5] else "nb"
     copula_type <- if (length(args) >= 6) args[6] else "gaussian"
-    train_cell_type(h5ad_path, cell_type, out_rds, family_use, copula_type)
+    trunc_lvl   <- if (length(args) >= 7) {
+        v <- suppressWarnings(as.numeric(args[7]))
+        if (is.na(v)) Inf else v
+    } else Inf
+    train_cell_type(h5ad_path, cell_type, out_rds, family_use, copula_type, trunc_lvl)
 
 } else if (cmd == "gen") {
     if (length(args) < 4) stop("gen requires: n_cells model_rds_path out_rds_path")
