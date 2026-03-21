@@ -1,18 +1,24 @@
 # scDesign3 MIA Experiments
 
-**NOT YET IMPLEMENTED** — planned as Experiment 2 in the paper revision.
+**IMPLEMENTED** as of 2026-03-14.  Supports both Gaussian (default) and vine copulas.
 
-## Plan
+## Implementation
 
-scDesign3 supports Gaussian copulas (default, same format as scDesign2) and Vine
-copulas.  The Gaussian copula variant should work with the existing `parse_copula()`
-function in `src/sdg/scdesign2/copula.py` with minimal adaptation.
+- `src/sdg/scdesign3/model.py` — `ScDesign3` class (wraps R scDesign3 via subprocess)
+- `src/sdg/scdesign3/scdesign3.r` — R driver script (train / generate)
+- `src/sdg/scdesign3/copula.py` — Copula parser (Gaussian + vine); same interface as scDesign2
+- Registered in `src/sdg/run.py` under `"scdesign3"`
 
-### Steps to implement:
-1. Add `src/sdg/scdesign3/model.py` wrapping the R `scDesign3` package
-2. Register `"scdesign3"` in `src/sdg/run.py`
-3. Add experiment configs here
+## Using scDesign3 in experiments
 
-### References
+scDesign3 (Gaussian copula) plugs directly into the existing `run_experiment.py`
+pipeline.  Its copula parser returns the same dict format as scDesign2, so
+`attack_mahalanobis` and `attack_mahalanobis_no_aux` work unchanged.
+
+Config key: `generator_name: scdesign3`
+Copula type: set `copula_type: gaussian` (default) or `vine`.
+
+## References
+
 - sun2023scdesign3
 - scDesign3 R package: https://github.com/SONGDONGYUAN1994/scDesign3
