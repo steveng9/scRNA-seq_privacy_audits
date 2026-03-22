@@ -48,6 +48,46 @@ import numpy as np
 
 
 # ---------------------------------------------------------------------------
+# SDG config builder (mirrors sdg.scdesign2.copula.make_sdg_config)
+# ---------------------------------------------------------------------------
+
+def make_sdg_config_sd3(cfg, generate: bool, model_path: str,
+                        hvg_path: str, train_file_name: str):
+    """
+    Build the scDesign3 YAML config dict for one phase of the pipeline.
+    Same interface as sdg.scdesign2.copula.make_sdg_config but emits
+    a scdesign3_config block instead of scdesign2_config.
+    """
+    from box import Box
+    c = Box()
+    c.dir_list = Box()
+    c.dir_list.home = cfg.trial_dir
+    c.dir_list.data = cfg.datasets_path
+
+    c.generator_name = "scdesign3"
+    c.train = True
+    c.generate = generate
+    c.load_from_checkpoint = False
+
+    c.scdesign3_config = Box()
+    c.scdesign3_config.out_model_path = model_path
+    c.scdesign3_config.hvg_path       = hvg_path
+    c.scdesign3_config.copula_type    = getattr(cfg, "sd3_copula_type", "gaussian")
+    c.scdesign3_config.family_use     = getattr(cfg, "sd3_family_use",  "nb")
+    c.scdesign3_config.trunc_lvl      = getattr(cfg, "sd3_trunc_lvl",   "Inf")
+
+    c.dataset_config = Box()
+    c.dataset_config.name                = cfg.dataset_name
+    c.dataset_config.train_count_file    = train_file_name
+    c.dataset_config.test_count_file     = train_file_name
+    c.dataset_config.cell_type_col_name  = "cell_type"
+    c.dataset_config.cell_label_col_name = "cell_label"
+    c.dataset_config.random_seed         = 42
+
+    return c
+
+
+# ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
 

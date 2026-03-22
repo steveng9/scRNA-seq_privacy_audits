@@ -184,6 +184,14 @@ def create_config(path):
 
     cfg.parallel_workers = cfg.get("parallel_workers", 4)
 
+    # Generator selection (default scdesign2 for backward compat)
+    cfg.generator_name = cfg.get("generator_name", "scdesign2")
+    if cfg.generator_name == "scdesign3":
+        sd3p = cfg.get("scdesign3_params", {})
+        cfg.sd3_copula_type = sd3p.get("copula_type", "gaussian")
+        cfg.sd3_family_use  = sd3p.get("family_use",  "nb")
+        cfg.sd3_trunc_lvl   = str(sd3p.get("trunc_lvl", "Inf"))
+
     cfg.lin_alg_inverse_fn        = FUNCTION_REGISTRY[cfg.mamamia_params.lin_alg_inverse_fn]
     cfg.uniform_remapping_fn      = FUNCTION_REGISTRY[cfg.mamamia_params.uniform_remapping_fn]
     cfg.closeness_to_correlation_fn = FUNCTION_REGISTRY[cfg.mamamia_params.closeness_to_correlation_fn]
@@ -256,7 +264,15 @@ def make_dir_structure(cfg):
 
 
 def write_sdg_config_files(cfg):
-    """Write per-phase scDesign2 config YAMLs if they don't already exist."""
+    """Write per-phase SDG config YAMLs if they don't already exist."""
+    if cfg.generator_name == "scdesign3":
+        _write_sdg_config_files_sd3(cfg)
+    else:
+        _write_sdg_config_files_sd2(cfg)
+
+
+def _write_sdg_config_files_sd2(cfg):
+    """Write scDesign2 per-phase config YAMLs."""
     if not os.path.exists(cfg.target_model_config_path):
         c = make_sdg_config(cfg, True, "models",
                             cfg.permanent_hvg_mask_path, "train.h5ad")
@@ -272,6 +288,28 @@ def write_sdg_config_files(cfg):
     if not os.path.exists(cfg.aux_model_config_path):
         c = make_sdg_config(cfg, False, "artifacts/aux",
                             cfg.shadow_modelling_hvg_path, "auxiliary.h5ad")
+        with open(cfg.aux_model_config_path, "w") as f:
+            yaml.safe_dump(c.to_dict(), f, sort_keys=False)
+
+
+def _write_sdg_config_files_sd3(cfg):
+    """Write scDesign3 per-phase config YAMLs."""
+    from sdg.scdesign3.copula import make_sdg_config_sd3
+    if not os.path.exists(cfg.target_model_config_path):
+        c = make_sdg_config_sd3(cfg, True, "models",
+                                cfg.permanent_hvg_mask_path, "train.h5ad")
+        with open(cfg.target_model_config_path, "w") as f:
+            yaml.safe_dump(c.to_dict(), f, sort_keys=False)
+
+    if not os.path.exists(cfg.synth_model_config_path):
+        c = make_sdg_config_sd3(cfg, False, "artifacts/synth",
+                                cfg.shadow_modelling_hvg_path, "synthetic.h5ad")
+        with open(cfg.synth_model_config_path, "w") as f:
+            yaml.safe_dump(c.to_dict(), f, sort_keys=False)
+
+    if not os.path.exists(cfg.aux_model_config_path):
+        c = make_sdg_config_sd3(cfg, False, "artifacts/aux",
+                                cfg.shadow_modelling_hvg_path, "auxiliary.h5ad")
         with open(cfg.aux_model_config_path, "w") as f:
             yaml.safe_dump(c.to_dict(), f, sort_keys=False)
 
@@ -391,7 +429,8 @@ def run_sdg(cfg, sdg_cfg_path, cell_types, label, force=False):
     if not force:
         with open(sdg_cfg_path) as f:
             sdg_cfg = Box(yaml.load(f, Loader=yaml.FullLoader))
-        copulas_dir = sdg_cfg.scdesign2_config.out_model_path
+        gen_name = sdg_cfg.get("generator_name", "scdesign2")
+        copulas_dir = sdg_cfg[f"{gen_name}_config"].out_model_path
         if all(
             os.path.exists(os.path.join(cfg.trial_dir, copulas_dir, f"{ct}.rds"))
             for ct in cell_types
@@ -561,8 +600,6 @@ def _resolve_attack_fn(cfg):
 
 
 def _attack_cell_type(cfg, cell_type, train, holdout):
-    from rpy2.robjects import r
-
     copula_synth_dir, attack_fn, hvgs = _resolve_attack_fn(cfg)
     synth_rds = os.path.join(copula_synth_dir, f"{cell_type}.rds")
     aux_rds   = os.path.join(cfg.aux_artifacts_path, f"{cell_type}.rds")
@@ -570,8 +607,14 @@ def _attack_cell_type(cfg, cell_type, train, holdout):
     if not (os.path.exists(synth_rds) and os.path.exists(aux_rds)):
         return (cell_type, None, None)
 
-    copula_synth_r = r["readRDS"](synth_rds).rx2(str(cell_type))
-    copula_aux_r   = r["readRDS"](aux_rds).rx2(str(cell_type))
+    if getattr(cfg, "generator_name", "scdesign2") == "scdesign3":
+        from sdg.scdesign3.copula import load_copula_sd3
+        copula_synth_r = load_copula_sd3(synth_rds, cell_type)
+        copula_aux_r   = load_copula_sd3(aux_rds,   cell_type)
+    else:
+        from rpy2.robjects import r
+        copula_synth_r = r["readRDS"](synth_rds).rx2(str(cell_type))
+        copula_aux_r   = r["readRDS"](aux_rds).rx2(str(cell_type))
 
     targets = _build_target_dataset(cell_type, hvgs, train, holdout)
 

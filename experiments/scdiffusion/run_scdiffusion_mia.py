@@ -79,10 +79,18 @@ def slice_donors(adata, donors, col):
 # ---------------------------------------------------------------------------
 
 def run_trial(adata_full, trial_num, n_donors, out_dir, individual_col,
-              cell_type_col, hvg_path, conda_env, model_kwargs, seed):
+              cell_type_col, hvg_path, conda_env, model_kwargs, seed,
+              splits_dir=None):
     rng = np.random.default_rng(seed)
     all_donors = adata_full.obs[individual_col].unique()
-    train_donors, hold_donors, _ = sample_donors(all_donors, n_donors, rng)
+
+    if splits_dir is not None:
+        ds = os.path.join(splits_dir, str(trial_num), "datasets")
+        train_donors = np.load(os.path.join(ds, "train.npy"),   allow_pickle=True)
+        hold_donors  = np.load(os.path.join(ds, "holdout.npy"), allow_pickle=True)
+        print(f"\n[Trial {trial_num}]  (reusing existing splits)", flush=True)
+    else:
+        train_donors, hold_donors, _ = sample_donors(all_donors, n_donors, rng)
 
     print(f"\n[Trial {trial_num}]  train={len(train_donors)}  hold={len(hold_donors)}", flush=True)
 
@@ -169,6 +177,9 @@ def main():
     ap.add_argument("--batch-size",     type=int, default=512)
     ap.add_argument("--save-interval",  type=int, default=50000)
     ap.add_argument("--n-score-times",  type=int, default=50)
+    ap.add_argument("--splits-dir",     default=None,
+                    help="If set, load train/holdout.npy from "
+                         "<splits-dir>/<trial>/datasets/ instead of sampling")
     args = ap.parse_args()
 
     os.makedirs(args.out_dir, exist_ok=True)
@@ -192,6 +203,7 @@ def main():
                 args.individual_col, args.cell_type_col,
                 args.hvg_path, args.conda_env, model_kwargs,
                 seed=args.base_seed + trial,
+                splits_dir=args.splits_dir,
             )
             results.append(r)
         except Exception as e:

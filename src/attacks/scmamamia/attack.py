@@ -104,8 +104,14 @@ def attack_mahalanobis(cfg, targets, cell_type, copula_synth_r, copula_aux_r=Non
     with all N cell values — O(G) Python calls instead of O(N).  The quadratic form
     δᵀΣ⁻¹δ is then computed for all cells in one einsum.
     """
-    cs = parse_copula(copula_synth_r)
-    ca = parse_copula(copula_aux_r)
+    cs = copula_synth_r if isinstance(copula_synth_r, dict) else parse_copula(copula_synth_r)
+    ca = copula_aux_r   if isinstance(copula_aux_r,   dict) else parse_copula(copula_aux_r)
+
+    # Vine copulas don't have a covariance matrix — Mahalanobis not applicable.
+    if cs.get("copula_type") == "vine" or cs.get("cov_matrix") is None:
+        scores = np.full(len(targets), 0.5)
+        return compute_cell_scores(cfg, cell_type, scores, targets, None, None)
+
     covariate_genes, _ = get_shared_genes(
         cs["primary_genes"], cs["secondary_genes"],
         ca["primary_genes"], ca["secondary_genes"],
@@ -168,7 +174,12 @@ def attack_mahalanobis_no_aux(cfg, targets, cell_type, copula_synth_r, copula_au
 
     Vectorized the same way as attack_mahalanobis.
     """
-    cs = parse_copula(copula_synth_r)
+    cs = copula_synth_r if isinstance(copula_synth_r, dict) else parse_copula(copula_synth_r)
+
+    if cs.get("copula_type") == "vine" or cs.get("cov_matrix") is None:
+        scores = np.full(len(targets), 0.5)
+        return compute_cell_scores(cfg, cell_type, scores, targets, None, None)
+
     shared_cov_s, shared_marginals_s = build_shared_covariance_matrix(
         cs["primary_genes"], cs["primary_genes"], cs["cov_matrix"], cs["primary_marginals"]
     )

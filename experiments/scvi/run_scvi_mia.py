@@ -115,13 +115,22 @@ def run_trial(
     scvi_kwargs,
     seed,
     run_aux,
+    splits_dir=None,
 ):
     rng = np.random.default_rng(seed)
     all_donors = adata_full.obs[individual_col].unique()
 
-    train_donors, hold_donors, aux_donors = sample_donors(
-        all_donors, n_donors, rng
-    )
+    if splits_dir is not None:
+        # Reuse pre-existing donor splits from a scDesign2 trial directory.
+        ds = os.path.join(splits_dir, str(trial_num), "datasets")
+        train_donors = np.load(os.path.join(ds, "train.npy"),     allow_pickle=True)
+        hold_donors  = np.load(os.path.join(ds, "holdout.npy"),   allow_pickle=True)
+        aux_donors   = np.load(os.path.join(ds, "auxiliary.npy"), allow_pickle=True)
+        print(f"\n[Trial {trial_num}]  (reusing existing splits)", flush=True)
+    else:
+        train_donors, hold_donors, aux_donors = sample_donors(
+            all_donors, n_donors, rng
+        )
 
     print(f"\n[Trial {trial_num}]  train={len(train_donors)}  "
           f"hold={len(hold_donors)}  aux={len(aux_donors)}", flush=True)
@@ -279,6 +288,9 @@ def main():
                         help="Conda environment that has scvi-tools installed")
     parser.add_argument("--no-aux",         action="store_true",
                         help="Skip the auxiliary-model (+aux) attack variant")
+    parser.add_argument("--splits-dir",     default=None,
+                        help="If set, load train/holdout/auxiliary.npy from "
+                             "<splits-dir>/<trial>/datasets/ instead of sampling")
     # scVI hyperparameters
     parser.add_argument("--n-latent",   type=int, default=30)
     parser.add_argument("--n-layers",   type=int, default=2)
@@ -319,6 +331,7 @@ def main():
                 scvi_kwargs    = scvi_kwargs,
                 seed           = seed,
                 run_aux        = not args.no_aux,
+                splits_dir     = args.splits_dir,
             )
             all_results.append(result)
         except Exception as e:
