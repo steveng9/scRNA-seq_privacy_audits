@@ -31,6 +31,11 @@ DATASETS = {
 
 HVG_PARAMS = dict(min_mean=0.0125, max_mean=3, min_disp=0.5)
 
+# Maximum cells to load into memory for HVG computation.  For large datasets
+# (e.g. AIDA 57 GB / 1M cells) loading everything OOMs the machine.
+# 200k cells from all donors is more than sufficient for stable HVG selection.
+MAX_CELLS = 200_000
+
 
 def compute_hvgs_for_dataset(name: str, h5ad_path: str) -> pd.DataFrame:
     existing_path = os.path.join(DATA_DIR, name, "hvg.csv")
@@ -38,10 +43,30 @@ def compute_hvgs_for_dataset(name: str, h5ad_path: str) -> pd.DataFrame:
 
     print(f"\n{'='*60}")
     print(f"Dataset: {name}")
-    print(f"  Loading {h5ad_path} ...", flush=True)
-    adata = sc.read_h5ad(h5ad_path)
-    print(f"  {adata.n_obs:,} cells × {adata.n_vars:,} genes | "
-          f"{adata.obs['individual'].nunique()} donors", flush=True)
+
+    if os.path.exists(new_path):
+        print(f"  [SKIP] {new_path} already exists.")
+        return pd.read_csv(new_path, index_col=0)
+
+    # Read obs metadata only (backed='r') to decide whether to subsample.
+    print(f"  Reading obs metadata from {h5ad_path} ...", flush=True)
+    adata_backed = sc.read_h5ad(h5ad_path, backed="r")
+    n_total = adata_backed.n_obs
+    n_donors = adata_backed.obs["individual"].nunique()
+    print(f"  {n_total:,} cells × {adata_backed.n_vars:,} genes | "
+          f"{n_donors} donors", flush=True)
+
+    if n_total > MAX_CELLS:
+        rng = np.random.default_rng(42)
+        idx = rng.choice(n_total, size=MAX_CELLS, replace=False)
+        idx.sort()   # backed h5ad requires sorted indices
+        print(f"  Subsampling to {MAX_CELLS:,} cells for HVG computation ...", flush=True)
+        adata = adata_backed[idx].to_memory()
+    else:
+        adata = adata_backed.to_memory()
+    adata_backed.file.close()
+
+    print(f"  Loaded {adata.n_obs:,} cells into memory.", flush=True)
 
     # Normalise + log1p in a scratch layer so raw counts are unchanged.
     adata.layers["counts"] = adata.X.copy()
