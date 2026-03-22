@@ -253,7 +253,12 @@ def cmd_generate(args):
         gene_list=gene_names,
     )  # shape: (n_training_cells, n_genes) — we subsample to n_cells
 
-    # synth is a numpy array; wrap in AnnData
+    # posterior_predictive_sample may return sparse.GCXS — convert to dense numpy
+    if hasattr(synth, 'toarray'):
+        synth = synth.toarray()
+    elif hasattr(synth, 'todense'):
+        synth = np.array(synth.todense())
+
     indices = np.random.choice(synth.shape[0], size=min(n_cells, synth.shape[0]),
                                replace=n_cells > synth.shape[0])
     synth_counts = synth[indices, :]

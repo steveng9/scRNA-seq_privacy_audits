@@ -58,7 +58,7 @@ GEN_TRIAL_PY = f"{REPO}/experiments/sdg_comparison/generate_trial.py"
 COMPUTE_HVG  = f"{REPO}/experiments/sdg_comparison/compute_hvgs.py"
 
 N_TRIALS          = 5
-N_CPU_WORKERS     = 3   # concurrent scDesign3 groups
+N_CPU_WORKERS     = 1   # each scDesign3 job spawns up to 15 R workers; 1 concurrent avoids OOM
 GPU_IDS           = [0, 1]
 
 # Donor counts per method × dataset  (from the experiment plan)
@@ -283,7 +283,10 @@ def main():
     gpu_pool = _GpuPool(GPU_IDS)
     futures  = {}
 
-    max_workers = N_CPU_WORKERS + len(GPU_IDS)
+    # Need enough threads so GPU workers can run while CPU threads block on the semaphore.
+    # CPU threads: up to len(sd3_jobs) threads may block simultaneously on the semaphore.
+    # GPU threads: len(all_gpu_jobs) threads, each blocking on gpu_pool.acquire().
+    max_workers = len(sd3_jobs) + len(all_gpu_jobs)
     with ThreadPoolExecutor(max_workers=max_workers) as ex:
 
         # scDesign3 — CPU (semaphore enforces N_CPU_WORKERS at a time)

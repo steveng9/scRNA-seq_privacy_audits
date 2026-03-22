@@ -76,18 +76,19 @@ def _load_splits(splits_dir):
     return train, holdout
 
 
-def _subset_to_donors(adata, donors, col):
-    return adata[adata.obs[col].isin(donors)].copy()
-
-
-def _write_train_h5ad(adata_full, train_donors, individual_col, out_path):
-    """Subset to train donors and write to disk."""
+def _write_train_h5ad(dataset_path, train_donors, individual_col, out_path):
+    """Subset to train donors (using backed='r') and write to disk."""
     if os.path.exists(out_path):
-        return
-    subset = _subset_to_donors(adata_full, train_donors, individual_col)
+        return ad.read_h5ad(out_path, backed="r").n_obs
+    adata_backed = sc.read_h5ad(dataset_path, backed="r")
+    mask = adata_backed.obs[individual_col].isin(set(train_donors))
+    subset = adata_backed[mask].to_memory()
+    adata_backed.file.close()
     subset.write_h5ad(out_path)
-    print(f"  Wrote train.h5ad: {subset.n_obs:,} cells", flush=True)
-    return subset.n_obs
+    n = subset.n_obs
+    del subset
+    print(f"  Wrote train.h5ad: {n:,} cells", flush=True)
+    return n
 
 
 def _copy_splits(splits_dir, ds_dir):
@@ -136,11 +137,8 @@ def generate_sd3(out_dir, dataset_path, splits_dir, hvg_path,
     _copy_splits(splits_dir, ds_dir)
     train_donors, _ = _load_splits(splits_dir)
 
-    adata_full = sc.read_h5ad(dataset_path)
     train_h5ad = os.path.join(ds_dir, "train.h5ad")
-    n_cells = _write_train_h5ad(adata_full, train_donors, individual_col, train_h5ad)
-    if n_cells is None:
-        n_cells = ad.read_h5ad(train_h5ad, backed="r").n_obs
+    n_cells = _write_train_h5ad(dataset_path, train_donors, individual_col, train_h5ad)
 
     trunc_lvl = 1 if copula_type == "vine" else "Inf"
 
@@ -195,10 +193,8 @@ def generate_scvi(out_dir, dataset_path, splits_dir, hvg_path,
     _copy_splits(splits_dir, ds_dir)
     train_donors, _ = _load_splits(splits_dir)
 
-    adata_full = sc.read_h5ad(dataset_path)
     train_h5ad = os.path.join(ds_dir, "train.h5ad")
-    _write_train_h5ad(adata_full, train_donors, individual_col, train_h5ad)
-    n_cells = ad.read_h5ad(train_h5ad, backed="r").n_obs
+    n_cells = _write_train_h5ad(dataset_path, train_donors, individual_col, train_h5ad)
 
     os.makedirs(model_dir, exist_ok=True)
     scvi_script = os.path.join(_SRC, "sdg", "scvi", "run_scvi_standalone.py")
@@ -235,10 +231,8 @@ def generate_scdiffusion(out_dir, dataset_path, splits_dir, hvg_path,
     _copy_splits(splits_dir, ds_dir)
     train_donors, _ = _load_splits(splits_dir)
 
-    adata_full = sc.read_h5ad(dataset_path)
     train_h5ad = os.path.join(ds_dir, "train.h5ad")
-    _write_train_h5ad(adata_full, train_donors, individual_col, train_h5ad)
-    n_cells = ad.read_h5ad(train_h5ad, backed="r").n_obs
+    n_cells = _write_train_h5ad(dataset_path, train_donors, individual_col, train_h5ad)
 
     os.makedirs(vae_dir,  exist_ok=True)
     os.makedirs(diff_dir, exist_ok=True)
