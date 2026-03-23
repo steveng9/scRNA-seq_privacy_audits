@@ -76,18 +76,28 @@ def _load_splits(splits_dir):
     return train, holdout
 
 
-def _write_train_h5ad(dataset_path, train_donors, individual_col, out_path):
-    """Subset to train donors (using backed='r') and write to disk."""
+def _write_train_h5ad(dataset_path, train_donors, individual_col, out_path, hvg_path=None):
+    """Subset to train donors (using backed='r') and write to disk.
+
+    If hvg_path is given, further filters to HVGs before writing — use this for
+    scVI/scDiffusion to avoid loading the full 35k-gene matrix into RAM.
+    """
     if os.path.exists(out_path):
         return ad.read_h5ad(out_path, backed="r").n_obs
     adata_backed = sc.read_h5ad(dataset_path, backed="r")
     mask = adata_backed.obs[individual_col].isin(set(train_donors))
     subset = adata_backed[mask].to_memory()
     adata_backed.file.close()
+    if hvg_path is not None:
+        import pandas as pd
+        hvg_df = pd.read_csv(hvg_path, index_col=0)
+        hvgs = set(hvg_df[hvg_df["highly_variable"]].index)
+        keep = [g for g in subset.var_names if g in hvgs]
+        subset = subset[:, keep].copy()
     subset.write_h5ad(out_path)
-    n = subset.n_obs
+    n, n_vars = subset.n_obs, subset.n_vars
     del subset
-    print(f"  Wrote train.h5ad: {n:,} cells", flush=True)
+    print(f"  Wrote {os.path.basename(out_path)}: {n:,} cells x {n_vars} genes", flush=True)
     return n
 
 
@@ -193,8 +203,10 @@ def generate_scvi(out_dir, dataset_path, splits_dir, hvg_path,
     _copy_splits(splits_dir, ds_dir)
     train_donors, _ = _load_splits(splits_dir)
 
-    train_h5ad = os.path.join(ds_dir, "train.h5ad")
-    n_cells = _write_train_h5ad(dataset_path, train_donors, individual_col, train_h5ad)
+    # Write HVG-filtered train set to avoid loading 35k genes into RAM (OOM on large donors)
+    train_h5ad = os.path.join(ds_dir, "train_hvg.h5ad")
+    n_cells = _write_train_h5ad(dataset_path, train_donors, individual_col, train_h5ad,
+                                hvg_path=hvg_path)
 
     os.makedirs(model_dir, exist_ok=True)
     scvi_script = os.path.join(_SRC, "sdg", "scvi", "run_scvi_standalone.py")
@@ -231,8 +243,10 @@ def generate_scdiffusion(out_dir, dataset_path, splits_dir, hvg_path,
     _copy_splits(splits_dir, ds_dir)
     train_donors, _ = _load_splits(splits_dir)
 
-    train_h5ad = os.path.join(ds_dir, "train.h5ad")
-    n_cells = _write_train_h5ad(dataset_path, train_donors, individual_col, train_h5ad)
+    # Write HVG-filtered train set to avoid loading 35k genes into RAM (OOM on large donors)
+    train_h5ad = os.path.join(ds_dir, "train_hvg.h5ad")
+    n_cells = _write_train_h5ad(dataset_path, train_donors, individual_col, train_h5ad,
+                                hvg_path=hvg_path)
 
     os.makedirs(vae_dir,  exist_ok=True)
     os.makedirs(diff_dir, exist_ok=True)
@@ -254,7 +268,7 @@ def generate_scdiffusion(out_dir, dataset_path, splits_dir, hvg_path,
          f"--hvg-path {hvg_path} "
          f"--diff-steps {diff_steps} --batch-size {batch_size}")
 
-    diff_ckpt = _latest_checkpoint(diff_dir)
+    diff_ckpt = _latest_checkpoint(os.path.join(diff_dir, "diffusion"))
     print(f"  Diff checkpoint: {diff_ckpt}", flush=True)
 
     # Generate
