@@ -268,7 +268,8 @@ def generate_scdiffusion(out_dir, dataset_path, splits_dir, hvg_path,
          f"--hvg-path {hvg_path} "
          f"--diff-steps {diff_steps} --batch-size {batch_size}")
 
-    diff_ckpt = _latest_checkpoint(os.path.join(diff_dir, "diffusion"))
+    # Use model*.pt (not ema_*.pt or opt*.pt) — the model weights, not EMA/optimizer state
+    diff_ckpt = _latest_checkpoint(os.path.join(diff_dir, "diffusion"), pattern="model*.pt")
     print(f"  Diff checkpoint: {diff_ckpt}", flush=True)
 
     # Generate
