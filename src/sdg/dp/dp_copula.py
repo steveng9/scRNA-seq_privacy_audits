@@ -47,6 +47,7 @@ def apply_gaussian_dp(
     k_max: int,
     clip_value: float = 3.0,
     rng=None,
+    clip: bool = True,
 ) -> dict:
     """
     Inject (ε, δ)-DP Gaussian noise into a parsed copula dict.
@@ -62,6 +63,14 @@ def apply_gaussian_dp(
     k_max       : int   — max cells any one donor contributes to this cell type
     clip_value  : float — quantile-normal clipping bound c (default 3.0)
     rng         : numpy Generator for reproducibility; created if None
+    clip        : bool  — whether to apply post-noise clipping (default True).
+                  When True:  project to PSD via eigenvalue clipping and clip
+                              correlation values to [-1, 1].
+                  When False: skip both clipping steps.  Use this as a sanity
+                              check: at epsilon→∞ (σ→0) with clip=False the
+                              output should be bit-for-bit identical to the
+                              original copula, confirming that clipping (not
+                              noise) is the source of any residual quality gap.
 
     Returns
     -------
@@ -94,8 +103,13 @@ def apply_gaussian_dp(
     )
 
     noised_cov = _add_symmetric_gaussian_noise(cov_np, sigma, rng)
-    psd_cov    = _project_to_psd(noised_cov)
-    corr       = _normalise_to_correlation(psd_cov)
+
+    if clip:
+        psd_cov = _project_to_psd(noised_cov)
+    else:
+        psd_cov = noised_cov
+
+    corr = _normalise_to_correlation(psd_cov, clip=clip)
 
     return _rebuild_copula_dict(copula_dict, corr)
 
@@ -162,19 +176,26 @@ def _project_to_psd(cov: np.ndarray, floor: float = 1e-8) -> np.ndarray:
     return eigvecs @ np.diag(eigvals_clipped) @ eigvecs.T
 
 
-def _normalise_to_correlation(cov: np.ndarray) -> np.ndarray:
+def _normalise_to_correlation(cov: np.ndarray, clip: bool = True) -> np.ndarray:
     """
     Normalise a covariance matrix to a correlation matrix (diagonal → 1).
 
     This is post-processing and does not affect the DP guarantee.
-    Off-diagonal entries are clipped to [-1, 1] to avoid floating-point
-    artefacts after the PSD projection step.
+    Off-diagonal entries are optionally clipped to [-1, 1] to avoid
+    floating-point artefacts after the PSD projection step.
+
+    Parameters
+    ----------
+    cov  : covariance matrix to normalise
+    clip : if True, clip off-diagonal entries to [-1, 1] (default True).
+           Set False for the no-clipping sanity check.
     """
     std = np.sqrt(np.diag(cov))
     std = np.where(std > 0, std, 1.0)   # guard against zero-variance genes
     corr = cov / np.outer(std, std)
     np.fill_diagonal(corr, 1.0)
-    corr = np.clip(corr, -1.0, 1.0)
+    if clip:
+        corr = np.clip(corr, -1.0, 1.0)
     return corr
 
 

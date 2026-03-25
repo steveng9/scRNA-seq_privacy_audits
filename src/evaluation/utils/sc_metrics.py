@@ -115,15 +115,17 @@ class Statistics:
         np.random.seed(self.random_seed)
         real_data, synthetic_data = real_data[:, synthetic_data.var_names], synthetic_data[:, real_data.var_names]
 
-        # Identify HVGs
+        # Identify HVGs on normalized data, then keep normalized values for MMD
+        n_real = real_data.shape[0]
         combined_adata = real_data.concatenate(synthetic_data)
         sc.pp.normalize_total(combined_adata, target_sum=1e4)
         sc.pp.log1p(combined_adata)
         sc.pp.highly_variable_genes(combined_adata, flavor="seurat", n_top_genes=n_hvgs)
+        combined_adata = combined_adata[:, combined_adata.var["highly_variable"]]
 
-        # Subset to HVGs
-        real_hvg = real_data[:, combined_adata.var["highly_variable"]]
-        synth_hvg = synthetic_data[:, combined_adata.var["highly_variable"]]
+        # Split normalized+HVG-subset data back into real and synthetic
+        real_hvg = combined_adata[:n_real]
+        synth_hvg = combined_adata[n_real:]
 
         # Convert sparse to dense
         real_dense = real_hvg.X.toarray() if scipy.sparse.issparse(real_hvg.X) else real_hvg.X
@@ -148,6 +150,19 @@ class Statistics:
         # Split PCA results
         real_pca = combined_pca[: len(real_sample)]
         synth_pca = combined_pca[len(real_sample) :]
+
+        # Set gamma via median heuristic: gamma = 1 / (2 * median_pairwise_sq_dist).
+        # This adapts the RBF bandwidth to the actual scale of the PCA space so the
+        # kernel is neither degenerate (gamma too large → K≈0 everywhere → MMD≈2/n)
+        # nor flat (gamma too small → K≈1 everywhere → MMD≈0).
+        # We subsample for speed; 1000 points is sufficient for a stable median estimate.
+        if gamma == 1.0:  # only override the default; explicit caller values are respected
+            subsample_idx = np.random.choice(len(combined_pca),
+                                             min(1000, len(combined_pca)), replace=False)
+            sub = combined_pca[subsample_idx]
+            sq_dists = cdist(sub, sub, metric="sqeuclidean")
+            median_sq = np.median(sq_dists[sq_dists > 0])
+            gamma = 1.0 / (2.0 * median_sq)
 
         # Compute MMD
         K_xx = rbf_kernel(real_pca, real_pca, gamma=gamma).mean()

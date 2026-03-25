@@ -132,46 +132,16 @@ def _fmt(vals, scale=1.0):
 def _cell(vals, idx, scale=1.0):
     return _fmt([v[idx] for v in vals], scale) if vals else "--"
 
-# Hardcoded LISI and MMD from the paper (not being recomputed).
-# ARI will always be read fresh from updated CSVs.
-LISI_MMD = {
-    "OneK1K": {
-        2:   ("0.91 $\\pm$ .01", "0.08 $\\pm$ .01"),
-        5:   ("0.90 $\\pm$ .01", "0.04 $\\pm$ .00"),
-        10:  ("0.88 $\\pm$ .01", "0.02 $\\pm$ .00"),
-        20:  ("0.88 $\\pm$ .00", "0.01 $\\pm$ .00"),
-        50:  ("0.87 $\\pm$ .00", "0.01 $\\pm$ .00"),
-        100: ("0.86 $\\pm$ .00", "0.01 $\\pm$ .00"),
-        200: ("0.86 $\\pm$ .00", "0.01 $\\pm$ .00"),
-    },
-    "AIDA": {
-        2:   ("0.87 $\\pm$ .01", "0.06 $\\pm$ .01"),
-        5:   ("0.83 $\\pm$ .02", "0.02 $\\pm$ .01"),
-        10:  ("0.81 $\\pm$ .01", "0.01 $\\pm$ .00"),
-        20:  ("0.78 $\\pm$ .02", "0.01 $\\pm$ .00"),
-        50:  (None, None),
-        100: (None, None),
-        200: (None, None),
-    },
-    "HFRA": {
-        2:   ("0.56 $\\pm$ .03", "0.02 $\\pm$ .00"),
-        5:   ("0.39 $\\pm$ .08", "0.01 $\\pm$ .00"),
-        10:  ("0.28 $\\pm$ .04", "0.01 $\\pm$ .00"),
-        20:  (None, None),
-    },
-}
-
 def print_table():
     rows = {}
     for ds_name, ds_dir in DATASETS.items():
         rows[ds_name] = {}
         for donors in TABLE_SETTINGS[ds_name]:
             vals = _read_metrics(ds_dir, donors)
-            lisi_s, mmd_s = LISI_MMD[ds_name].get(donors, (None, None))
             rows[ds_name][donors] = (
-                lisi_s if lisi_s else _cell(vals, 1),
-                _cell(vals, 2),                          # ARI always fresh
-                mmd_s  if mmd_s  else _cell(vals, 0, scale=100),
+                _cell(vals, 1),           # LISI
+                _cell(vals, 2),           # ARI
+                _cell(vals, 0, scale=100), # MMD
             )
 
     def g(ds, d, i):
