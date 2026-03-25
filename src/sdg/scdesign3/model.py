@@ -138,7 +138,13 @@ class ScDesign3(BaseSingleCellDataGenerator):
             print(f"{self.hvg_mask.sum()} HVGs found")
 
         hvg_subset_path = os.path.join(self.tmp_dir, "hvg_train.h5ad")
-        X_train[:, self.hvg_mask].copy().write(hvg_subset_path)
+        n_hvg = int(self.hvg_mask.sum()) if hasattr(self.hvg_mask, "sum") else sum(self.hvg_mask)
+        if X_train.n_vars == n_hvg:
+            # train.h5ad was already pre-filtered to HVGs — skip boolean indexing
+            print("  train.h5ad already HVG-filtered; skipping subsetting step.", flush=True)
+            X_train.copy().write(hvg_subset_path)
+        else:
+            X_train[:, self.hvg_mask].copy().write(hvg_subset_path)
 
         out_model_path = self.generator_config["out_model_path"]
         os.makedirs(os.path.join(self.home_dir, out_model_path), exist_ok=True)

@@ -1,0 +1,24 @@
+\begin{tabular}{ll|ccc|ccc|ccc}
+\toprule
+ & & \multicolumn{3}{c|}{OK1K} & \multicolumn{3}{c|}{AIDA} & \multicolumn{3}{c}{CG} \\
+Method & & LISI & ARI & MMD$\times 10^3$ & LISI & ARI & MMD$\times 10^3$ & LISI & ARI & MMD$\times 10^3$ \\
+\midrule
+scDesign2 &  & 0.881 & 0.496 & 0.394 & 0.785* & 0.741* & 3.594* & 0.384 & 0.453 & 5.933 \\
+scDesign2+DP & $\varepsilon$=1 & 0.670 & 0.543 & 0.535 & --- & --- & --- & --- & --- & --- \\
+ & $\varepsilon$=10 & 0.668 & 0.535 & 0.533 & --- & --- & --- & --- & --- & --- \\
+ & $\varepsilon$=100 & 0.678 & 0.516 & 0.528 & --- & --- & --- & --- & --- & --- \\
+ & $\varepsilon$=1000 & 0.728 & 0.536 & 0.489 & --- & --- & --- & --- & --- & --- \\
+ & $\varepsilon$=10000 & 0.843 & 0.497 & 0.402 & --- & --- & --- & --- & --- & --- \\
+\addlinespace[2pt]
+scDesign3-G &  & 0.892* & 0.490* & 0.751* & --- & --- & --- & --- & --- & --- \\
+\addlinespace[2pt]
+scDesign3-V &  & 0.888* & 0.415* & 0.350* & --- & --- & --- & --- & --- & --- \\
+\addlinespace[2pt]
+scVI &  & 0.908 & 0.435 & 0.312 & 0.796 & 0.550 & 4.194 & --- & --- & --- \\
+\addlinespace[2pt]
+scDiffusion &  & 0.448 & 0.193 & 52.298 & 0.651 & 0.512 & 10.751 & --- & --- & --- \\
+\bottomrule
+\end{tabular}
+
+% * = fewer than 5 trials available for at least one donor-count setting
+% MMD values multiplied by 10^3

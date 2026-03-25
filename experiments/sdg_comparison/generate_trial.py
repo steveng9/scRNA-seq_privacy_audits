@@ -48,6 +48,7 @@ Usage
 import argparse
 import glob
 import os
+import re
 import shutil
 import sys
 import subprocess
@@ -81,9 +82,25 @@ def _write_train_h5ad(dataset_path, train_donors, individual_col, out_path, hvg_
 
     If hvg_path is given, further filters to HVGs before writing — use this for
     scVI/scDiffusion to avoid loading the full 35k-gene matrix into RAM.
+
+    If the file already exists, checks whether it has the expected gene count.
+    A stale full-gene file (from a crashed run before the HVG fix) is overwritten.
     """
     if os.path.exists(out_path):
-        return ad.read_h5ad(out_path, backed="r").n_obs
+        existing = ad.read_h5ad(out_path, backed="r")
+        n_obs = existing.n_obs
+        n_vars_existing = existing.n_vars
+        existing.file.close()
+        if hvg_path is not None:
+            import pandas as pd
+            hvg_df = pd.read_csv(hvg_path, index_col=0)
+            n_hvg = hvg_df["highly_variable"].sum()
+            if n_vars_existing == n_hvg:
+                return n_obs  # already filtered correctly
+            print(f"  [WARN] {os.path.basename(out_path)} has {n_vars_existing} genes "
+                  f"(expected {n_hvg} HVGs) — rewriting with HVG filter.", flush=True)
+        else:
+            return n_obs
     adata_backed = sc.read_h5ad(dataset_path, backed="r")
     mask = adata_backed.obs[individual_col].isin(set(train_donors))
     subset = adata_backed[mask].to_memory()
@@ -123,7 +140,6 @@ def _latest_checkpoint(directory, pattern="*.pt"):
         raise FileNotFoundError(f"No {pattern} checkpoints found in {directory}")
     # File names include the step: model_seed=0_step=150000.pt or model300000.pt
     def _step(p):
-        import re
         nums = re.findall(r"\d+", os.path.basename(p))
         return int(nums[-1]) if nums else 0
     return max(ckpts, key=_step)
@@ -147,8 +163,10 @@ def generate_sd3(out_dir, dataset_path, splits_dir, hvg_path,
     _copy_splits(splits_dir, ds_dir)
     train_donors, _ = _load_splits(splits_dir)
 
+    # Pre-filter to HVGs to avoid loading full 35k-gene matrix into R
     train_h5ad = os.path.join(ds_dir, "train.h5ad")
-    n_cells = _write_train_h5ad(dataset_path, train_donors, individual_col, train_h5ad)
+    n_cells = _write_train_h5ad(dataset_path, train_donors, individual_col, train_h5ad,
+                                hvg_path=hvg_path)
 
     trunc_lvl = 1 if copula_type == "vine" else "Inf"
 
@@ -253,23 +271,37 @@ def generate_scdiffusion(out_dir, dataset_path, splits_dir, hvg_path,
     scd_script  = os.path.join(_SRC, "sdg", "scdiffusion", "run_scdiffusion_standalone.py")
     conda_prefix = f"conda run --no-capture-output -n {conda_env}"
 
-    # Train VAE
-    _run(f"{conda_prefix} python {scd_script} train_vae "
-         f"{train_h5ad} {vae_dir} "
-         f"--hvg-path {hvg_path} "
-         f"--vae-steps {vae_steps} --batch-size {batch_size}")
-
-    vae_ckpt = _latest_checkpoint(vae_dir)
+    # Train VAE (skip if checkpoint already exists)
+    try:
+        vae_ckpt = _latest_checkpoint(vae_dir)
+        print(f"  [SKIP] VAE checkpoint already exists: {vae_ckpt}", flush=True)
+    except FileNotFoundError:
+        _run(f"{conda_prefix} python {scd_script} train_vae "
+             f"{train_h5ad} {vae_dir} "
+             f"--hvg-path {hvg_path} "
+             f"--vae-steps {vae_steps} --batch-size {batch_size}")
+        vae_ckpt = _latest_checkpoint(vae_dir)
     print(f"  VAE checkpoint: {vae_ckpt}", flush=True)
 
-    # Train diffusion
-    _run(f"{conda_prefix} python {scd_script} train "
-         f"{train_h5ad} {vae_ckpt} {diff_dir} "
-         f"--hvg-path {hvg_path} "
-         f"--diff-steps {diff_steps} --batch-size {batch_size}")
-
-    # Use model*.pt (not ema_*.pt or opt*.pt) — the model weights, not EMA/optimizer state
-    diff_ckpt = _latest_checkpoint(os.path.join(diff_dir, "diffusion"), pattern="model*.pt")
+    # Train diffusion (skip only if final checkpoint at diff_steps already exists)
+    diff_subdir = os.path.join(diff_dir, "diffusion")
+    _diff_ckpt_exists = False
+    try:
+        candidate = _latest_checkpoint(diff_subdir, pattern="model*.pt")
+        step = int(re.findall(r"\d+", os.path.basename(candidate))[-1])
+        if step >= diff_steps:
+            _diff_ckpt_exists = True
+            diff_ckpt = candidate
+            print(f"  [SKIP] Diffusion checkpoint already at step {step}: {diff_ckpt}", flush=True)
+    except (FileNotFoundError, IndexError):
+        pass
+    if not _diff_ckpt_exists:
+        _run(f"{conda_prefix} python {scd_script} train "
+             f"{train_h5ad} {vae_ckpt} {diff_dir} "
+             f"--hvg-path {hvg_path} "
+             f"--diff-steps {diff_steps} --batch-size {batch_size}")
+        # Use model*.pt (not ema_*.pt or opt*.pt) — the model weights, not EMA/optimizer state
+        diff_ckpt = _latest_checkpoint(diff_subdir, pattern="model*.pt")
     print(f"  Diff checkpoint: {diff_ckpt}", flush=True)
 
     # Generate
@@ -277,7 +309,7 @@ def generate_scdiffusion(out_dir, dataset_path, splits_dir, hvg_path,
          f"{train_h5ad} {vae_ckpt} {diff_ckpt} {synth_out} {n_cells} "
          f"--hvg-path {hvg_path}")
 
-    print(f"  Saved → {synth_out}")
+    print(f"  Saved → {synth_out}", flush=True)
     if os.path.exists(train_h5ad):
         os.remove(train_h5ad)
 

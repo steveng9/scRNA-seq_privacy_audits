@@ -289,10 +289,41 @@ def cmd_generate(args):
     with torch.no_grad():
         gene_expr = vae(latents.to(device), return_decoded=True).cpu().numpy()
 
+    # The VAE was trained on normalize_total+log1p data, so decoder output is in
+    # log-normalized space.  Reverse the log1p so the stored values are in
+    # normalize_total space (~sum 10 000 per cell).  This makes the output
+    # compatible with the quality evaluator, which applies normalize_total+log1p
+    # itself and assumes raw/pseudo-count input.
+    gene_expr = np.expm1(gene_expr)
+
     synth = ad.AnnData(
         X=gene_expr,
         var=pd.DataFrame(index=gene_names),
     )
+
+    # Assign cell types via 1-NN in latent space against training cells.
+    # The diffusion backbone is unconditional, so we label each generated cell
+    # with the cell type of its nearest training cell (cosine distance on the
+    # L2-normalised encoder output).
+    if args.cell_type_col in adata.obs.columns:
+        print("Assigning cell types via 1-NN in latent space ...")
+        from sklearn.neighbors import NearestNeighbors
+
+        with torch.no_grad():
+            train_latents = []
+            for i in range(0, len(cell_data), 512):
+                batch = torch.tensor(cell_data[i : i + 512]).to(device)
+                train_latents.append(vae(batch, return_latent=True).cpu().numpy())
+        train_latents_np = np.concatenate(train_latents, axis=0)
+
+        nn = NearestNeighbors(n_neighbors=1, metric="cosine", n_jobs=-1)
+        nn.fit(train_latents_np)
+        _, idxs = nn.kneighbors(latents.cpu().numpy()[:n_cells])
+
+        train_cell_types = adata.obs[args.cell_type_col].values
+        synth.obs[args.cell_type_col] = train_cell_types[idxs.flatten()]
+        print(f"  Cell type distribution: {synth.obs[args.cell_type_col].value_counts().to_dict()}")
+
     os.makedirs(os.path.dirname(os.path.abspath(args.out_h5ad)), exist_ok=True)
     synth.write_h5ad(args.out_h5ad, compression="gzip")
     print(f"Synthetic data saved: {args.out_h5ad}  ({synth.n_obs} cells × {synth.n_vars} genes)")
