@@ -202,7 +202,13 @@ class ScDesign3(BaseSingleCellDataGenerator):
         total_counts = X_test.X.toarray() if not isinstance(X_test.X, np.ndarray) else X_test.X
         synthetic_counts = sp.lil_matrix(total_counts.shape, dtype=np.float64)
 
-        hvg_indices = np.where(self.hvg_mask)[0]
+        n_hvg = int(self.hvg_mask.sum()) if hasattr(self.hvg_mask, "sum") else sum(self.hvg_mask)
+        if X_test.n_vars == n_hvg:
+            # X_test is already HVG-filtered: use sequential indices 0..n_hvg-1
+            hvg_indices = np.arange(n_hvg)
+        else:
+            # X_test spans the full gene space: use original genomic positions
+            hvg_indices = np.where(self.hvg_mask)[0]
 
         for ct in cell_type_counts.keys():
             out_path = os.path.join(self.tmp_dir, f"out_{ct}.rds")
