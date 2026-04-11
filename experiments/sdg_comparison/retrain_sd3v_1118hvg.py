@@ -132,11 +132,14 @@ def retrain_trial(nd, trial):
             "data": ds_dir,
         },
         "scdesign3_config": {
-            "out_model_path": "models",
-            "hvg_path":       OK_HVG_PATH,
-            "copula_type":    "vine",
-            "family_use":     "nb",
-            "trunc_lvl":      1,
+            "out_model_path":   "models",
+            "hvg_path":         OK_HVG_PATH,
+            "copula_type":      "vine",
+            "family_use":       "nb",
+            "trunc_lvl":        1,
+            # Vine copulas are memory-intensive: 15 parallel R processes OOMs
+            # for 50d (~64k cells).  4 workers keeps peak RSS well under 125GB.
+            "parallel_workers": 4,
         },
         "dataset_config": {
             "name":                "data",

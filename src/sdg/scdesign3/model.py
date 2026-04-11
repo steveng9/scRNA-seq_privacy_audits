@@ -92,10 +92,14 @@ class ScDesign3(BaseSingleCellDataGenerator):
         self.means_path = os.path.join(
             self.home_dir, self.generator_config["out_model_path"], "mean_expr.csv"
         )
-        self.hvg_path     = self.generator_config["hvg_path"]
-        self.copula_type  = self.generator_config.get("copula_type", "gaussian")
-        self.family_use   = self.generator_config.get("family_use", "nb")
-        self.trunc_lvl    = self.generator_config.get("trunc_lvl", "Inf")
+        self.hvg_path        = self.generator_config["hvg_path"]
+        self.copula_type     = self.generator_config.get("copula_type", "gaussian")
+        self.family_use      = self.generator_config.get("family_use", "nb")
+        self.trunc_lvl       = self.generator_config.get("trunc_lvl", "Inf")
+        # Vine copulas are far more memory-intensive than Gaussian; default to 4
+        # workers for vine, 15 for gaussian.  Override via parallel_workers in config.
+        default_workers = 4 if self.copula_type == "vine" else 15
+        self.parallel_workers = self.generator_config.get("parallel_workers", default_workers)
         self.mean_expression = None
         self.hvg_mask        = None
         os.makedirs(self.tmp_dir, exist_ok=True)
@@ -149,8 +153,8 @@ class ScDesign3(BaseSingleCellDataGenerator):
         out_model_path = self.generator_config["out_model_path"]
         os.makedirs(os.path.join(self.home_dir, out_model_path), exist_ok=True)
 
-        print(f"Launching parallel scDesign3 training ({self.copula_type} copula) ...")
-        with ProcessPoolExecutor(max_workers=15) as executor:
+        print(f"Launching parallel scDesign3 training ({self.copula_type} copula, {self.parallel_workers} workers) ...")
+        with ProcessPoolExecutor(max_workers=self.parallel_workers) as executor:
             futures = [
                 executor.submit(
                     _run_train, self.home_dir, hvg_subset_path, ct, out_model_path,
@@ -185,8 +189,8 @@ class ScDesign3(BaseSingleCellDataGenerator):
         X_test = self.load_test_anndata()
         test_cell_types = X_test.obs[self.cell_type_col].values
 
-        print("Launching parallel scDesign3 generation ...")
-        with ProcessPoolExecutor(max_workers=15) as executor:
+        print(f"Launching parallel scDesign3 generation ({self.parallel_workers} workers) ...")
+        with ProcessPoolExecutor(max_workers=self.parallel_workers) as executor:
             futures = []
             for ct in cell_type_counts.keys():
                 n = int((test_cell_types == ct).sum())
