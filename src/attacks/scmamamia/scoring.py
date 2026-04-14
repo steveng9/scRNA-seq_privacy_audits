@@ -16,7 +16,7 @@ from data.cdf_utils import activate
 
 
 def compute_cell_scores(cfg, cell_type, raw_scores, targets,
-                        distances_synth=None, distances_aux=None):
+                        distances_synth=None, distances_aux=None, tm=None):
     """
     Activate raw focal-point sums / Mahalanobis ratios into [0, 1] membership
     scores and package them into a per-cell DataFrame.
@@ -28,13 +28,16 @@ def compute_cell_scores(cfg, cell_type, raw_scores, targets,
     raw_scores   : array-like  — one score per target cell
     targets      : pd.DataFrame — must contain 'individual' and 'member' columns
     distances_synth, distances_aux : optional lists of per-cell distances
+    tm           : str or None — explicit threat model code override (e.g. "100");
+                   if None, derived from cfg via _threat_model_code
 
     Returns
     -------
     pd.DataFrame with columns: cell id, donor id, cell type, membership,
         distance_to_synth:<tm>, distance_to_aux:<tm>, score:<tm>
     """
-    tm = _threat_model_code(cfg)
+    if tm is None:
+        tm = _threat_model_code(cfg)
     return pd.DataFrame({
         "cell id":               targets.index,
         "donor id":              targets["individual"].values,

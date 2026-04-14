@@ -164,6 +164,99 @@ def attack_mahalanobis(cfg, targets, cell_type, copula_synth_r, copula_aux_r=Non
 
 
 # ---------------------------------------------------------------------------
+# Attack 2b: Mahalanobis — BB+aux AND BB-aux in one pass
+# ---------------------------------------------------------------------------
+
+def attack_mahalanobis_both(cfg, targets, cell_type, copula_synth_r, copula_aux_r):
+    """
+    Compute BB+aux (tm:100) and BB-aux (tm:101) Mahalanobis attacks in a single
+    pass, sharing the synth-side computation (copula parse, covariance inversion,
+    CDF mapping, and d_s vector).
+
+    Returns
+    -------
+    (result_df_100, result_df_101)
+        Two DataFrames tagged with tm:100 and tm:101 respectively.
+
+    Notes
+    -----
+    Both variants use the intersection of synth and aux primary genes (same as
+    attack_mahalanobis). The no-aux standalone uses only synth primary genes, so
+    scores will differ slightly from attack_mahalanobis_no_aux when the gene sets
+    diverge — the intersection is the more conservative choice.
+    """
+    cs = copula_synth_r if isinstance(copula_synth_r, dict) else parse_copula(copula_synth_r)
+    ca = copula_aux_r   if isinstance(copula_aux_r,   dict) else parse_copula(copula_aux_r)
+
+    if cs.get("copula_type") == "vine" or cs.get("cov_matrix") is None:
+        scores_half = np.full(len(targets), 0.5)
+        result_aux   = compute_cell_scores(cfg, cell_type, scores_half, targets,
+                                           None, None, tm="100")
+        result_noaux = compute_cell_scores(cfg, cell_type, scores_half, targets,
+                                           None, None, tm="101")
+        return result_aux, result_noaux
+
+    covariate_genes, _ = get_shared_genes(
+        cs["primary_genes"], cs["secondary_genes"],
+        ca["primary_genes"], ca["secondary_genes"],
+    )
+
+    shared_cov_s, shared_marginals_s = build_shared_covariance_matrix(
+        covariate_genes, cs["primary_genes"], cs["cov_matrix"], cs["primary_marginals"]
+    )
+    shared_cov_a, shared_marginals_a = build_shared_covariance_matrix(
+        covariate_genes, ca["primary_genes"], ca["cov_matrix"], ca["primary_marginals"]
+    )
+
+    inv_s = cfg.lin_alg_inverse_fn(shared_cov_s)
+    inv_a = cfg.lin_alg_inverse_fn(shared_cov_a)
+
+    X = targets[covariate_genes].values   # (N, G)
+    G = len(covariate_genes)
+    pi_s, theta_s, mu_s = shared_marginals_s[:, 0], shared_marginals_s[:, 1], shared_marginals_s[:, 2]
+    pi_a, theta_a, mu_a = shared_marginals_a[:, 0], shared_marginals_a[:, 1], shared_marginals_a[:, 2]
+
+    mapped_s = np.empty_like(X, dtype=float)
+    mapped_a = np.empty_like(X, dtype=float)
+    mean_s   = np.empty(G, dtype=float)
+    mean_a   = np.empty(G, dtype=float)
+    remap = cfg.uniform_remapping_fn
+    for j in range(G):
+        mapped_s[:, j] = remap(X[:, j], pi_s[j], theta_s[j], mu_s[j])
+        mapped_a[:, j] = remap(X[:, j], pi_a[j], theta_a[j], mu_a[j])
+        mean_s[j]      = remap(mu_s[j],  pi_s[j], theta_s[j], mu_s[j])
+        mean_a[j]      = remap(mu_a[j],  pi_a[j], theta_a[j], mu_a[j])
+
+    delta_s = mapped_s - mean_s   # (N, G)
+    delta_a = mapped_a - mean_a
+
+    d_s = np.sqrt(np.einsum("ij,jk,ik->i", delta_s, inv_s, delta_s))   # (N,)
+    d_a = np.sqrt(np.einsum("ij,jk,ik->i", delta_a, inv_a, delta_a))
+
+    # BB+aux scores: λ = d_aux / (d_synth + d_aux)
+    scores_aux = d_a / (d_s + d_a)
+    nan_mask = np.isnan(scores_aux)
+    if nan_mask.any():
+        scores_aux = scores_aux.copy()
+        scores_aux[nan_mask] = 0.5
+        print(f"  [WARN] {int(nan_mask.sum())} NaN scores (BB+aux) for {cell_type} — set to 0.5")
+
+    # BB-aux scores: 1 / (d_synth + ε)
+    scores_noaux = 1.0 / (d_s + cfg.mamamia_params.epsilon)
+    nan_mask = np.isnan(scores_noaux)
+    if nan_mask.any():
+        scores_noaux = scores_noaux.copy()
+        scores_noaux[nan_mask] = 0.5
+        print(f"  [WARN] {int(nan_mask.sum())} NaN scores (BB-aux) for {cell_type} — set to 0.5")
+
+    result_aux   = compute_cell_scores(cfg, cell_type, scores_aux,   targets,
+                                       d_s.tolist(), d_a.tolist(), tm="100")
+    result_noaux = compute_cell_scores(cfg, cell_type, scores_noaux, targets,
+                                       d_s.tolist(), None,          tm="101")
+    return result_aux, result_noaux
+
+
+# ---------------------------------------------------------------------------
 # Attack 3: Mahalanobis without auxiliary data
 # ---------------------------------------------------------------------------
 

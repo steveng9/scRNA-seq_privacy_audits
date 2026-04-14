@@ -118,7 +118,12 @@ class ScDesign2(BaseSingleCellDataGenerator):
             self.hvg_mask.to_csv(self.hvg_path)
             print(f"{self.hvg_mask.sum()} HVGs determined")
         else:
-            self.hvg_mask = np.array(pd.read_csv(self.hvg_path)["highly_variable"])
+            hvg_df = pd.read_csv(self.hvg_path, index_col=0)
+            if len(hvg_df) != len(X_train.var_names):
+                # Training data is already gene-subsetted (e.g. synthetic data from
+                # another SDG).  Align the mask to the genes actually present.
+                hvg_df = hvg_df.reindex(X_train.var_names).fillna(False)
+            self.hvg_mask = hvg_df["highly_variable"].values.astype(bool)
             print(f"{self.hvg_mask.sum()} HVGs found")
 
         hvg_subset_path = os.path.join(self.tmp_dir, "hvg_train.h5ad")

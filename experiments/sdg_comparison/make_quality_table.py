@@ -33,11 +33,14 @@ SOURCES = [
     ("scDesign2",        "",         f"{DATA}/aida/*/*/results/quality_eval_results/results/statistics_evals.csv"),
 
     # --- scDesign2 + DP (ok only) ---
-    ("scDesign2+DP",     r"$\varepsilon$=1",     f"{DATA}/ok_dp/eps_1/*/*/results/quality_eval_results/results/statistics_evals.csv"),
-    ("scDesign2+DP",     r"$\varepsilon$=10",    f"{DATA}/ok_dp/eps_10/*/*/results/quality_eval_results/results/statistics_evals.csv"),
-    ("scDesign2+DP",     r"$\varepsilon$=100",   f"{DATA}/ok_dp/eps_100/*/*/results/quality_eval_results/results/statistics_evals.csv"),
-    ("scDesign2+DP",     r"$\varepsilon$=1000",  f"{DATA}/ok_dp/eps_1000/*/*/results/quality_eval_results/results/statistics_evals.csv"),
-    ("scDesign2+DP",     r"$\varepsilon$=10000", f"{DATA}/ok_dp/eps_10000/*/*/results/quality_eval_results/results/statistics_evals.csv"),
+    ("scDesign2+DP",     r"$\varepsilon$=1",        f"{DATA}/ok_dp/eps_1/*/*/results/quality_eval_results/results/statistics_evals.csv"),
+    ("scDesign2+DP",     r"$\varepsilon$=10",       f"{DATA}/ok_dp/eps_10/*/*/results/quality_eval_results/results/statistics_evals.csv"),
+    ("scDesign2+DP",     r"$\varepsilon$=100",      f"{DATA}/ok_dp/eps_100/*/*/results/quality_eval_results/results/statistics_evals.csv"),
+    ("scDesign2+DP",     r"$\varepsilon$=1000",     f"{DATA}/ok_dp/eps_1000/*/*/results/quality_eval_results/results/statistics_evals.csv"),
+    ("scDesign2+DP",     r"$\varepsilon$=10000",    f"{DATA}/ok_dp/eps_10000/*/*/results/quality_eval_results/results/statistics_evals.csv"),
+    ("scDesign2+DP",     r"$\varepsilon$=100000",   f"{DATA}/ok_dp/eps_100000/*/*/results/quality_eval_results/results/statistics_evals.csv"),
+    ("scDesign2+DP",     r"$\varepsilon$=1000000",  f"{DATA}/ok_dp/eps_1000000/*/*/results/quality_eval_results/results/statistics_evals.csv"),
+    ("scDesign2+DP",     r"$\varepsilon$=10000000", f"{DATA}/ok_dp/eps_10000000/*/*/results/quality_eval_results/results/statistics_evals.csv"),
 
     # --- scDesign3 Gaussian ---
     ("scDesign3-G",      "",         f"{DATA}/ok_sd3g/*/*/results/quality_eval_results/results/statistics_evals.csv"),
@@ -158,11 +161,14 @@ def make_ok_only_table(results, nd_label):
     """
     METHOD_ORDER = [
         ("scDesign2",    ""),
-        ("scDesign2+DP", r"$\varepsilon$=1"),
-        ("scDesign2+DP", r"$\varepsilon$=10"),
-        ("scDesign2+DP", r"$\varepsilon$=100"),
-        ("scDesign2+DP", r"$\varepsilon$=1000"),
+        ("scDesign2+DP", r"$\varepsilon$=10000000"),
+        ("scDesign2+DP", r"$\varepsilon$=1000000"),
+        ("scDesign2+DP", r"$\varepsilon$=100000"),
         ("scDesign2+DP", r"$\varepsilon$=10000"),
+        ("scDesign2+DP", r"$\varepsilon$=1000"),
+        ("scDesign2+DP", r"$\varepsilon$=100"),
+        ("scDesign2+DP", r"$\varepsilon$=10"),
+        ("scDesign2+DP", r"$\varepsilon$=1"),
         ("scDesign3-G",  ""),
         ("scDesign3-V",  ""),
         ("scVI",         ""),
@@ -173,7 +179,7 @@ def make_ok_only_table(results, nd_label):
     lines.append(r"\begin{tabular}{llccc}")
     lines.append(r"\toprule")
     lines.append(r"\multicolumn{5}{c}{OK1K — " + nd_label + r" donors} \\")
-    lines.append(r"Method & & LISI & ARI & MMD$\times 10^3$ \\")
+    lines.append(r"Method & & LISI$\uparrow$ & ARI$\uparrow$ & MMD$\times 10^3\downarrow$ \\")
     lines.append(r"\midrule")
 
     prev_method = None
@@ -213,11 +219,22 @@ def make_table(results):
     # Row order: method display names (de-duped, preserving order)
     METHOD_ORDER = [
         ("scDesign2",    ""),
-        ("scDesign2+DP", r"$\varepsilon$=1"),
-        ("scDesign2+DP", r"$\varepsilon$=10"),
-        ("scDesign2+DP", r"$\varepsilon$=100"),
-        ("scDesign2+DP", r"$\varepsilon$=1000"),
+        #("scDesign2+DP", r"$\varepsilon$=1"),
+        #("scDesign2+DP", r"$\varepsilon$=10"),
+        #("scDesign2+DP", r"$\varepsilon$=100"),
+        #("scDesign2+DP", r"$\varepsilon$=1000"),
+        #("scDesign2+DP", r"$\varepsilon$=10000"),
+        #("scDesign2+DP", r"$\varepsilon$=100000"),
+        #("scDesign2+DP", r"$\varepsilon$=1000000"),
+        #("scDesign2+DP", r"$\varepsilon$=10000000"),
+        ("scDesign2+DP", r"$\varepsilon$=10000000"),
+        ("scDesign2+DP", r"$\varepsilon$=1000000"),
+        ("scDesign2+DP", r"$\varepsilon$=100000"),
         ("scDesign2+DP", r"$\varepsilon$=10000"),
+        ("scDesign2+DP", r"$\varepsilon$=1000"),
+        ("scDesign2+DP", r"$\varepsilon$=100"),
+        ("scDesign2+DP", r"$\varepsilon$=10"),
+        ("scDesign2+DP", r"$\varepsilon$=1"),
         ("scDesign3-G",  ""),
         ("scDesign3-V",  ""),
         ("scVI",         ""),
@@ -238,7 +255,7 @@ def make_table(results):
     lines.append(r" & & " + ds_headers + r" \\")
 
     # Header row 2 — metric names
-    metric_block = r"LISI & ARI & MMD$\times 10^3$"
+    metric_block = r"LISI$\uparrow$ & ARI$\uparrow$ & MMD$\times 10^3\downarrow$"
     metric_headers = " & ".join(metric_block for _ in DATASETS)
     lines.append(r"Method & & " + metric_headers + r" \\")
     lines.append(r"\midrule")
@@ -295,33 +312,43 @@ def main():
     os.makedirs(out_dir, exist_ok=True)
 
     # Table 1: all donor counts, all datasets
-    print("\n--- Table 1: all donor counts ---")
+    print("\n% --- Table 1: all donor counts ---")
     table1 = make_table(results_all)
     print(table1)
     path1 = os.path.join(out_dir, "quality_table.tex")
     with open(path1, "w") as f:
         f.write(table1 + "\n")
-    print(f"\nSaved to {path1}")
+    print(f"\n% Saved to {path1}")
 
     # Table 2: OK1K only, 10d
     results_10d = aggregate(dfs, nd_filter="10d")
-    print("\n--- Table 2: OK1K, 10d only ---")
+    print("\n% --- Table 2: OK1K, 10d only ---")
     table2 = make_ok_only_table(results_10d, nd_label="10")
     print(table2)
     path2 = os.path.join(out_dir, "quality_table_ok_10d.tex")
     with open(path2, "w") as f:
         f.write(table2 + "\n")
-    print(f"\nSaved to {path2}")
+    print(f"\n% Saved to {path2}")
 
     # Table 3: OK1K only, 20d
     results_20d = aggregate(dfs, nd_filter="20d")
-    print("\n--- Table 3: OK1K, 20d only ---")
+    print("\n% --- Table 3: OK1K, 20d only ---")
     table3 = make_ok_only_table(results_20d, nd_label="20")
     print(table3)
     path3 = os.path.join(out_dir, "quality_table_ok_20d.tex")
     with open(path3, "w") as f:
         f.write(table3 + "\n")
-    print(f"\nSaved to {path3}")
+    print(f"\n% Saved to {path3}")
+
+    # Table 4: OK1K only, 50d
+    results_50d = aggregate(dfs, nd_filter="50d")
+    print("\n% --- Table 4: OK1K, 50d only ---")
+    table4 = make_ok_only_table(results_50d, nd_label="50")
+    print(table4)
+    path4 = os.path.join(out_dir, "quality_table_ok_50d.tex")
+    with open(path4, "w") as f:
+        f.write(table4 + "\n")
+    print(f"\n% Saved to {path4}")
 
 
 if __name__ == "__main__":

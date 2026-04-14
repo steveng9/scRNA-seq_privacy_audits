@@ -11,6 +11,7 @@ Covers three responsibilities:
 import os
 import numpy as np
 from box import Box
+from rpy2.rinterface_lib.sexp import NULLType as _R_NULLType
 
 
 # ---------------------------------------------------------------------------
@@ -44,7 +45,8 @@ def parse_copula(r_copula_obj):
     secondary_genes = list(r_copula_obj.rx2("gene_sel2").names)
     len_primary = len(primary_genes)
     len_secondary = len(secondary_genes)
-    cov_matrix = r_copula_obj.rx2("cov_mat")
+    cov_matrix_r = r_copula_obj.rx2("cov_mat")
+    cov_matrix = None if isinstance(cov_matrix_r, _R_NULLType) else cov_matrix_r
     primary_marginals = r_copula_obj.rx2("marginal_param1")
     secondary_marginals = r_copula_obj.rx2("marginal_param2")
 

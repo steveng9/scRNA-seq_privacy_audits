@@ -58,58 +58,50 @@ N_TRIALS  = 5
 # ---------------------------------------------------------------------------
 # Threat model definitions
 # ---------------------------------------------------------------------------
+# Threat model definitions
+# ---------------------------------------------------------------------------
 # (label, code, white_box, use_wb_hvgs, use_aux)
-TM_FULL = [
-    ("WB+aux", "000", True,  True, True),
-    ("WB-aux", "001", True,  True, False),
-    ("BB+aux", "100", False, True, True),
-    ("BB-aux", "101", False, True, False),
-]
-TM_BB = [
-    ("BB+aux", "100", False, True, True),
-    ("BB-aux", "101", False, True, False),
+#
+# TM_BB_COMBINED is a sentinel for the combined BB+aux / BB-aux path in
+# run_experiment.py (run_both_bb=True).  A single job per (dataset, nd) computes
+# both tm:100 and tm:101, reusing the synth-side Mahalanobis computation.
+# The tracking code ("combined") is never written to results CSVs; it is only
+# used internally in this sweep script.
+TM_BB_COMBINED = [
+    ("BB+/-aux", "combined", False, True, True),
 ]
 
 # ---------------------------------------------------------------------------
-# Sweep definition
+# Sweep definition — OneK1K only, non-scDesign2 SDG methods
 # ---------------------------------------------------------------------------
 # (sdg_key, dataset_name, base_dataset_name, donor_counts, threat_models, parallel_workers)
 #
-# sdg_key          — short identifier used for filtering
-# dataset_name     — used as dataset_name in the YAML config; determines where
-#                    run_experiment.py reads/writes data
-# base_dataset_name — base dataset whose full_dataset_cleaned.h5ad and hvg.csv
-#                    the SDG-specific directory should symlink to
-# donor_counts     — list of training donor set sizes
-# threat_models    — TM_FULL or TM_BB
-# parallel_workers — number of parallel cell-type workers inside run_experiment.py
+# All entries use TM_BB_COMBINED: one job per (dataset, nd) covers both
+# BB+aux (tm:100) and BB-aux (tm:101) in a single run_experiment.py call.
 
 SWEEP = [
-    # --- scDesign2 (full threat model coverage) ---
-    ("sd2",    "ok",         "ok",   [2, 5, 10, 20, 50, 100, 200], TM_FULL, 4),
-    ("sd2",    "aida",       "aida", [5, 10, 20, 50, 100, 200],    TM_FULL, 4),
-    ("sd2",    "cg",         "cg",   [2, 5, 10, 20],               TM_FULL, 4),
+    # --- scVI ---
+    ("scvi",   "ok_scvi",         "ok", [5, 10, 20, 50, 100], TM_BB_COMBINED, 4),
 
-    # --- scDesign2 + DP (BB only; synthetic data already generated) ---
-    ("sd2_dp", "ok_dp/eps_1",     "ok", [10, 20, 50], TM_BB, 4),
-    ("sd2_dp", "ok_dp/eps_10",    "ok", [10, 20, 50], TM_BB, 4),
-    ("sd2_dp", "ok_dp/eps_100",   "ok", [10, 20, 50], TM_BB, 4),
-    ("sd2_dp", "ok_dp/eps_1000",  "ok", [10, 20, 50], TM_BB, 4),
-    ("sd2_dp", "ok_dp/eps_10000", "ok", [10, 20, 50], TM_BB, 4),
+    # --- scDiffusion ---
+    ("scdiff", "ok_scdiff",       "ok", [10, 20, 50],         TM_BB_COMBINED, 4),
 
-    # --- scDesign3-Gauss (BB only; skip aida — no data generated yet) ---
-    ("sd3g",   "ok_sd3g",    "ok",   [2, 5, 10, 20, 50, 100, 200], TM_BB, 4),
+    # --- scDesign3-Vine ---
+    # NOTE: 50d trial 5 was still being regenerated; trials 1-4 are now available.
+    ("sd3v",   "ok_sd3v",         "ok", [10, 20, 50],         TM_BB_COMBINED, 4),
 
-    # --- scDesign3-Vine (BB only; 100d not yet generated) ---
-    ("sd3v",   "ok_sd3v",    "ok",   [10, 20, 50],                  TM_BB, 4),
+    # --- scDesign3-Gauss ---
+    ("sd3g",   "ok_sd3g",         "ok", [2, 5, 10, 20, 50, 100, 200], TM_BB_COMBINED, 4),
 
-    # --- scVI (BB only) ---
-    ("scvi",   "ok_scvi",    "ok",   [5, 10, 20, 50, 100],          TM_BB, 4),
-    ("scvi",   "aida_scvi",  "aida", [10, 20, 50],                   TM_BB, 4),
-
-    # --- scDiffusion (BB only) ---
-    ("scdiff", "ok_scdiff",  "ok",   [10, 20, 50],                   TM_BB, 4),
-    ("scdiff", "aida_scdiff","aida", [20, 50],                        TM_BB, 4),
+    # --- scDesign2 + DP (synthetic data already generated for all eps/nd/trial) ---
+    ("sd2_dp", "ok_dp/eps_1",       "ok", [10, 20, 50], TM_BB_COMBINED, 4),
+    ("sd2_dp", "ok_dp/eps_10",      "ok", [10, 20, 50], TM_BB_COMBINED, 4),
+    ("sd2_dp", "ok_dp/eps_100",     "ok", [10, 20, 50], TM_BB_COMBINED, 4),
+    ("sd2_dp", "ok_dp/eps_1000",    "ok", [10, 20, 50], TM_BB_COMBINED, 4),
+    ("sd2_dp", "ok_dp/eps_10000",   "ok", [10, 20, 50], TM_BB_COMBINED, 4),
+    ("sd2_dp", "ok_dp/eps_100000",  "ok", [10, 20, 50], TM_BB_COMBINED, 4),
+    ("sd2_dp", "ok_dp/eps_1000000", "ok", [10, 20, 50], TM_BB_COMBINED, 4),
+    ("sd2_dp", "ok_dp/eps_10000000","ok", [10, 20, 50], TM_BB_COMBINED, 4),
 ]
 
 # Standard scMAMA-MIA hyper-parameters (matches existing experiments)
@@ -294,15 +286,34 @@ def n_synth_available(data_dir, nd):
 # Config generation
 # ===========================================================================
 
-def write_config(dataset_name, nd, white_box, use_wb_hvgs, use_aux, parallel_workers, cfg_dir):
+def write_config(dataset_name, nd, white_box, use_wb_hvgs, use_aux, parallel_workers,
+                 cfg_dir, run_both_bb=False):
     """
     Write a run_experiment.py config YAML to cfg_dir and return its path.
     Both local and server dir_list entries point to the server paths so the
     config works without the legacy 'T' flag.
+
+    run_both_bb : bool
+        When True, emit run_both_bb=True in mia_setting so run_experiment.py
+        computes BB+aux (tm:100) and BB-aux (tm:101) in a single pass.
+        use_aux must be True so trial tracking keys off tm:100.
     """
-    tm_parts = f"{'wb' if white_box else 'bb'}_{'aux' if use_aux else 'noaux'}"
-    cfg_name  = f"{nd}d_{tm_parts}.yaml"
-    cfg_path  = os.path.join(cfg_dir, cfg_name)
+    if run_both_bb:
+        cfg_name = f"{nd}d_bb_both.yaml"
+    else:
+        tm_parts = f"{'wb' if white_box else 'bb'}_{'aux' if use_aux else 'noaux'}"
+        cfg_name = f"{nd}d_{tm_parts}.yaml"
+    cfg_path = os.path.join(cfg_dir, cfg_name)
+
+    mia_setting = {
+        "sample_donors_strategy_fn": "sample_donors_strategy_2",
+        "num_donors":    nd,
+        "white_box":     white_box,
+        "use_wb_hvgs":   use_wb_hvgs,
+        "use_aux":       use_aux,
+    }
+    if run_both_bb:
+        mia_setting["run_both_bb"] = True
 
     cfg = {
         "dir_list": {
@@ -316,13 +327,7 @@ def write_config(dataset_name, nd, white_box, use_wb_hvgs, use_aux, parallel_wor
         "parallel_workers": parallel_workers,
         "min_aux_donors": MIN_AUX_DONORS,
         "mamamia_params": dict(MAMAMIA_PARAMS),
-        "mia_setting": {
-            "sample_donors_strategy_fn": "sample_donors_strategy_2",
-            "num_donors":    nd,
-            "white_box":     white_box,
-            "use_wb_hvgs":   use_wb_hvgs,
-            "use_aux":       use_aux,
-        },
+        "mia_setting":   mia_setting,
     }
 
     os.makedirs(cfg_dir, exist_ok=True)
@@ -351,6 +356,17 @@ def run_job(config_path, dry_run=False):
 # Status display
 # ===========================================================================
 
+def _count_done_for_tm(data_dir, nd, tm_code):
+    """
+    Return number of completed trials for the given tm_code.
+    For the 'combined' sentinel, returns the minimum of tm:100 and tm:101
+    (both must be done to consider a trial complete).
+    """
+    if tm_code == "combined":
+        return min(count_done(data_dir, nd, "100"), count_done(data_dir, nd, "101"))
+    return count_done(data_dir, nd, tm_code)
+
+
 def print_status():
     """Print a summary table of current attack completion across all sweep entries."""
     print(f"\n{'=' * 80}")
@@ -359,18 +375,25 @@ def print_status():
 
     for sdg_key, dataset_name, base_dataset, donor_counts, tms, pw in SWEEP:
         data_dir = os.path.join(DATA_DIR, *dataset_name.split("/"))
-        tm_codes = [tm[1] for tm in tms]
-        labels   = [tm[0] for tm in tms]
+
+        # Expand "combined" into two display columns for clarity
+        display_cols = []
+        for tm_label, tm_code, *_ in tms:
+            if tm_code == "combined":
+                display_cols.append(("BB+aux", "100"))
+                display_cols.append(("BB-aux", "101"))
+            else:
+                display_cols.append((tm_label, tm_code))
 
         print(f"  [{sdg_key}] {dataset_name}")
-        header   = f"    {'nd':>6}  " + "  ".join(f"{l:>8}" for l in labels)
+        header = f"    {'nd':>6}  " + "  ".join(f"{lbl:>8}" for lbl, _ in display_cols)
         print(header)
 
         for nd in donor_counts:
             parts = []
-            for tm_code in tm_codes:
-                done  = count_done(data_dir, nd, tm_code)
-                avail = n_synth_available(data_dir, nd) if sdg_key != "sd2" else N_TRIALS
+            for _, code in display_cols:
+                done  = count_done(data_dir, nd, code)
+                avail = n_synth_available(data_dir, nd)
                 sym   = "✓" if done == N_TRIALS else (f"~{done}" if done > 0 else "·")
                 parts.append(f"{sym:>8}")
             print(f"    {nd:>4}d  " + "  ".join(parts))
@@ -429,20 +452,20 @@ def main():
         if args.dataset and args.dataset not in dataset_name:  continue
 
         data_dir = os.path.join(DATA_DIR, *dataset_name.split("/"))
-        is_sd2   = (sdg_key == "sd2")       # scDesign2 can generate new trials
         cfg_dir  = os.path.join(cfg_root, dataset_name.replace("/", "_"))
 
         for nd in donor_counts:
             if args.nd and args.nd != nd:
                 continue
 
-            # How many trials can we run?  For non-SD2 methods, cap at existing synth data.
-            n_avail = N_TRIALS if is_sd2 else n_synth_available(data_dir, nd)
+            # All sweep entries are non-sd2: cap at existing synthetic data.
+            n_avail = n_synth_available(data_dir, nd)
             if n_avail == 0:
                 continue
 
             for tm_label, tm_code, white_box, use_wb_hvgs, use_aux in tms:
-                n_done = count_done(data_dir, nd, tm_code)
+                is_combined = (tm_code == "combined")
+                n_done   = _count_done_for_tm(data_dir, nd, tm_code)
                 n_needed = min(N_TRIALS, n_avail) - n_done
 
                 if n_needed <= 0:
@@ -453,13 +476,13 @@ def main():
                       f"({n_done}/{min(N_TRIALS, n_avail)} done, need {n_needed} more)")
 
                 config_path = write_config(
-                    dataset_name, nd, white_box, use_wb_hvgs, use_aux, pw, cfg_dir
+                    dataset_name, nd, white_box, use_wb_hvgs, use_aux, pw, cfg_dir,
+                    run_both_bb=is_combined,
                 )
 
                 for run_i in range(n_needed):
-                    # Re-check in case a previous iteration just completed a trial
-                    # (e.g., we're filling in multiple threat models for the same trial)
-                    n_now = count_done(data_dir, nd, tm_code)
+                    # Re-check: previous run may have completed more than one trial
+                    n_now = _count_done_for_tm(data_dir, nd, tm_code)
                     if n_now >= min(N_TRIALS, n_avail):
                         break
 

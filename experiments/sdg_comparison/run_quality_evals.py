@@ -11,7 +11,7 @@ Also covers the original scDesign2 data (ok, cg, aida) if any
 statistics_evals.csv files are missing there.
 
 Usage:
-    python experiments/sdg_comparison/run_quality_evals.py [--dry-run]
+    python experiments/sdg_comparison/run_quality_evals.py [--dry-run] [--workers N] [--max-donors N]
 
 Output per trial:
     {trial_dir}/results/quality_eval_results/results/statistics_evals.csv
@@ -22,20 +22,20 @@ import os
 import sys
 import glob
 import argparse
+import traceback
+import multiprocessing as mp
 
 DATA = "/home/golobs/data"
 SRC_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 if SRC_DIR not in sys.path:
     sys.path.insert(0, SRC_DIR)
 
-from evaluation.sc_evaluate import SingleCellEvaluator
-
 
 # ---------------------------------------------------------------------------
 # Dataset registry
-# Each entry: (data_root_glob, full_data_path, dataset_name)
-# data_root_glob: passed to glob to find all synthetic.h5ad files
+# Each entry: (data_root, full_data_path, dataset_name)
 # ---------------------------------------------------------------------------
+
 DATASETS = [
     # --- New SDG methods: OK1K ---
     (f"{DATA}/ok_sd3g",   f"{DATA}/ok/full_dataset_cleaned.h5ad",   "ok"),
@@ -49,10 +49,13 @@ DATASETS = [
     (f"{DATA}/aida_scvi",   f"{DATA}/aida/full_dataset_cleaned.h5ad", "aida"),
     (f"{DATA}/aida_scdiff", f"{DATA}/aida/full_dataset_cleaned.h5ad", "aida"),
 
-    # scDesign2 (original) and scDesign2+DP are already evaluated — omitted here.
+    # scDesign2 (original) and scDesign2+DP (eps 1–10000) are already evaluated.
+    # New high-epsilon DP datasets (not yet evaluated):
+    (f"{DATA}/ok_dp/eps_100000",  f"{DATA}/ok/full_dataset_cleaned.h5ad", "ok"),
+    (f"{DATA}/ok_dp/eps_1000000", f"{DATA}/ok/full_dataset_cleaned.h5ad", "ok"),
+    (f"{DATA}/ok_dp/eps_10000000",f"{DATA}/ok/full_dataset_cleaned.h5ad", "ok"),
 ]
 
-# Cell type column name per dataset
 CELL_TYPE_COL = {
     "ok":   "cell_type",
     "cg":   "cell_type",
@@ -71,19 +74,26 @@ def make_cfg(synth_path, train_npy, full_data_path, dataset_name, results_dir):
             "synthetic_file": synth_path,
             "cell_type_col_name": CELL_TYPE_COL[dataset_name],
             "cell_label_col_name": "cell_label",
-            "celltypist_model": "",  # not needed for statistical evals
+            "celltypist_model": "",
         },
         "evaluator_config": {"random_seed": 1},
         "n_hvgs": 1000,
     }
 
 
-def collect_jobs(datasets):
-    """Return list of (synth_path, full_data_path, dataset_name, out_csv) tuples."""
+def collect_jobs(datasets, max_donors=None):
+    """Return list of (synth_path, full_data_path, dataset_name, results_dir, out_csv)."""
     jobs = []
     for data_root, full_data_path, dataset_name in datasets:
         pattern = os.path.join(data_root, "*d", "*", "datasets", "synthetic.h5ad")
         for synth_path in sorted(glob.glob(pattern)):
+            # Extract donor count from path
+            parts = synth_path.split(os.sep)
+            nd_tag = parts[-4]  # e.g. "10d", "200d"
+            nd = int(nd_tag.rstrip("d")) if nd_tag.rstrip("d").isdigit() else None
+            if max_donors is not None and nd is not None and nd > max_donors:
+                continue
+
             datasets_dir = os.path.dirname(synth_path)
             trial_dir    = os.path.dirname(datasets_dir)
             results_dir  = os.path.join(trial_dir, "results", "quality_eval_results")
@@ -92,68 +102,104 @@ def collect_jobs(datasets):
     return jobs
 
 
-def run(dry_run=False):
-    jobs = collect_jobs(DATASETS)
+def _run_one(args):
+    """Worker function: evaluate one synthetic dataset. Returns (label, status, msg)."""
+    synth_path, full_data_path, dataset_name, results_dir, out_csv = args
+
+    parts  = synth_path.split(os.sep)
+    src    = parts[-5]
+    nd_tag = parts[-4]
+    trial  = parts[-3]
+    label  = f"{src}/{nd_tag}/t{trial}"
+
+    if os.path.exists(out_csv):
+        return (label, "skip", None)
+
+    train_npy = os.path.join(os.path.dirname(synth_path), "train.npy")
+    if not os.path.exists(train_npy):
+        return (label, "skip-no-train", None)
+
+    # Import here so each worker process initialises its own copy
+    if SRC_DIR not in sys.path:
+        sys.path.insert(0, SRC_DIR)
+    from evaluation.sc_evaluate import SingleCellEvaluator
+
+    try:
+        os.makedirs(os.path.join(results_dir, "results"), exist_ok=True)
+        os.makedirs(os.path.join(results_dir, "figures"), exist_ok=True)
+        cfg = make_cfg(synth_path, train_npy, full_data_path, dataset_name, results_dir)
+        evaluator = SingleCellEvaluator(config=cfg)
+        results   = evaluator.get_statistical_evals()
+        evaluator.save_results_to_csv(results, out_csv)
+
+        lisi = results.get("lisi")
+        ari  = results.get("ari_real_vs_syn")
+        mmd  = results.get("mmd")
+        msg  = (f"lisi={lisi:.4f}  ari={ari:.4f}  mmd={mmd:.6f}"
+                if all(v is not None for v in [lisi, ari, mmd]) else "partial results")
+        return (label, "ok", msg)
+
+    except Exception as e:
+        tb = traceback.format_exc()
+        return (label, "error", f"{e}\n{tb}")
+
+
+def run(dry_run=False, workers=4, max_donors=None):
+    jobs = collect_jobs(DATASETS, max_donors=max_donors)
     total   = len(jobs)
     skipped = sum(1 for *_, out_csv in jobs if os.path.exists(out_csv))
     todo    = total - skipped
 
-    print(f"Found {total} synthetic datasets: {skipped} already evaluated, {todo} to run.\n")
+    print(f"Found {total} synthetic datasets (max_donors={max_donors}): "
+          f"{skipped} already evaluated, {todo} to run.\n", flush=True)
+
+    if dry_run:
+        for synth_path, _, dataset_name, results_dir, out_csv in jobs:
+            parts  = synth_path.split(os.sep)
+            label  = f"{parts[-5]}/{parts[-4]}/t{parts[-3]}"
+            status = "SKIP" if os.path.exists(out_csv) else "EVAL"
+            print(f"  {status}  {label}")
+        return
+
+    # Jobs that actually need running
+    pending = [j for j in jobs if not os.path.exists(j[-1])]
+
+    if not pending:
+        print("Nothing to do.")
+        return
 
     done = errors = 0
-    for i, (synth_path, full_data_path, dataset_name, results_dir, out_csv) in enumerate(jobs):
-        # Derive a short label for display
-        # Path: .../data/{src}/{nd}d/{trial}/datasets/synthetic.h5ad
-        parts  = synth_path.split(os.sep)
-        src    = parts[-5]  # e.g. ok_sd3g
-        nd_tag = parts[-4]  # e.g. 10d
-        trial  = parts[-3]  # e.g. 3
-        label  = f"{src}/{nd_tag}/t{trial}"
 
-        if os.path.exists(out_csv):
-            print(f"[{i+1}/{total}] SKIP  {label}")
-            continue
+    if workers == 1:
+        results_iter = map(_run_one, pending)
+    else:
+        pool = mp.Pool(processes=workers)
+        results_iter = pool.imap_unordered(_run_one, pending)
 
-        train_npy = os.path.join(os.path.dirname(synth_path), "train.npy")
-        if not os.path.exists(train_npy):
-            print(f"[{i+1}/{total}] SKIP  {label}  (no train.npy)")
-            continue
+    try:
+        for label, status, msg in results_iter:
+            if status == "ok":
+                print(f"  [OK]    {label}  {msg}", flush=True)
+                done += 1
+            elif status == "error":
+                print(f"  [ERROR] {label}\n{msg}", flush=True)
+                errors += 1
+            # skip/skip-no-train are not printed (already counted above)
+    finally:
+        if workers > 1:
+            pool.close()
+            pool.join()
 
-        print(f"[{i+1}/{total}] EVAL  {label} ...", flush=True)
-
-        if dry_run:
-            print("  [dry-run] would run evaluator here")
-            continue
-
-        try:
-            os.makedirs(os.path.join(results_dir, "results"),  exist_ok=True)
-            os.makedirs(os.path.join(results_dir, "figures"),  exist_ok=True)
-            cfg = make_cfg(synth_path, train_npy, full_data_path, dataset_name, results_dir)
-            evaluator = SingleCellEvaluator(config=cfg)
-            results = evaluator.get_statistical_evals()
-            evaluator.save_results_to_csv(results, out_csv)
-
-            lisi = results.get("lisi")
-            ari  = results.get("ari_real_vs_syn")
-            mmd  = results.get("mmd")
-            lisi_s = f"{lisi:.4f}" if lisi is not None else "N/A"
-            ari_s  = f"{ari:.4f}"  if ari  is not None else "N/A"
-            mmd_s  = f"{mmd:.6f}"  if mmd  is not None else "N/A"
-            print(f"  lisi={lisi_s}  ari={ari_s}  mmd={mmd_s}", flush=True)
-            done += 1
-
-        except Exception as e:
-            import traceback
-            print(f"  [ERROR] {e}")
-            traceback.print_exc()
-            errors += 1
-
-    print(f"\nDone: {done} evaluated, {errors} errors, {skipped} skipped.")
+    print(f"\nDone: {done} evaluated, {errors} errors, {skipped} already existed.")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dry-run", action="store_true",
+    parser.add_argument("--dry-run",    action="store_true",
                         help="List jobs without running the evaluator")
+    parser.add_argument("--workers",    type=int, default=4,
+                        help="Parallel worker processes (default: 4)")
+    parser.add_argument("--max-donors", type=int, default=100,
+                        help="Skip donor counts above this value (default: 100)")
     args = parser.parse_args()
-    run(dry_run=args.dry_run)
+    run(dry_run=args.dry_run, workers=args.workers, max_donors=args.max_donors)

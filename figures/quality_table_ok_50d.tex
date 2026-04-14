@@ -1,0 +1,27 @@
+\begin{tabular}{llccc}
+\toprule
+\multicolumn{5}{c}{OK1K — 50 donors} \\
+Method & & LISI$\uparrow$ & ARI$\uparrow$ & MMD$\times 10^3\downarrow$ \\
+\midrule
+scDesign2 &  & 0.868 & 0.480 & 0.446 \\
+scDesign2+DP & $\varepsilon$=10000000 & 0.866 & 0.472 & 0.448 \\
+ & $\varepsilon$=1000000 & 0.867 & 0.495 & 0.444 \\
+ & $\varepsilon$=100000 & 0.868 & 0.465 & 0.436 \\
+ & $\varepsilon$=10000 & 0.852 & 0.457 & 0.419 \\
+ & $\varepsilon$=1000 & 0.721 & 0.513 & 0.471 \\
+ & $\varepsilon$=100 & 0.624 & 0.474 & 0.534 \\
+ & $\varepsilon$=10 & 0.610 & 0.536 & 0.547 \\
+ & $\varepsilon$=1 & 0.618 & 0.514 & 0.547 \\
+\addlinespace[2pt]
+scDesign3-G &  & 0.884 & 0.459 & 0.285 \\
+\addlinespace[2pt]
+scDesign3-V &  & 0.885 & 0.460 & 0.308 \\
+\addlinespace[2pt]
+scVI &  & 0.902 & 0.395 & 0.282 \\
+\addlinespace[2pt]
+scDiffusion &  & 0.487 & 0.150 & 45.691 \\
+\bottomrule
+\end{tabular}
+
+% * = fewer than 5 trials
+% MMD values multiplied by 10^3

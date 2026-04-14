@@ -61,6 +61,7 @@ from attacks.scmamamia.attack import (                 # noqa: E402
     attack_pairwise_correlation,
     attack_mahalanobis,
     attack_mahalanobis_no_aux,
+    attack_mahalanobis_both,
 )
 from attacks.scmamamia.scoring import (                # noqa: E402
     merge_cell_type_results,
@@ -131,9 +132,14 @@ def main():
     run_sdg(cfg, cfg.aux_model_config_path, cell_types,
             "AUXILIARY_DATA_SHADOW_MODEL", force=resampled)
 
-    results = run_mamamia_attack(cfg)
-    save_results(cfg, results)
-    register_trial(cfg)
+    if cfg.mia_setting.get("run_both_bb", False):
+        results = run_mamamia_attack_both(cfg)
+        save_results_both(cfg, results)
+        register_trial_both(cfg)
+    else:
+        results = run_mamamia_attack(cfg)
+        save_results(cfg, results)
+        register_trial(cfg)
 
     delete_interim_h5ad(cfg)
 
@@ -225,8 +231,17 @@ def _new_tracking_row(trial_num=1):
 def _get_tracking(cfg):
     if os.path.exists(cfg.experiment_tracking_file):
         df = pd.read_csv(cfg.experiment_tracking_file, header=0)
+        # Migrate old tracking files that lack tm:* columns (e.g. quality-only runs)
+        template = _new_tracking_row()
+        changed = False
+        for col, default in template.items():
+            if col not in df.columns:
+                df[col] = default
+                changed = True
+        if changed:
+            df.to_csv(cfg.experiment_tracking_file, index=False)
     else:
-        df = pd.DataFrame(_new_tracking_row())
+        df = pd.DataFrame(_new_tracking_row(), index=[0])
         os.makedirs(cfg.cfg_dir, exist_ok=True)
         df.to_csv(cfg.experiment_tracking_file, index=False)
     trial_num = _next_trial_num(cfg, df)
@@ -578,6 +593,177 @@ def _attack_cell_type_from_disk(cfg, cell_type):
     holdout_backed.file.close()
     return _attack_cell_type(cfg, cell_type, train_ct, holdout_ct)
 
+
+# ===========================================================================
+# Combined BB+aux / BB-aux attack (shares synth-side computation)
+# ===========================================================================
+
+def run_mamamia_attack_both(cfg):
+    """
+    Run BB+aux and BB-aux in a single pass per cell type, reusing d_s.
+    Returns list of (cell_type, (df_100, df_101), runtime).
+    """
+    print("\n\nRUNNING scMAMA-MIA (BB+aux AND BB-aux combined)\n" + "_" * 40, flush=True)
+
+    _train_meta = ad.read_h5ad(cfg.train_path, backed="r")
+    cell_types = list(_train_meta.obs["cell_type"].unique())
+    _train_meta.file.close()
+
+    if cfg.parallelize:
+        print(f"  parallelising across cell types (max_workers={cfg.parallel_workers})...",
+              flush=True)
+        results = _run_parallel_attack_both(cfg, cell_types, cfg.parallel_workers)
+    else:
+        train   = ad.read_h5ad(cfg.train_path)
+        holdout = ad.read_h5ad(cfg.holdout_path)
+        results = []
+        for ct in cell_types:
+            result = _attack_cell_type_both(cfg, ct, train, holdout)
+            results.append(result)
+            print(f"  finished: {ct}", flush=True)
+
+    results.sort(key=lambda x: x[0])
+    return results
+
+
+def _run_parallel_attack_both(cfg, cell_types, max_workers):
+    results = []
+    pending = list(cell_types)
+    current_workers = max_workers
+
+    while pending:
+        batch = pending[:current_workers]
+        batch_results, failed_cts = _try_parallel_batch_both(cfg, batch, current_workers)
+        results.extend(batch_results)
+
+        if failed_cts:
+            if current_workers > 1:
+                current_workers = max(1, current_workers // 2)
+                print(f"  [OOM] Reducing to {current_workers} workers; "
+                      f"retrying {len(failed_cts)} cell types", flush=True)
+                pending = failed_cts + pending[len(batch):]
+            else:
+                print(f"  [FALLBACK] Sequential retry for: {failed_cts}", flush=True)
+                train   = ad.read_h5ad(cfg.train_path)
+                holdout = ad.read_h5ad(cfg.holdout_path)
+                for ct in failed_cts:
+                    try:
+                        result = _attack_cell_type_both(cfg, ct, train, holdout)
+                        results.append(result)
+                        print(f"  finished (sequential): {result[0]}", flush=True)
+                    except Exception as e:
+                        print(f"  [ERROR] {ct} failed sequentially: {e}", flush=True)
+                        results.append((ct, None, None))
+                pending = pending[len(batch):]
+        else:
+            pending = pending[len(batch):]
+
+    return results
+
+
+def _try_parallel_batch_both(cfg, batch, max_workers):
+    completed = []
+    failed = []
+    completed_cts = set()
+    ctx = multiprocessing.get_context("spawn")
+
+    try:
+        with ProcessPoolExecutor(max_workers=max_workers, mp_context=ctx) as executor:
+            futures = {
+                executor.submit(_attack_cell_type_from_disk_both, cfg, ct): ct
+                for ct in batch
+            }
+            for fut in as_completed(futures):
+                ct = futures[fut]
+                try:
+                    result = fut.result()
+                    completed.append(result)
+                    completed_cts.add(ct)
+                    print(f"  finished (both): {result[0]}", flush=True)
+                except Exception as e:
+                    print(f"  failed: {ct} ({type(e).__name__}: {e})", flush=True)
+                    failed.append(ct)
+                    completed_cts.add(ct)
+    except Exception as e:
+        print(f"  [WARN] Worker pool broke: {type(e).__name__}", flush=True)
+        failed.extend([ct for ct in batch if ct not in completed_cts])
+
+    return completed, failed
+
+
+def _attack_cell_type_from_disk_both(cfg, cell_type):
+    import anndata as _ad
+    train_backed   = _ad.read_h5ad(cfg.train_path,   backed="r")
+    holdout_backed = _ad.read_h5ad(cfg.holdout_path, backed="r")
+    train_ct   = train_backed  [train_backed  .obs["cell_type"] == cell_type].to_memory()
+    holdout_ct = holdout_backed[holdout_backed.obs["cell_type"] == cell_type].to_memory()
+    train_backed.file.close()
+    holdout_backed.file.close()
+    return _attack_cell_type_both(cfg, cell_type, train_ct, holdout_ct)
+
+
+def _attack_cell_type_both(cfg, cell_type, train, holdout):
+    """
+    Run combined BB+aux / BB-aux attack for one cell type.
+    Returns (cell_type, (df_100, df_101), runtime)  or  (cell_type, None, None).
+    """
+    hvg_mask = pd.read_csv(cfg.shadow_modelling_hvg_path)
+    hvgs = hvg_mask[hvg_mask["highly_variable"]].values[:, 0]
+
+    synth_rds = os.path.join(cfg.synth_artifacts_path, f"{cell_type}.rds")
+    aux_rds   = os.path.join(cfg.aux_artifacts_path,   f"{cell_type}.rds")
+
+    if not (os.path.exists(synth_rds) and os.path.exists(aux_rds)):
+        return (cell_type, None, None)
+
+    from rpy2.robjects import r
+    copula_synth_r = r["readRDS"](synth_rds).rx2(str(cell_type))
+    copula_aux_r   = r["readRDS"](aux_rds).rx2(str(cell_type))
+
+    targets = _build_target_dataset(cell_type, hvgs, train, holdout)
+
+    t0 = time.process_time()
+    df_100, df_101 = attack_mahalanobis_both(cfg, targets, cell_type,
+                                             copula_synth_r, copula_aux_r)
+    runtime = time.process_time() - t0
+
+    return (cell_type, (df_100, df_101), runtime)
+
+
+def save_results_both(cfg, results):
+    """
+    Save BB+aux (tm:100) and BB-aux (tm:101) from a combined attack run.
+
+    results : list of (cell_type, (df_100, df_101) or None, runtime)
+
+    Calls save_results twice by temporarily setting cfg.mia_setting.use_aux.
+    Full combined runtime is attributed to tm:100; tm:101 reports 0 (no extra cost).
+    """
+    results_100 = [(ct, pair[0] if pair is not None else None, rt)
+                   for ct, pair, rt in results]
+    results_101 = [(ct, pair[1] if pair is not None else None, 0.0)
+                   for ct, pair, rt in results]
+
+    cfg.mia_setting.use_aux = True
+    save_results(cfg, results_100)
+
+    cfg.mia_setting.use_aux = False
+    save_results(cfg, results_101)
+
+    cfg.mia_setting.use_aux = True   # leave in a defined state
+
+
+def register_trial_both(cfg):
+    """Mark both tm:100 and tm:101 as complete for the current trial."""
+    df, _ = _get_tracking(cfg)
+    df.loc[df["trial"] == cfg.trial_num, "tm:100"] = 1
+    df.loc[df["trial"] == cfg.trial_num, "tm:101"] = 1
+    df.to_csv(cfg.experiment_tracking_file, index=False)
+
+
+# ===========================================================================
+# Single-threat-model attack helpers (original path)
+# ===========================================================================
 
 def _resolve_attack_fn(cfg):
     """Return the appropriate attack function and paths based on the threat model."""
