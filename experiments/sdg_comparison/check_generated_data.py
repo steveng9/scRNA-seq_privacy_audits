@@ -40,8 +40,12 @@ GENERATORS = [
     ("aida/ scVI",   f"{DATA}/aida_scvi", [10, 20, 50],           False, None),
 
     # scDiffusion
-    ("ok  / scDiffusion",   f"{DATA}/ok_scdiff",   [10, 20, 50], False, None),
-    ("aida/ scDiffusion",   f"{DATA}/aida_scdiff", [20, 50],     False, None),
+    ("ok  / scDiffusion",   f"{DATA}/ok_scdiff",   [10, 20, 50],         False, None),
+    ("aida/ scDiffusion",   f"{DATA}/aida_scdiff", [20, 50],              False, None),
+
+    # NMF (SingleCellNMFGenerator — CAMDA 2024 co-winner)
+    ("ok  / NMF",           f"{DATA}/ok_nmf",      [10, 20, 50, 100, 200], False, None),
+    ("aida/ NMF",           f"{DATA}/aida_nmf",    [10, 20, 50, 100, 200], False, None),
 ]
 
 N_TRIALS = 5
@@ -250,6 +254,12 @@ def _summarize_job(job):
         return _progress_sd3(lines, job["out_dir"])
     elif gen == "scvi":
         return _progress_scvi(lines)
+    elif gen == "nmf":
+        # NMF prints phase tags: Fitting, KMeans, Sampling, Assigning, Saved
+        for line in reversed(lines):
+            if "[NMF]" in line:
+                return line.strip()[-100:]
+        return lines[-1].strip()[-100:] if lines else "(empty log)"
     else:
         return lines[-1].strip()[-100:] if lines else "(empty log)"
 

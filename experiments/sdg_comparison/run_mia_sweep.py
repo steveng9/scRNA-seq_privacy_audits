@@ -93,15 +93,21 @@ SWEEP = [
     # --- scDesign3-Gauss ---
     ("sd3g",   "ok_sd3g",         "ok", [2, 5, 10, 20, 50, 100, 200], TM_BB_COMBINED, 4),
 
+    # --- NMF (SingleCellNMFGenerator — CAMDA 2024 winner) ---
+    ("nmf",    "ok_nmf",          "ok", [10, 20, 50, 100, 200], TM_BB_COMBINED, 4),
+    ("nmf",    "aida_nmf",      "aida", [10, 20, 50, 100, 200], TM_BB_COMBINED, 4),
+
     # --- scDesign2 + DP (synthetic data already generated for all eps/nd/trial) ---
-    ("sd2_dp", "ok_dp/eps_1",       "ok", [10, 20, 50], TM_BB_COMBINED, 4),
-    ("sd2_dp", "ok_dp/eps_10",      "ok", [10, 20, 50], TM_BB_COMBINED, 4),
-    ("sd2_dp", "ok_dp/eps_100",     "ok", [10, 20, 50], TM_BB_COMBINED, 4),
-    ("sd2_dp", "ok_dp/eps_1000",    "ok", [10, 20, 50], TM_BB_COMBINED, 4),
-    ("sd2_dp", "ok_dp/eps_10000",   "ok", [10, 20, 50], TM_BB_COMBINED, 4),
-    ("sd2_dp", "ok_dp/eps_100000",  "ok", [10, 20, 50], TM_BB_COMBINED, 4),
-    ("sd2_dp", "ok_dp/eps_1000000", "ok", [10, 20, 50], TM_BB_COMBINED, 4),
-    ("sd2_dp", "ok_dp/eps_10000000","ok", [10, 20, 50], TM_BB_COMBINED, 4),
+    ("sd2_dp", "ok_dp/eps_1",          "ok", [10, 20, 50], TM_BB_COMBINED, 4),
+    ("sd2_dp", "ok_dp/eps_10",         "ok", [10, 20, 50], TM_BB_COMBINED, 4),
+    ("sd2_dp", "ok_dp/eps_100",        "ok", [10, 20, 50], TM_BB_COMBINED, 4),
+    ("sd2_dp", "ok_dp/eps_1000",       "ok", [10, 20, 50], TM_BB_COMBINED, 4),
+    ("sd2_dp", "ok_dp/eps_10000",      "ok", [10, 20, 50], TM_BB_COMBINED, 4),
+    ("sd2_dp", "ok_dp/eps_100000",     "ok", [10, 20, 50], TM_BB_COMBINED, 4),
+    ("sd2_dp", "ok_dp/eps_1000000",    "ok", [10, 20, 50], TM_BB_COMBINED, 4),
+    ("sd2_dp", "ok_dp/eps_10000000",   "ok", [10, 20, 50], TM_BB_COMBINED, 4),
+    ("sd2_dp", "ok_dp/eps_100000000",  "ok", [10, 20, 50], TM_BB_COMBINED, 4),
+    ("sd2_dp", "ok_dp/eps_1000000000", "ok", [10, 20, 50], TM_BB_COMBINED, 4),
 ]
 
 # Standard scMAMA-MIA hyper-parameters (matches existing experiments)

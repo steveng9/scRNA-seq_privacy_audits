@@ -33,14 +33,16 @@ SOURCES = [
     ("scDesign2",        "",         f"{DATA}/aida/*/*/results/quality_eval_results/results/statistics_evals.csv"),
 
     # --- scDesign2 + DP (ok only) ---
-    ("scDesign2+DP",     r"$\varepsilon$=1",        f"{DATA}/ok_dp/eps_1/*/*/results/quality_eval_results/results/statistics_evals.csv"),
-    ("scDesign2+DP",     r"$\varepsilon$=10",       f"{DATA}/ok_dp/eps_10/*/*/results/quality_eval_results/results/statistics_evals.csv"),
-    ("scDesign2+DP",     r"$\varepsilon$=100",      f"{DATA}/ok_dp/eps_100/*/*/results/quality_eval_results/results/statistics_evals.csv"),
-    ("scDesign2+DP",     r"$\varepsilon$=1000",     f"{DATA}/ok_dp/eps_1000/*/*/results/quality_eval_results/results/statistics_evals.csv"),
-    ("scDesign2+DP",     r"$\varepsilon$=10000",    f"{DATA}/ok_dp/eps_10000/*/*/results/quality_eval_results/results/statistics_evals.csv"),
-    ("scDesign2+DP",     r"$\varepsilon$=100000",   f"{DATA}/ok_dp/eps_100000/*/*/results/quality_eval_results/results/statistics_evals.csv"),
-    ("scDesign2+DP",     r"$\varepsilon$=1000000",  f"{DATA}/ok_dp/eps_1000000/*/*/results/quality_eval_results/results/statistics_evals.csv"),
-    ("scDesign2+DP",     r"$\varepsilon$=10000000", f"{DATA}/ok_dp/eps_10000000/*/*/results/quality_eval_results/results/statistics_evals.csv"),
+    ("scDesign2+DP",     r"$\varepsilon=10^{0}$",  f"{DATA}/ok_dp/eps_1/*/*/results/quality_eval_results/results/statistics_evals.csv"),
+    ("scDesign2+DP",     r"$\varepsilon=10^{1}$",  f"{DATA}/ok_dp/eps_10/*/*/results/quality_eval_results/results/statistics_evals.csv"),
+    ("scDesign2+DP",     r"$\varepsilon=10^{2}$",  f"{DATA}/ok_dp/eps_100/*/*/results/quality_eval_results/results/statistics_evals.csv"),
+    ("scDesign2+DP",     r"$\varepsilon=10^{3}$",  f"{DATA}/ok_dp/eps_1000/*/*/results/quality_eval_results/results/statistics_evals.csv"),
+    ("scDesign2+DP",     r"$\varepsilon=10^{4}$",  f"{DATA}/ok_dp/eps_10000/*/*/results/quality_eval_results/results/statistics_evals.csv"),
+    ("scDesign2+DP",     r"$\varepsilon=10^{5}$",  f"{DATA}/ok_dp/eps_100000/*/*/results/quality_eval_results/results/statistics_evals.csv"),
+    ("scDesign2+DP",     r"$\varepsilon=10^{6}$",  f"{DATA}/ok_dp/eps_1000000/*/*/results/quality_eval_results/results/statistics_evals.csv"),
+    ("scDesign2+DP",     r"$\varepsilon=10^{7}$",  f"{DATA}/ok_dp/eps_10000000/*/*/results/quality_eval_results/results/statistics_evals.csv"),
+    ("scDesign2+DP",     r"$\varepsilon=10^{8}$",  f"{DATA}/ok_dp/eps_100000000/*/*/results/quality_eval_results/results/statistics_evals.csv"),
+    ("scDesign2+DP",     r"$\varepsilon=10^{9}$",  f"{DATA}/ok_dp/eps_1000000000/*/*/results/quality_eval_results/results/statistics_evals.csv"),
 
     # --- scDesign3 Gaussian ---
     ("scDesign3-G",      "",         f"{DATA}/ok_sd3g/*/*/results/quality_eval_results/results/statistics_evals.csv"),
@@ -57,6 +59,10 @@ SOURCES = [
     # --- scDiffusion ---
     ("scDiffusion",      "",         f"{DATA}/ok_scdiff/*/*/results/quality_eval_results/results/statistics_evals.csv"),
     ("scDiffusion",      "",         f"{DATA}/aida_scdiff/*/*/results/quality_eval_results/results/statistics_evals.csv"),
+
+    # --- NMF ---
+    ("NMF",              "",         f"{DATA}/ok_nmf/*/*/results/quality_eval_results/results/statistics_evals.csv"),
+    ("NMF",              "",         f"{DATA}/aida_nmf/*/*/results/quality_eval_results/results/statistics_evals.csv"),
 ]
 
 DATASETS = ["ok", "aida", "cg"]
@@ -72,11 +78,13 @@ def dataset_of(path):
     if p.startswith("ok_sd3v"):    return "ok"
     if p.startswith("ok_scvi"):    return "ok"
     if p.startswith("ok_scdiff"):  return "ok"
+    if p.startswith("ok_nmf"):     return "ok"
     if p.startswith("ok/"):        return "ok"
     if p.startswith("aida_sd3g"):  return "aida"
     if p.startswith("aida_sd3v"):  return "aida"
     if p.startswith("aida_scvi"):  return "aida"
     if p.startswith("aida_scdiff"):return "aida"
+    if p.startswith("aida_nmf"):   return "aida"
     if p.startswith("aida/"):      return "aida"
     if p.startswith("cg/"):        return "cg"
     return None
@@ -161,14 +169,16 @@ def make_ok_only_table(results, nd_label):
     """
     METHOD_ORDER = [
         ("scDesign2",    ""),
-        ("scDesign2+DP", r"$\varepsilon$=10000000"),
-        ("scDesign2+DP", r"$\varepsilon$=1000000"),
-        ("scDesign2+DP", r"$\varepsilon$=100000"),
-        ("scDesign2+DP", r"$\varepsilon$=10000"),
-        ("scDesign2+DP", r"$\varepsilon$=1000"),
-        ("scDesign2+DP", r"$\varepsilon$=100"),
-        ("scDesign2+DP", r"$\varepsilon$=10"),
-        ("scDesign2+DP", r"$\varepsilon$=1"),
+        ("scDesign2+DP", r"$\varepsilon=10^{9}$"),
+        ("scDesign2+DP", r"$\varepsilon=10^{8}$"),
+        ("scDesign2+DP", r"$\varepsilon=10^{7}$"),
+        ("scDesign2+DP", r"$\varepsilon=10^{6}$"),
+        ("scDesign2+DP", r"$\varepsilon=10^{5}$"),
+        ("scDesign2+DP", r"$\varepsilon=10^{4}$"),
+        ("scDesign2+DP", r"$\varepsilon=10^{3}$"),
+        ("scDesign2+DP", r"$\varepsilon=10^{2}$"),
+        ("scDesign2+DP", r"$\varepsilon=10^{1}$"),
+        ("scDesign2+DP", r"$\varepsilon=10^{0}$"),
         ("scDesign3-G",  ""),
         ("scDesign3-V",  ""),
         ("scVI",         ""),

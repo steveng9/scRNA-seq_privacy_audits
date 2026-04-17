@@ -106,20 +106,23 @@ METRIC_ROW = {
 #   wb_supported — True only for scDesign2, which has actual white-box access
 # ---------------------------------------------------------------------------
 SDG_METHODS = [
-    # key          display_name      sub_label              dataset_path      wb_supported
-    ("sd2",        "scDesign2",      "",                    "ok",             True),
-    ("sd2_dp_1",       "scDesign2+DP",   r"$\varepsilon$=1",       "ok_dp/eps_1",       False),
-    ("sd2_dp_10",      "scDesign2+DP",   r"$\varepsilon$=10",      "ok_dp/eps_10",      False),
-    ("sd2_dp_100",     "scDesign2+DP",   r"$\varepsilon$=100",     "ok_dp/eps_100",     False),
-    ("sd2_dp_1000",    "scDesign2+DP",   r"$\varepsilon$=1000",    "ok_dp/eps_1000",    False),
-    ("sd2_dp_10000",   "scDesign2+DP",   r"$\varepsilon$=10000",   "ok_dp/eps_10000",   False),
-    ("sd2_dp_100000",  "scDesign2+DP",   r"$\varepsilon$=100000",  "ok_dp/eps_100000",  False),
-    ("sd2_dp_1000000", "scDesign2+DP",   r"$\varepsilon$=1000000", "ok_dp/eps_1000000", False),
-    ("sd2_dp_10000000","scDesign2+DP",   r"$\varepsilon$=10000000","ok_dp/eps_10000000",False),
-    ("sd3g",       "scDesign3-G",    "",                    "ok_sd3g",        False),
-    ("sd3v",       "scDesign3-V",    "",                    "ok_sd3v",        False),
-    ("scvi",       "scVI",           "",                    "ok_scvi",        False),
-    ("scdiff",     "scDiffusion",    "",                    "ok_scdiff",      False),
+    # key          display_name      sub_label                dataset_path           wb_supported
+    ("sd2",        "scDesign2",      "",                      "ok",                  True),
+    ("sd2_dp_1e9", "scDesign2+DP",   r"$\varepsilon=10^{9}$", "ok_dp/eps_1000000000",False),
+    ("sd2_dp_1e8", "scDesign2+DP",   r"$\varepsilon=10^{8}$", "ok_dp/eps_100000000", False),
+    ("sd2_dp_1e7", "scDesign2+DP",   r"$\varepsilon=10^{7}$", "ok_dp/eps_10000000",  False),
+    ("sd2_dp_1e6", "scDesign2+DP",   r"$\varepsilon=10^{6}$", "ok_dp/eps_1000000",   False),
+    ("sd2_dp_1e5", "scDesign2+DP",   r"$\varepsilon=10^{5}$", "ok_dp/eps_100000",    False),
+    ("sd2_dp_1e4", "scDesign2+DP",   r"$\varepsilon=10^{4}$", "ok_dp/eps_10000",     False),
+    ("sd2_dp_1e3", "scDesign2+DP",   r"$\varepsilon=10^{3}$", "ok_dp/eps_1000",      False),
+    ("sd2_dp_1e2", "scDesign2+DP",   r"$\varepsilon=10^{2}$", "ok_dp/eps_100",       False),
+    ("sd2_dp_1e1", "scDesign2+DP",   r"$\varepsilon=10^{1}$", "ok_dp/eps_10",        False),
+    ("sd2_dp_1e0", "scDesign2+DP",   r"$\varepsilon=10^{0}$", "ok_dp/eps_1",         False),
+    ("sd3g",       "scDesign3-G",    "",                      "ok_sd3g",             False),
+    ("sd3v",       "scDesign3-V",    "",                      "ok_sd3v",             False),
+    ("scvi",       "scVI",           "",                      "ok_scvi",             False),
+    ("scdiff",     "scDiffusion",    "",                      "ok_scdiff",           False),
+    ("nmf",        "NMF",            "",                      "ok_nmf",              False),
 ]
 
 

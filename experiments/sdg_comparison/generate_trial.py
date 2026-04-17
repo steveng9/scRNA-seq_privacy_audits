@@ -11,6 +11,7 @@ Supported generators
   sd3_vine       scDesign3 with vine copula
   scvi           scVI VAE
   scdiffusion    scDiffusion (VAE + diffusion backbone)
+  nmf            SingleCellNMFGenerator (NMF + KMeans + ZINB sampling)
 
 Output layout
 -------------
@@ -245,6 +246,43 @@ def generate_scvi(out_dir, dataset_path, splits_dir, hvg_path,
         os.remove(train_h5ad)
 
 
+def generate_nmf(out_dir, dataset_path, splits_dir, hvg_path,
+                 individual_col, cell_type_col, conda_env,
+                 n_components=20, dp_mode="none", seed=42, batch_size=1000):
+    """Train NMF-based generator and produce synthetic data."""
+    ds_dir    = os.path.join(out_dir, "datasets")
+    synth_out = os.path.join(ds_dir, "synthetic.h5ad")
+
+    if os.path.exists(synth_out):
+        print(f"  [SKIP] synthetic.h5ad already exists: {synth_out}")
+        return
+
+    _copy_splits(splits_dir, ds_dir)
+    train_donors, _ = _load_splits(splits_dir)
+
+    train_h5ad = os.path.join(ds_dir, "train_hvg.h5ad")
+    n_cells = _write_train_h5ad(dataset_path, train_donors, individual_col, train_h5ad,
+                                hvg_path=hvg_path)
+
+    nmf_script   = os.path.join(_SRC, "sdg", "nmf", "run_nmf_standalone.py")
+    conda_prefix = f"conda run --no-capture-output -n {conda_env}"
+
+    _run(
+        f"{conda_prefix} python {nmf_script} "
+        f"--train-h5ad {train_h5ad} "
+        f"--output-h5ad {synth_out} "
+        f"--n-components {n_components} "
+        f"--dp-mode {dp_mode} "
+        f"--cell-type-col {cell_type_col} "
+        f"--seed {seed} "
+        f"--batch-size {batch_size}"
+    )
+
+    print(f"  Saved → {synth_out}")
+    if os.path.exists(train_h5ad):
+        os.remove(train_h5ad)
+
+
 def generate_scdiffusion(out_dir, dataset_path, splits_dir, hvg_path,
                          individual_col, cell_type_col, conda_env,
                          vae_steps=150000, diff_steps=300000, batch_size=512):
@@ -321,7 +359,7 @@ def generate_scdiffusion(out_dir, dataset_path, splits_dir, hvg_path,
 def main():
     ap = argparse.ArgumentParser(description="Generate synthetic data for one SDG trial")
     ap.add_argument("--generator",      required=True,
-                    choices=["sd3_gaussian", "sd3_vine", "scvi", "scdiffusion"])
+                    choices=["sd3_gaussian", "sd3_vine", "scvi", "scdiffusion", "nmf"])
     ap.add_argument("--dataset",        required=True,
                     help="Path to full_dataset_cleaned.h5ad")
     ap.add_argument("--splits-dir",     required=True,
@@ -340,6 +378,14 @@ def main():
     # scDiffusion options
     ap.add_argument("--vae-steps",   type=int, default=150000)
     ap.add_argument("--diff-steps",  type=int, default=300000)
+    # NMF options
+    ap.add_argument("--n-components", type=int, default=20,
+                    help="NMF latent components (default: 20)")
+    ap.add_argument("--dp-mode",
+                    choices=["all", "nmf", "kmeans", "sampling", "none"],
+                    default="none",
+                    help="NMF DP noise stages (default: none)")
+    ap.add_argument("--nmf-seed",    type=int, default=42)
     args = ap.parse_args()
 
     os.makedirs(args.out_dir, exist_ok=True)
@@ -386,6 +432,23 @@ def main():
             conda_env=args.conda_env,
             vae_steps=args.vae_steps,
             diff_steps=args.diff_steps,
+            batch_size=args.batch_size,
+        )
+
+    elif args.generator == "nmf":
+        if not args.conda_env:
+            ap.error("--conda-env is required for nmf")
+        generate_nmf(
+            out_dir=args.out_dir,
+            dataset_path=args.dataset,
+            splits_dir=args.splits_dir,
+            hvg_path=args.hvg_path,
+            individual_col=args.individual_col,
+            cell_type_col=args.cell_type_col,
+            conda_env=args.conda_env,
+            n_components=args.n_components,
+            dp_mode=args.dp_mode,
+            seed=args.nmf_seed,
             batch_size=args.batch_size,
         )
 

@@ -93,14 +93,16 @@ We are revising the paper in response to reviews from 5 reviewers. The following
 
 **2. Attack on Additional scRNA-seq SDG Methods**
 - Extend attacks beyond scDesign2 to at least one or two other generators:
-  - **scDesign3** (`sun2023scdesign3`) — CONFIRMED: scDesign3 supports BOTH Gaussian and
-    Vine copulas, selectable via a `copula` parameter (`"gaussian"` or `"vine"`). Default
-    is Gaussian (same as scDesign2). scMAMA-MIA therefore applies directly to scDesign3
-    in its default mode. The Vine copula variant (slow, for <1000 genes) is a secondary
-    target — adapt the focal-point strategy for bivariate pair copulas rather than a single
-    covariance matrix (see DP design notes for context on vine structure).
-  - **scVAE** (`gronbech2020scvae`) — VAE-based; requires a different MIA strategy
-    (likely likelihood-based or shadow model approach rather than MAMA-MIA).
+  - **scDesign3** (`sun2023scdesign3`) — ✅ DONE. Gaussian and Vine copula variants both
+    integrated. BB+aux/BB-aux attacks run via scDesign2 proxy shadow model.
+  - **scVI** — ✅ DONE. BB+aux/BB-aux attacks run via scDesign2 proxy shadow model.
+  - **scDiffusion** — ✅ DONE. BB+aux/BB-aux attacks run.
+  - **NMF** (`AndrewJWicks/SingleCellNMFGenerator`, CAMDA 2024 co-winner) — ✅ INTEGRATED
+    (2026-04-17). Generation pipeline in place; data generation pending. Uses NMF +
+    KMeans + ZINB sampling; no copula structure → scMAMA-MIA attacks via proxy shadow
+    model. DP parameters from CAMDA submission: eps_nmf=0.5, eps_kmeans=2.1,
+    eps_summaries=0.2 (separate per-stage budgets, not formally composable).
+  - **scVAE** (`gronbech2020scvae`) — VAE-based; not yet integrated.
   - At minimum, discuss which architectural features make a generator vulnerable to
     MAMA-MIA-style attacks vs. more resistant.
 - This addresses Reviewer 1 (Weakness 1) and Reviewer 2 (Major Concern 2).
@@ -174,6 +176,65 @@ We are revising the paper in response to reviews from 5 reviewers. The following
 Before starting any work, use your tools to read the actual repository structure and
 understand where things live. Do not assume any particular layout. Map it out first,
 then update this section with the real structure.
+
+### NMF Generator (integrated 2026-04-17)
+
+`src/sdg/nmf_generator/` — upstream clone of `AndrewJWicks/SingleCellNMFGenerator`
+  (CAMDA 2024 single-cell track co-winner).
+
+`src/sdg/nmf/run_nmf_standalone.py` — our standalone CLI wrapper.
+  Conda env: `nmf_` (created from `src/sdg/nmf_generator/environment.yml`).
+
+**Algorithm**: MiniBatchNMF → KMeans → per-cluster ZINB/Poisson sampling → RF cell-type
+assignment. Note: NMF is used only for clustering; generation is per-gene, per-cluster
+statistics (no gene-gene correlations). This means scMAMA-MIA cannot directly exploit
+the NMF structure (no copula to attack).
+
+**CAMDA 2024 DP parameters** (from upstream `config.yaml`):
+  `eps_nmf=0.5`, `eps_kmeans=2.1`, `eps_summaries=0.2`
+  These are *separate* per-stage budgets and do not compose to a single ε under standard
+  DP — the DP guarantees are not formally rigorous.
+
+**Targeted generation** (run just NMF, skip HVG recomputation):
+```bash
+nohup conda run --no-capture-output -n tabddpm_ \
+    python experiments/sdg_comparison/run_all.py \
+    --generators nmf --skip-hvg \
+    > /tmp/nmf_generation.log 2>&1 &
+```
+
+**Single trial** (e.g., ok 10 donors trial 1):
+```bash
+conda run --no-capture-output -n tabddpm_ \
+    python experiments/sdg_comparison/generate_trial.py \
+    --generator nmf \
+    --dataset /home/golobs/data/ok/full_dataset_cleaned.h5ad \
+    --splits-dir /home/golobs/data/ok/10d/1/datasets \
+    --out-dir /home/golobs/data/ok_nmf/10d/1 \
+    --hvg-path /home/golobs/data/ok/hvg_full.csv \
+    --conda-env nmf_
+```
+
+**MIA sweep** (NMF only):
+```bash
+python experiments/sdg_comparison/run_mia_sweep.py --sdg nmf
+```
+
+**Quality evals** (NMF only):
+```bash
+python experiments/sdg_comparison/run_quality_evals.py --dataset-filter nmf
+```
+
+**Check generation progress**:
+```bash
+python experiments/sdg_comparison/check_generated_data.py
+```
+
+**NMF-specific `generate_trial.py` options**:
+- `--n-components N`   NMF latent components (default: 20)
+- `--dp-mode MODE`     DP noise stages: `none|nmf|kmeans|sampling|all` (default: none)
+- `--nmf-seed N`       random seed (default: 42)
+- `--batch-size N`     MiniBatchNMF batch size (default: 512)
 
 ---
 

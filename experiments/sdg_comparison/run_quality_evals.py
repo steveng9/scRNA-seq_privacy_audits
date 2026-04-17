@@ -42,18 +42,22 @@ DATASETS = [
     (f"{DATA}/ok_sd3v",   f"{DATA}/ok/full_dataset_cleaned.h5ad",   "ok"),
     (f"{DATA}/ok_scvi",   f"{DATA}/ok/full_dataset_cleaned.h5ad",   "ok"),
     (f"{DATA}/ok_scdiff", f"{DATA}/ok/full_dataset_cleaned.h5ad",   "ok"),
+    (f"{DATA}/ok_nmf",    f"{DATA}/ok/full_dataset_cleaned.h5ad",   "ok"),
 
     # --- New SDG methods: AIDA ---
     (f"{DATA}/aida_sd3g",   f"{DATA}/aida/full_dataset_cleaned.h5ad", "aida"),
     (f"{DATA}/aida_sd3v",   f"{DATA}/aida/full_dataset_cleaned.h5ad", "aida"),
     (f"{DATA}/aida_scvi",   f"{DATA}/aida/full_dataset_cleaned.h5ad", "aida"),
     (f"{DATA}/aida_scdiff", f"{DATA}/aida/full_dataset_cleaned.h5ad", "aida"),
+    (f"{DATA}/aida_nmf",    f"{DATA}/aida/full_dataset_cleaned.h5ad", "aida"),
 
     # scDesign2 (original) and scDesign2+DP (eps 1–10000) are already evaluated.
-    # New high-epsilon DP datasets (not yet evaluated):
-    (f"{DATA}/ok_dp/eps_100000",  f"{DATA}/ok/full_dataset_cleaned.h5ad", "ok"),
-    (f"{DATA}/ok_dp/eps_1000000", f"{DATA}/ok/full_dataset_cleaned.h5ad", "ok"),
-    (f"{DATA}/ok_dp/eps_10000000",f"{DATA}/ok/full_dataset_cleaned.h5ad", "ok"),
+    # High-epsilon DP datasets:
+    (f"{DATA}/ok_dp/eps_100000",   f"{DATA}/ok/full_dataset_cleaned.h5ad", "ok"),
+    (f"{DATA}/ok_dp/eps_1000000",  f"{DATA}/ok/full_dataset_cleaned.h5ad", "ok"),
+    (f"{DATA}/ok_dp/eps_10000000", f"{DATA}/ok/full_dataset_cleaned.h5ad", "ok"),
+    (f"{DATA}/ok_dp/eps_100000000",  f"{DATA}/ok/full_dataset_cleaned.h5ad", "ok"),
+    (f"{DATA}/ok_dp/eps_1000000000", f"{DATA}/ok/full_dataset_cleaned.h5ad", "ok"),
 ]
 
 CELL_TYPE_COL = {
@@ -144,8 +148,12 @@ def _run_one(args):
         return (label, "error", f"{e}\n{tb}")
 
 
-def run(dry_run=False, workers=4, max_donors=None):
-    jobs = collect_jobs(DATASETS, max_donors=max_donors)
+def run(dry_run=False, workers=4, max_donors=None, dataset_filter=None):
+    datasets = DATASETS
+    if dataset_filter:
+        datasets = [d for d in datasets if dataset_filter in d[0]]
+        print(f"Dataset filter '{dataset_filter}': {len(datasets)} dataset(s) matched.", flush=True)
+    jobs = collect_jobs(datasets, max_donors=max_donors)
     total   = len(jobs)
     skipped = sum(1 for *_, out_csv in jobs if os.path.exists(out_csv))
     todo    = total - skipped
@@ -201,5 +209,9 @@ if __name__ == "__main__":
                         help="Parallel worker processes (default: 4)")
     parser.add_argument("--max-donors", type=int, default=100,
                         help="Skip donor counts above this value (default: 100)")
+    parser.add_argument("--dataset-filter", default=None,
+                        help="Only process dataset roots containing this substring "
+                             "(e.g. 'nmf', 'ok_scvi', 'aida')")
     args = parser.parse_args()
-    run(dry_run=args.dry_run, workers=args.workers, max_donors=args.max_donors)
+    run(dry_run=args.dry_run, workers=args.workers, max_donors=args.max_donors,
+        dataset_filter=args.dataset_filter)
