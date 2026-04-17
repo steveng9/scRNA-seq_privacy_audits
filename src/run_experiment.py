@@ -63,12 +63,21 @@ from attacks.scmamamia.attack import (                 # noqa: E402
     attack_mahalanobis_no_aux,
     attack_mahalanobis_both,
 )
+from attacks.scmamamia.attack_b import (               # noqa: E402
+    attack_mahalanobis_b,
+    attack_mahalanobis_b_no_aux,
+    attack_mahalanobis_b_both,
+)
 from attacks.scmamamia.scoring import (                # noqa: E402
     merge_cell_type_results,
     aggregate_scores_by_donor,
     _threat_model_code,
 )
-from data.splits import sample_donors_strategy_2, sample_donors_strategy_3   # noqa: E402
+from data.splits import (                                                      # noqa: E402
+    sample_donors_strategy_2,
+    sample_donors_strategy_3,
+    sample_donors_strategy_490,
+)
 from data.cdf_utils import (                           # noqa: E402
     zinb_cdf, zinb_cdf_DT, zinb_uniform_transform,
     closeness_to_correlation_1, closeness_to_correlation_2,
@@ -106,6 +115,7 @@ FUNCTION_REGISTRY = {
     "closeness_to_correlation_4":  closeness_to_correlation_4,
     "sample_donors_strategy_2":    sample_donors_strategy_2,
     "sample_donors_strategy_3":    sample_donors_strategy_3,
+    "sample_donors_strategy_490":  sample_donors_strategy_490,
 }
 
 
@@ -722,9 +732,12 @@ def _attack_cell_type_both(cfg, cell_type, train, holdout):
 
     targets = _build_target_dataset(cell_type, hvgs, train, holdout)
 
+    _v = cfg.mamamia_params.get("class_b_gamma", 0)
+    use_class_b = (_v == "auto") or (_v not in (0, 0.0))
+    both_fn = attack_mahalanobis_b_both if use_class_b else attack_mahalanobis_both
+
     t0 = time.process_time()
-    df_100, df_101 = attack_mahalanobis_both(cfg, targets, cell_type,
-                                             copula_synth_r, copula_aux_r)
+    df_100, df_101 = both_fn(cfg, targets, cell_type, copula_synth_r, copula_aux_r)
     runtime = time.process_time() - t0
 
     return (cell_type, (df_100, df_101), runtime)
@@ -768,13 +781,21 @@ def register_trial_both(cfg):
 def _resolve_attack_fn(cfg):
     """Return the appropriate attack function and paths based on the threat model."""
     copula_synth_dir = cfg.models_path if cfg.mia_setting.white_box else cfg.synth_artifacts_path
+    def _class_b_enabled(key):
+        v = cfg.mamamia_params.get(key, 0)
+        return v == "auto" or (v != 0 and v != 0.0)
 
     if cfg.mia_setting.use_aux:
-        attack_fn = (attack_mahalanobis if cfg.mamamia_params.mahalanobis
-                     else attack_pairwise_correlation)
+        if _class_b_enabled("class_b_gamma"):
+            attack_fn = attack_mahalanobis_b
+        else:
+            attack_fn = (attack_mahalanobis if cfg.mamamia_params.mahalanobis
+                         else attack_pairwise_correlation)
     else:
         if cfg.mamamia_params.mahalanobis:
-            attack_fn = attack_mahalanobis_no_aux
+            attack_fn = (attack_mahalanobis_b_no_aux
+                         if _class_b_enabled("class_b_gamma_noaux")
+                         else attack_mahalanobis_no_aux)
         else:
             print("ERROR: non-aux, non-Mahalanobis attack not implemented.", flush=True)
             sys.exit(1)

@@ -65,17 +65,18 @@ N_NMF_WORKERS     = 4   # NMF is CPU-only but fast and low-memory; allow more co
 GPU_IDS           = [0, 1]
 
 # Donor counts per method × dataset  (from the experiment plan)
-OK_SD3G   = [2, 5, 10, 20, 50, 100, 200]
-OK_SD3V   = [10, 20, 50, 100]
-OK_SCVI   = [5, 10, 20, 50, 100]
-OK_SCDF   = [10, 20, 50]
-OK_NMF    = [10, 20, 50, 100, 200]
+# 490 = CAMDA-scale (OneK1K: 491 train / 490 holdout, aux = 200 holdout subsample)
+OK_SD3G   = [2, 5, 10, 20, 50, 100, 200, 490]
+OK_SD3V   = [10, 20, 50, 100, 490]
+OK_SCVI   = [5, 10, 20, 50, 100, 490]
+OK_SCDF   = [10, 20, 50, 490]
+OK_NMF    = [10, 20, 50, 100, 490]
 
 AIDA_SD3G = [10, 20, 50, 100]
 AIDA_SD3V = [10, 20, 50]
 AIDA_SCVI = [10, 20, 50]
 AIDA_SCDF = [20, 50]
-AIDA_NMF  = [10, 20, 50, 100, 200]
+AIDA_NMF  = [10, 20, 50, 100]
 
 # ---------------------------------------------------------------------------
 # PID tracking

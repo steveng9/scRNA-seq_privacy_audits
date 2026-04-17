@@ -238,6 +238,57 @@ python experiments/sdg_comparison/check_generated_data.py
 
 ---
 
+---
+
+## Class B Attack Enhancement (integrated 2026-04-17)
+
+`src/attacks/scmamamia/attack_b.py` — augments the Mahalanobis attack with per-gene
+log-likelihood ratio (LLR) evidence from **secondary genes** (group-1 genes excluded from
+the Gaussian copula covariance matrix).
+
+**Core formula (BB+aux):**
+```
+combined_logit = log(d_aux / d_synth) + γ_eff · Σ_g [log p_synth(x_g) − log p_aux(x_g)]
+```
+The second term is the Neyman-Pearson optimal statistic under gene independence.
+`activate_from_logits()` z-scores and sigmoids the combined logit (replaces `activate()`).
+
+**Auto-normalized gamma:** `γ_eff = 1/√(n_secondary_genes)` — keeps Class B contribution
+scale-invariant across datasets and cell types regardless of how many secondary genes exist.
+
+**Public functions:**
+- `attack_mahalanobis_b(cfg, targets, cell_type, copula_synth_r, copula_aux_r)` — BB+aux with Class B
+- `attack_mahalanobis_b_no_aux(cfg, ...)` — BB-aux with Class B (disabled by default; LLR without a reference hurts)
+- `attack_mahalanobis_b_both(cfg, ...)` — dispatch BB+aux/BB-aux from a single call (used by `_attack_cell_type_both`)
+
+**Config keys in `mamamia_params`:**
+
+| Key | Values | Default | Effect |
+|-----|--------|---------|--------|
+| `class_b_gene_set` | `"secondary"` / `"all"` | `"secondary"` | Genes to include in LLR sum |
+| `class_b_scoring` | `"llr"` / `"diag_mahal"` | `"llr"` | LLR (Neyman-Pearson) or diagonal Mahalanobis in uniform space |
+| `class_b_gamma` | `"auto"` / float | `0` (disabled) | Weight for Class B in BB+aux; 0 = pure Mahalanobis |
+| `class_b_gamma_noaux` | `"auto"` / float | `0` (disabled) | Weight for Class B in BB-aux; keep 0 (LLR alone hurts BB-aux) |
+
+Class B is only activated if `class_b_gamma != 0`. WB attacks also benefit (same LLR computation).
+
+**Attack is selected automatically in `run_experiment.py`:**
+- BB+aux with `class_b_gamma != 0` → `attack_mahalanobis_b`
+- BB-aux with `class_b_gamma_noaux != 0` → `attack_mahalanobis_b_no_aux`
+- Otherwise → existing `attack_mahalanobis` / `attack_mahalanobis_no_aux`
+
+**Ablation framework:** `experiments/ablation/run_class_b_ablation.py`
+- Tests 18 variants: `{secondary, all} × {llr, diag_mahal} × {0.01, 0.05, 0.1, 0.2, 0.3, 0.5, 1.0, 2.0, auto}` + baseline
+- Runs ok 10d/50d, aida 10d/50d, cg 10d (5 trials each) + non-SD2 regression checks (3 trials each)
+- Pilot result (ok 10d trial 1): baseline BB+aux AUC=0.770 → `llr_sec_auto` AUC=0.910 (+0.140)
+- **Report results**: `python experiments/ablation/report_ablation.py`
+
+**Retroactive application plan:** Once the ablation identifies the winning gamma, ALL existing
+results (WB+aux, WB-aux, BB+aux, BB-aux across sd2/sd2+DP/sd3g/sd3v/scvi/scdiff/nmf and
+ok/aida/cg) will be re-run with the winning config. This is a full re-sweep.
+
+---
+
 ## Key Implementation Notes
 
 - **Language**: Python (with R calls to scDesign2 via `rpy2` or subprocess, most likely).
@@ -247,10 +298,15 @@ python experiments/sdg_comparison/check_generated_data.py
   train/holdout/aux. Report mean ± std.
 - **Donor split**: `D_train` and `D_holdout` are disjoint; `D_aux` is *not* required to be
   disjoint from either (it is sampled independently).
+  - **490d strategy** (`sample_donors_strategy_490`): train=490, holdout=490, aux=200 subsample
+    of holdout. Aux is guaranteed disjoint from train. In the paper, aux represents a "public
+    reference atlas" approximated by held-out donors; sampling from holdout-only is semantically
+    correct and standard in MIA literature.
 - **Evaluation is donor-level**, not cell-level. Aggregate cell scores → donor score before
   computing AUC.
 - **scDesign2 group 2 genes**: the set included in the Gaussian copula — these are the only
-  genes used in the Mahalanobis distance computation.
+  genes used in the primary Mahalanobis distance. Group-1 (secondary) genes are used by the
+  Class B LLR term.
 
 ---
 

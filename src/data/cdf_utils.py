@@ -106,6 +106,47 @@ def closeness_to_correlation_4(vals1, vals2, correlation):
 
 
 # ---------------------------------------------------------------------------
+# PMF: log-probability of ZINB counts (for LLR-based Class B attacks)
+# ---------------------------------------------------------------------------
+
+def zinb_log_pmf(x, pi, theta, mu):
+    """Log-PMF of Zero-Inflated Negative Binomial at integer counts x (vectorized).
+
+    ZINB(pi, theta, mu):
+        P(X=0) = pi + (1-pi) * NB(0)
+        P(X=k) = (1-pi) * NB(k)   for k > 0
+
+    Handles the Poisson limit when theta == inf.
+    """
+    x = np.asarray(x, dtype=int)
+    if np.isinf(theta):
+        log_nb = poisson.logpmf(x, mu)
+    else:
+        p_nb = theta / (theta + mu)
+        log_nb = nbinom.logpmf(x, theta, p_nb)
+
+    # For zero counts: log( pi + (1-pi)*exp(log_nb_pmf(0)) )
+    # For nonzero:     log(1-pi) + log_nb_pmf(k)
+    log_pmf = np.where(
+        x == 0,
+        np.log(np.clip(pi + (1.0 - pi) * np.exp(log_nb), 1e-300, None)),
+        np.log(np.clip(1.0 - pi, 1e-300, None)) + log_nb,
+    )
+    return log_pmf
+
+
+def activate_from_logits(logits, confidence=1, center=True):
+    """Sigmoid activation for pre-computed log-odds scores (skips the log step in activate()).
+
+    Equivalent to activate(np.exp(logits)) but avoids the overflow-prone exp/log roundtrip.
+    """
+    logits = np.asarray(logits, dtype=float)
+    zscores = stats.zscore(logits)
+    median = np.median(zscores) if center else 0.0
+    return 1.0 / (1.0 + np.exp(-confidence * (zscores - median)))
+
+
+# ---------------------------------------------------------------------------
 # Score activation: maps raw focal-point sums to [0, 1] membership scores
 # ---------------------------------------------------------------------------
 

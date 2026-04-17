@@ -81,21 +81,21 @@ TM_BB_COMBINED = [
 
 SWEEP = [
     # --- scVI ---
-    ("scvi",   "ok_scvi",         "ok", [5, 10, 20, 50, 100], TM_BB_COMBINED, 4),
+    ("scvi",   "ok_scvi",         "ok", [5, 10, 20, 50, 100, 490], TM_BB_COMBINED, 4),
 
     # --- scDiffusion ---
-    ("scdiff", "ok_scdiff",       "ok", [10, 20, 50],         TM_BB_COMBINED, 4),
+    ("scdiff", "ok_scdiff",       "ok", [10, 20, 50, 490],         TM_BB_COMBINED, 4),
 
     # --- scDesign3-Vine ---
     # NOTE: 50d trial 5 was still being regenerated; trials 1-4 are now available.
-    ("sd3v",   "ok_sd3v",         "ok", [10, 20, 50],         TM_BB_COMBINED, 4),
+    ("sd3v",   "ok_sd3v",         "ok", [10, 20, 50, 490],         TM_BB_COMBINED, 4),
 
     # --- scDesign3-Gauss ---
-    ("sd3g",   "ok_sd3g",         "ok", [2, 5, 10, 20, 50, 100, 200], TM_BB_COMBINED, 4),
+    ("sd3g",   "ok_sd3g",         "ok", [2, 5, 10, 20, 50, 100, 200, 490], TM_BB_COMBINED, 4),
 
     # --- NMF (SingleCellNMFGenerator — CAMDA 2024 winner) ---
-    ("nmf",    "ok_nmf",          "ok", [10, 20, 50, 100, 200], TM_BB_COMBINED, 4),
-    ("nmf",    "aida_nmf",      "aida", [10, 20, 50, 100, 200], TM_BB_COMBINED, 4),
+    ("nmf",    "ok_nmf",          "ok",  [10, 20, 50, 100, 200, 490], TM_BB_COMBINED, 4),
+    ("nmf",    "aida_nmf",      "aida",  [10, 20, 50, 100, 200],      TM_BB_COMBINED, 4),
 
     # --- scDesign2 + DP (synthetic data already generated for all eps/nd/trial) ---
     ("sd2_dp", "ok_dp/eps_1",          "ok", [10, 20, 50], TM_BB_COMBINED, 4),
@@ -311,8 +311,10 @@ def write_config(dataset_name, nd, white_box, use_wb_hvgs, use_aux, parallel_wor
         cfg_name = f"{nd}d_{tm_parts}.yaml"
     cfg_path = os.path.join(cfg_dir, cfg_name)
 
+    # At 490d, use the dedicated strategy that sub-samples 200 holdout donors as aux
+    strategy_fn = "sample_donors_strategy_490" if nd >= 490 else "sample_donors_strategy_2"
     mia_setting = {
-        "sample_donors_strategy_fn": "sample_donors_strategy_2",
+        "sample_donors_strategy_fn": strategy_fn,
         "num_donors":    nd,
         "white_box":     white_box,
         "use_wb_hvgs":   use_wb_hvgs,
