@@ -1,0 +1,59 @@
+# Configuration for SingleCellNMFGenerator 
+
+dir_list:
+  # Base path for all outputs; relative to project root
+  home: "."
+  data_splits: "data_splits"
+  processed_data: "data/processed"
+  figures: "results/figures"
+  res_files: "results/files"
+  mia_files: "results/mia"
+
+dataset_config:
+  name: "onek1k"
+  train_count_file: "data/onek1k_annotated_train.h5ad" # edit path for your needs
+  test_count_file:  "data/onek1k_annotated_test.h5ad" # edit path for your needs
+  cell_type_col_name:  "cell_type"
+  cell_label_col_name: "cell_label"
+  celltypist_model:    "data/meta/downloads/Immune_All_High.pkl"
+  random_seed:         28
+  membership_label_col: "membership"
+
+# Select which generator to run: "nmf_sampler" or "sc_dist"
+generator_name: "nmf_sampler"
+
+generate: true
+train:    true
+load_from_checkpoint: false
+
+generator_config:
+  experiment_name: "none"
+
+nmf_sampler_config:
+  sample_fraction:   0.1      # fraction of cells to use for NMF & clustering
+  seed:              28       # random seed
+  sampling_method:   "poisson"   # "zinb" or "poisson"
+  n_components:      20       # number of NMF components (K)
+  nmf_batch_size:    1000     # batch size for MiniBatchNMF
+  n_clusters:        20       # number of clusters in latent space
+  n_synth_samples:  -1       # -1 = match number of real cells
+  proportion_aware:  true     # sample clusters by size if true, uniform if false
+  # Note: output_h5ad is constructed by blue_team.py as:
+  # {home}/{data_splits}/{dataset}/synthetic/{generator_name}/{experiment_name}/onek1k_annotated_synthetic.h5ad
+
+sc_dist_config:
+  noise_level:     0.5     # for sc_dist generator (unused for Poisson)
+  random_seed:     28
+  distribution:    "Poisson"
+  sample_fraction: 0.1
+
+dp_config:
+  eps_nmf:         0.5    # budget for NMF output perturbation
+  nmf_noise_scale: 1.0    # Gaussian noise scale on H
+  eps_kmeans:      2.1    # budget for DP KMeans clustering
+  eps_summaries:   0.2    # budget for Laplace noise on cluster summaries
+  laplace_scale:   1.0    # multiplier for summary noise
+
+evaluator_config:
+  random_seed: 28
+  subsample_n: 10000

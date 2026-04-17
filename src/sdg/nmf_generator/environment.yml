@@ -1,0 +1,17 @@
+name: health-privacy-env
+channels:
+  - defaults
+dependencies:
+  - numpy==2.1.0
+  - pandas=2.2.3
+  - pip=24.3.1
+  - python=3.10
+  - pytorch=2.4.0
+  - scikit-learn=1.5.2
+  - scipy=1.14.1
+  - conda-forge::scanpy
+  - scib
+  - bioconda::celltypist
+  - conda-forge::louvain
+  - diffprivlib
+prefix: /opt/miniconda3/envs/health-privacy-env

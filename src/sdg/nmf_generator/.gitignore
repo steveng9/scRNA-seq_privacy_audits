@@ -1,0 +1,12 @@
+# Byte‐compiled / cache
+__pycache__/
+*.py[cod]
+# Environment files
+.env
+# Data files
+data/
+*.h5ad
+# Editor directories
+.vscode/
+.idea/
+
