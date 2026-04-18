@@ -22,7 +22,7 @@ import numpy as np
 import pandas as pd
 import scanpy as sc
 
-DATA_DIR = "/home/golobs/data"
+DATA_DIR = "/home/golobs/data/scMAMAMIA"
 
 DATASETS = {
     "ok":   os.path.join(DATA_DIR, "ok",   "full_dataset_cleaned.h5ad"),

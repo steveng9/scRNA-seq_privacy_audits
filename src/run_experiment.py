@@ -192,7 +192,8 @@ def create_config(path):
     cfg.target_model_config_path = os.path.join(cfg.models_path, "config.yaml")
     cfg.synth_model_config_path  = os.path.join(cfg.synth_artifacts_path, "config.yaml")
     cfg.aux_model_config_path    = os.path.join(cfg.aux_artifacts_path, "config.yaml")
-    cfg.permanent_hvg_mask_path  = os.path.join(cfg.top_data_dir, "hvg.csv")
+    cfg.permanent_hvg_mask_path  = (cfg.get("hvg_path")
+                                     or os.path.join(cfg.top_data_dir, "hvg.csv"))
     cfg.shadow_modelling_hvg_path = (
         cfg.permanent_hvg_mask_path if cfg.mia_setting.use_wb_hvgs
         else cfg.artifacts_path

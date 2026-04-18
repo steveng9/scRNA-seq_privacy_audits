@@ -17,7 +17,7 @@ import glob
 import numpy as np
 import pandas as pd
 
-DATA = "/home/golobs/data"
+DATA = "/home/golobs/data/scMAMAMIA"
 
 # ---------------------------------------------------------------------------
 # Source definitions
@@ -28,41 +28,41 @@ DATA = "/home/golobs/data"
 # (display_name, sub_label, glob_pattern)
 SOURCES = [
     # --- scDesign2 ---
-    ("scDesign2",        "",         f"{DATA}/ok/*/*/results/quality_eval_results/results/statistics_evals.csv"),
-    ("scDesign2",        "",         f"{DATA}/cg/*/*/results/quality_eval_results/results/statistics_evals.csv"),
-    ("scDesign2",        "",         f"{DATA}/aida/*/*/results/quality_eval_results/results/statistics_evals.csv"),
+    ("scDesign2",        "",         f"{DATA}/ok/scdesign2/no_dp/*/*/results/quality_eval_results/results/statistics_evals.csv"),
+    ("scDesign2",        "",         f"{DATA}/cg/scdesign2/no_dp/*/*/results/quality_eval_results/results/statistics_evals.csv"),
+    ("scDesign2",        "",         f"{DATA}/aida/scdesign2/no_dp/*/*/results/quality_eval_results/results/statistics_evals.csv"),
 
     # --- scDesign2 + DP (ok only) ---
-    ("scDesign2+DP",     r"$\varepsilon=10^{0}$",  f"{DATA}/ok_dp/eps_1/*/*/results/quality_eval_results/results/statistics_evals.csv"),
-    ("scDesign2+DP",     r"$\varepsilon=10^{1}$",  f"{DATA}/ok_dp/eps_10/*/*/results/quality_eval_results/results/statistics_evals.csv"),
-    ("scDesign2+DP",     r"$\varepsilon=10^{2}$",  f"{DATA}/ok_dp/eps_100/*/*/results/quality_eval_results/results/statistics_evals.csv"),
-    ("scDesign2+DP",     r"$\varepsilon=10^{3}$",  f"{DATA}/ok_dp/eps_1000/*/*/results/quality_eval_results/results/statistics_evals.csv"),
-    ("scDesign2+DP",     r"$\varepsilon=10^{4}$",  f"{DATA}/ok_dp/eps_10000/*/*/results/quality_eval_results/results/statistics_evals.csv"),
-    ("scDesign2+DP",     r"$\varepsilon=10^{5}$",  f"{DATA}/ok_dp/eps_100000/*/*/results/quality_eval_results/results/statistics_evals.csv"),
-    ("scDesign2+DP",     r"$\varepsilon=10^{6}$",  f"{DATA}/ok_dp/eps_1000000/*/*/results/quality_eval_results/results/statistics_evals.csv"),
-    ("scDesign2+DP",     r"$\varepsilon=10^{7}$",  f"{DATA}/ok_dp/eps_10000000/*/*/results/quality_eval_results/results/statistics_evals.csv"),
-    ("scDesign2+DP",     r"$\varepsilon=10^{8}$",  f"{DATA}/ok_dp/eps_100000000/*/*/results/quality_eval_results/results/statistics_evals.csv"),
-    ("scDesign2+DP",     r"$\varepsilon=10^{9}$",  f"{DATA}/ok_dp/eps_1000000000/*/*/results/quality_eval_results/results/statistics_evals.csv"),
+    ("scDesign2+DP",     r"$\varepsilon=10^{0}$",  f"{DATA}/ok/scdesign2/eps_1/*/*/results/quality_eval_results/results/statistics_evals.csv"),
+    ("scDesign2+DP",     r"$\varepsilon=10^{1}$",  f"{DATA}/ok/scdesign2/eps_10/*/*/results/quality_eval_results/results/statistics_evals.csv"),
+    ("scDesign2+DP",     r"$\varepsilon=10^{2}$",  f"{DATA}/ok/scdesign2/eps_100/*/*/results/quality_eval_results/results/statistics_evals.csv"),
+    ("scDesign2+DP",     r"$\varepsilon=10^{3}$",  f"{DATA}/ok/scdesign2/eps_1000/*/*/results/quality_eval_results/results/statistics_evals.csv"),
+    ("scDesign2+DP",     r"$\varepsilon=10^{4}$",  f"{DATA}/ok/scdesign2/eps_10000/*/*/results/quality_eval_results/results/statistics_evals.csv"),
+    ("scDesign2+DP",     r"$\varepsilon=10^{5}$",  f"{DATA}/ok/scdesign2/eps_100000/*/*/results/quality_eval_results/results/statistics_evals.csv"),
+    ("scDesign2+DP",     r"$\varepsilon=10^{6}$",  f"{DATA}/ok/scdesign2/eps_1000000/*/*/results/quality_eval_results/results/statistics_evals.csv"),
+    ("scDesign2+DP",     r"$\varepsilon=10^{7}$",  f"{DATA}/ok/scdesign2/eps_10000000/*/*/results/quality_eval_results/results/statistics_evals.csv"),
+    ("scDesign2+DP",     r"$\varepsilon=10^{8}$",  f"{DATA}/ok/scdesign2/eps_100000000/*/*/results/quality_eval_results/results/statistics_evals.csv"),
+    ("scDesign2+DP",     r"$\varepsilon=10^{9}$",  f"{DATA}/ok/scdesign2/eps_1000000000/*/*/results/quality_eval_results/results/statistics_evals.csv"),
 
     # --- scDesign3 Gaussian ---
-    ("scDesign3-G",      "",         f"{DATA}/ok_sd3g/*/*/results/quality_eval_results/results/statistics_evals.csv"),
-    ("scDesign3-G",      "",         f"{DATA}/aida_sd3g/*/*/results/quality_eval_results/results/statistics_evals.csv"),
+    ("scDesign3-G",      "",         f"{DATA}/ok/scdesign3/gaussian/*/*/results/quality_eval_results/results/statistics_evals.csv"),
+    ("scDesign3-G",      "",         f"{DATA}/aida/scdesign3/gaussian/*/*/results/quality_eval_results/results/statistics_evals.csv"),
 
     # --- scDesign3 Vine ---
-    ("scDesign3-V",      "",         f"{DATA}/ok_sd3v/*/*/results/quality_eval_results/results/statistics_evals.csv"),
-    ("scDesign3-V",      "",         f"{DATA}/aida_sd3v/*/*/results/quality_eval_results/results/statistics_evals.csv"),
+    ("scDesign3-V",      "",         f"{DATA}/ok/scdesign3/vine/*/*/results/quality_eval_results/results/statistics_evals.csv"),
+    ("scDesign3-V",      "",         f"{DATA}/aida/scdesign3/vine/*/*/results/quality_eval_results/results/statistics_evals.csv"),
 
     # --- scVI ---
-    ("scVI",             "",         f"{DATA}/ok_scvi/*/*/results/quality_eval_results/results/statistics_evals.csv"),
-    ("scVI",             "",         f"{DATA}/aida_scvi/*/*/results/quality_eval_results/results/statistics_evals.csv"),
+    ("scVI",             "",         f"{DATA}/ok/scvi/no_dp/*/*/results/quality_eval_results/results/statistics_evals.csv"),
+    ("scVI",             "",         f"{DATA}/aida/scvi/no_dp/*/*/results/quality_eval_results/results/statistics_evals.csv"),
 
     # --- scDiffusion ---
-    ("scDiffusion",      "",         f"{DATA}/ok_scdiff/*/*/results/quality_eval_results/results/statistics_evals.csv"),
-    ("scDiffusion",      "",         f"{DATA}/aida_scdiff/*/*/results/quality_eval_results/results/statistics_evals.csv"),
+    ("scDiffusion",      "",         f"{DATA}/ok/scdiffusion/no_dp/*/*/results/quality_eval_results/results/statistics_evals.csv"),
+    ("scDiffusion",      "",         f"{DATA}/aida/scdiffusion/no_dp/*/*/results/quality_eval_results/results/statistics_evals.csv"),
 
     # --- NMF ---
-    ("NMF",              "",         f"{DATA}/ok_nmf/*/*/results/quality_eval_results/results/statistics_evals.csv"),
-    ("NMF",              "",         f"{DATA}/aida_nmf/*/*/results/quality_eval_results/results/statistics_evals.csv"),
+    ("NMF",              "",         f"{DATA}/ok/nmf/no_dp/*/*/results/quality_eval_results/results/statistics_evals.csv"),
+    ("NMF",              "",         f"{DATA}/aida/nmf/no_dp/*/*/results/quality_eval_results/results/statistics_evals.csv"),
 ]
 
 DATASETS = ["ok", "aida", "cg"]
@@ -73,20 +73,9 @@ N_TRIALS = 5
 def dataset_of(path):
     """Infer which dataset a CSV path belongs to."""
     p = path.replace(DATA + "/", "")
-    if p.startswith("ok_dp"):      return "ok"
-    if p.startswith("ok_sd3g"):    return "ok"
-    if p.startswith("ok_sd3v"):    return "ok"
-    if p.startswith("ok_scvi"):    return "ok"
-    if p.startswith("ok_scdiff"):  return "ok"
-    if p.startswith("ok_nmf"):     return "ok"
-    if p.startswith("ok/"):        return "ok"
-    if p.startswith("aida_sd3g"):  return "aida"
-    if p.startswith("aida_sd3v"):  return "aida"
-    if p.startswith("aida_scvi"):  return "aida"
-    if p.startswith("aida_scdiff"):return "aida"
-    if p.startswith("aida_nmf"):   return "aida"
-    if p.startswith("aida/"):      return "aida"
-    if p.startswith("cg/"):        return "cg"
+    if p.startswith("ok/"):   return "ok"
+    if p.startswith("aida/"): return "aida"
+    if p.startswith("cg/"):   return "cg"
     return None
 
 
@@ -183,6 +172,7 @@ def make_ok_only_table(results, nd_label):
         ("scDesign3-V",  ""),
         ("scVI",         ""),
         ("scDiffusion",  ""),
+        ("NMF",          ""),
     ]
 
     lines = []
@@ -249,6 +239,7 @@ def make_table(results):
         ("scDesign3-V",  ""),
         ("scVI",         ""),
         ("scDiffusion",  ""),
+        ("NMF",          ""),
     ]
 
     DS_LABEL = {"ok": "OK1K", "aida": "AIDA", "cg": "CG"}

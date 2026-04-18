@@ -32,7 +32,7 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
-DATA_ROOT = Path("/home/golobs/data")
+DATA_ROOT = Path("/home/golobs/data/scMAMAMIA")
 OUT_DIR   = Path("/home/golobs/scRNA-seq_privacy_audits/figures/umaps")
 
 DATASET_CFG = {
@@ -42,11 +42,12 @@ DATASET_CFG = {
         "ct_col":       "cell_type",
         "backed_real":  False,   # OK1K ~2 GB — fine to load fully
         "methods": {
-            "scDesign2":   DATA_ROOT / "ok",
-            "scDesign3-G": DATA_ROOT / "ok_sd3g",
-            "scDesign3-V": DATA_ROOT / "ok_sd3v",
-            "scVI":        DATA_ROOT / "ok_scvi",
-            "scDiffusion": DATA_ROOT / "ok_scdiff",
+            "scDesign2":   DATA_ROOT / "ok" / "scdesign2" / "no_dp",
+            "scDesign3-G": DATA_ROOT / "ok" / "scdesign3" / "gaussian",
+            "scDesign3-V": DATA_ROOT / "ok" / "scdesign3" / "vine",
+            "scVI":        DATA_ROOT / "ok" / "scvi" / "no_dp",
+            "scDiffusion": DATA_ROOT / "ok" / "scdiffusion" / "no_dp",
+            "NMF":         DATA_ROOT / "ok" / "nmf" / "no_dp",
         },
     },
     "aida": {
@@ -55,8 +56,9 @@ DATASET_CFG = {
         "ct_col":       "cell_type",
         "backed_real":  True,    # AIDA 57 GB — must subsample in backed mode
         "methods": {
-            "scVI":        DATA_ROOT / "aida_scvi",
-            "scDiffusion": DATA_ROOT / "aida_scdiff",
+            "scVI":        DATA_ROOT / "aida" / "scvi" / "no_dp",
+            "scDiffusion": DATA_ROOT / "aida" / "scdiffusion" / "no_dp",
+            "NMF":         DATA_ROOT / "aida" / "nmf" / "no_dp",
         },
     },
 }

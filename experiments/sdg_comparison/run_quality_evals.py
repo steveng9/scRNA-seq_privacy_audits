@@ -25,7 +25,7 @@ import argparse
 import traceback
 import multiprocessing as mp
 
-DATA = "/home/golobs/data"
+DATA = "/home/golobs/data/scMAMAMIA"
 SRC_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 if SRC_DIR not in sys.path:
     sys.path.insert(0, SRC_DIR)
@@ -38,26 +38,25 @@ if SRC_DIR not in sys.path:
 
 DATASETS = [
     # --- New SDG methods: OK1K ---
-    (f"{DATA}/ok_sd3g",   f"{DATA}/ok/full_dataset_cleaned.h5ad",   "ok"),
-    (f"{DATA}/ok_sd3v",   f"{DATA}/ok/full_dataset_cleaned.h5ad",   "ok"),
-    (f"{DATA}/ok_scvi",   f"{DATA}/ok/full_dataset_cleaned.h5ad",   "ok"),
-    (f"{DATA}/ok_scdiff", f"{DATA}/ok/full_dataset_cleaned.h5ad",   "ok"),
-    (f"{DATA}/ok_nmf",    f"{DATA}/ok/full_dataset_cleaned.h5ad",   "ok"),
+    (f"{DATA}/ok/scdesign3/gaussian",   f"{DATA}/ok/full_dataset_cleaned.h5ad", "ok"),
+    (f"{DATA}/ok/scdesign3/vine",       f"{DATA}/ok/full_dataset_cleaned.h5ad", "ok"),
+    (f"{DATA}/ok/scvi/no_dp",           f"{DATA}/ok/full_dataset_cleaned.h5ad", "ok"),
+    (f"{DATA}/ok/scdiffusion/no_dp",    f"{DATA}/ok/full_dataset_cleaned.h5ad", "ok"),
+    (f"{DATA}/ok/nmf/no_dp",            f"{DATA}/ok/full_dataset_cleaned.h5ad", "ok"),
 
     # --- New SDG methods: AIDA ---
-    (f"{DATA}/aida_sd3g",   f"{DATA}/aida/full_dataset_cleaned.h5ad", "aida"),
-    (f"{DATA}/aida_sd3v",   f"{DATA}/aida/full_dataset_cleaned.h5ad", "aida"),
-    (f"{DATA}/aida_scvi",   f"{DATA}/aida/full_dataset_cleaned.h5ad", "aida"),
-    (f"{DATA}/aida_scdiff", f"{DATA}/aida/full_dataset_cleaned.h5ad", "aida"),
-    (f"{DATA}/aida_nmf",    f"{DATA}/aida/full_dataset_cleaned.h5ad", "aida"),
+    (f"{DATA}/aida/scdesign3/gaussian",  f"{DATA}/aida/full_dataset_cleaned.h5ad", "aida"),
+    (f"{DATA}/aida/scdesign3/vine",      f"{DATA}/aida/full_dataset_cleaned.h5ad", "aida"),
+    (f"{DATA}/aida/scvi/no_dp",          f"{DATA}/aida/full_dataset_cleaned.h5ad", "aida"),
+    (f"{DATA}/aida/scdiffusion/no_dp",   f"{DATA}/aida/full_dataset_cleaned.h5ad", "aida"),
+    (f"{DATA}/aida/nmf/no_dp",           f"{DATA}/aida/full_dataset_cleaned.h5ad", "aida"),
 
-    # scDesign2 (original) and scDesign2+DP (eps 1–10000) are already evaluated.
-    # High-epsilon DP datasets:
-    (f"{DATA}/ok_dp/eps_100000",   f"{DATA}/ok/full_dataset_cleaned.h5ad", "ok"),
-    (f"{DATA}/ok_dp/eps_1000000",  f"{DATA}/ok/full_dataset_cleaned.h5ad", "ok"),
-    (f"{DATA}/ok_dp/eps_10000000", f"{DATA}/ok/full_dataset_cleaned.h5ad", "ok"),
-    (f"{DATA}/ok_dp/eps_100000000",  f"{DATA}/ok/full_dataset_cleaned.h5ad", "ok"),
-    (f"{DATA}/ok_dp/eps_1000000000", f"{DATA}/ok/full_dataset_cleaned.h5ad", "ok"),
+    # scDesign2+DP high-epsilon:
+    (f"{DATA}/ok/scdesign2/eps_100000",    f"{DATA}/ok/full_dataset_cleaned.h5ad", "ok"),
+    (f"{DATA}/ok/scdesign2/eps_1000000",   f"{DATA}/ok/full_dataset_cleaned.h5ad", "ok"),
+    (f"{DATA}/ok/scdesign2/eps_10000000",  f"{DATA}/ok/full_dataset_cleaned.h5ad", "ok"),
+    (f"{DATA}/ok/scdesign2/eps_100000000",   f"{DATA}/ok/full_dataset_cleaned.h5ad", "ok"),
+    (f"{DATA}/ok/scdesign2/eps_1000000000",  f"{DATA}/ok/full_dataset_cleaned.h5ad", "ok"),
 ]
 
 CELL_TYPE_COL = {

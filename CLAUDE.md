@@ -177,6 +177,32 @@ Before starting any work, use your tools to read the actual repository structure
 understand where things live. Do not assume any particular layout. Map it out first,
 then update this section with the real structure.
 
+### Data Layout (reorganized 2026-04-18)
+
+All synthetic data lives under `~/data/scMAMAMIA/` with a clean hierarchy:
+```
+~/data/scMAMAMIA/
+  {dataset}/                        # ok, aida, cg
+    full_dataset_cleaned.h5ad       # canonical source data
+    hvg.csv  /  hvg_full.csv        # shared HVG masks
+    scdesign2/
+      no_dp/{nd}d/{trial}/          # scDesign2 non-DP
+      eps_{e}/{nd}d/{trial}/        # scDesign2+DP
+    scdesign3/
+      gaussian/{nd}d/{trial}/
+      vine/{nd}d/{trial}/
+    scvi/no_dp/{nd}d/{trial}/
+    scdiffusion/no_dp/{nd}d/{trial}/
+    nmf/
+      no_dp/{nd}d/{trial}/          # NMF non-DP
+      eps_{e}/{nd}d/{trial}/        # NMF+DP sweep
+```
+
+No symlinks. `run_experiment.py` accepts an optional `hvg_path` config key that overrides
+the auto-derived `top_data_dir/hvg.csv` path. `run_mia_sweep.py` sets this automatically.
+
+---
+
 ### NMF Generator (integrated 2026-04-17)
 
 `src/sdg/nmf_generator/` — upstream clone of `AndrewJWicks/SingleCellNMFGenerator`
@@ -190,10 +216,17 @@ assignment. Note: NMF is used only for clustering; generation is per-gene, per-c
 statistics (no gene-gene correlations). This means scMAMA-MIA cannot directly exploit
 the NMF structure (no copula to attack).
 
+**NMF quality:** LISI=0.268 (ok) vs 0.881 (scDesign2) — intrinsic limitation of NMF
+(no gene-gene correlations, Poisson sampling, coarse clustering). Not a bug; valid to report.
+
 **CAMDA 2024 DP parameters** (from upstream `config.yaml`):
   `eps_nmf=0.5`, `eps_kmeans=2.1`, `eps_summaries=0.2`
   These are *separate* per-stage budgets and do not compose to a single ε under standard
   DP — the DP guarantees are not formally rigorous.
+
+**NMF DP sweep** (`gen_nmf_dp_sweep.py`): Sweeps ε=[1,100,10000,1000000,100000000] then
+odd powers, ok 50d, 5 trials. Sub-epsilons allocated proportionally to CAMDA ratios
+(0.5:2.1:0.2, total=2.8). Output: `scMAMAMIA/ok/nmf/eps_{e}/50d/{trial}/`.
 
 **Targeted generation** (run just NMF, skip HVG recomputation):
 ```bash
@@ -208,10 +241,10 @@ nohup conda run --no-capture-output -n tabddpm_ \
 conda run --no-capture-output -n tabddpm_ \
     python experiments/sdg_comparison/generate_trial.py \
     --generator nmf \
-    --dataset /home/golobs/data/ok/full_dataset_cleaned.h5ad \
-    --splits-dir /home/golobs/data/ok/10d/1/datasets \
-    --out-dir /home/golobs/data/ok_nmf/10d/1 \
-    --hvg-path /home/golobs/data/ok/hvg_full.csv \
+    --dataset /home/golobs/data/scMAMAMIA/ok/full_dataset_cleaned.h5ad \
+    --splits-dir /home/golobs/data/scMAMAMIA/ok/scdesign2/no_dp/10d/1/datasets \
+    --out-dir /home/golobs/data/scMAMAMIA/ok/nmf/no_dp/10d/1 \
+    --hvg-path /home/golobs/data/scMAMAMIA/ok/hvg_full.csv \
     --conda-env nmf_
 ```
 

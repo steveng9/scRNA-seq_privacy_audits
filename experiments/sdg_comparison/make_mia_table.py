@@ -73,7 +73,7 @@ import pandas as pd
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
-DATA_DIR = "/home/golobs/data"
+DATA_DIR = "/home/golobs/data/scMAMAMIA"
 N_TRIALS = 5
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
@@ -106,23 +106,23 @@ METRIC_ROW = {
 #   wb_supported — True only for scDesign2, which has actual white-box access
 # ---------------------------------------------------------------------------
 SDG_METHODS = [
-    # key          display_name      sub_label                dataset_path           wb_supported
-    ("sd2",        "scDesign2",      "",                      "ok",                  True),
-    ("sd2_dp_1e9", "scDesign2+DP",   r"$\varepsilon=10^{9}$", "ok_dp/eps_1000000000",False),
-    ("sd2_dp_1e8", "scDesign2+DP",   r"$\varepsilon=10^{8}$", "ok_dp/eps_100000000", False),
-    ("sd2_dp_1e7", "scDesign2+DP",   r"$\varepsilon=10^{7}$", "ok_dp/eps_10000000",  False),
-    ("sd2_dp_1e6", "scDesign2+DP",   r"$\varepsilon=10^{6}$", "ok_dp/eps_1000000",   False),
-    ("sd2_dp_1e5", "scDesign2+DP",   r"$\varepsilon=10^{5}$", "ok_dp/eps_100000",    False),
-    ("sd2_dp_1e4", "scDesign2+DP",   r"$\varepsilon=10^{4}$", "ok_dp/eps_10000",     False),
-    ("sd2_dp_1e3", "scDesign2+DP",   r"$\varepsilon=10^{3}$", "ok_dp/eps_1000",      False),
-    ("sd2_dp_1e2", "scDesign2+DP",   r"$\varepsilon=10^{2}$", "ok_dp/eps_100",       False),
-    ("sd2_dp_1e1", "scDesign2+DP",   r"$\varepsilon=10^{1}$", "ok_dp/eps_10",        False),
-    ("sd2_dp_1e0", "scDesign2+DP",   r"$\varepsilon=10^{0}$", "ok_dp/eps_1",         False),
-    ("sd3g",       "scDesign3-G",    "",                      "ok_sd3g",             False),
-    ("sd3v",       "scDesign3-V",    "",                      "ok_sd3v",             False),
-    ("scvi",       "scVI",           "",                      "ok_scvi",             False),
-    ("scdiff",     "scDiffusion",    "",                      "ok_scdiff",           False),
-    ("nmf",        "NMF",            "",                      "ok_nmf",              False),
+    # key          display_name      sub_label                dataset_path                       wb_supported
+    ("sd2",        "scDesign2",      "",                      "ok/scdesign2/no_dp",              True),
+    ("sd2_dp_1e9", "scDesign2+DP",   r"$\varepsilon=10^{9}$", "ok/scdesign2/eps_1000000000",     False),
+    ("sd2_dp_1e8", "scDesign2+DP",   r"$\varepsilon=10^{8}$", "ok/scdesign2/eps_100000000",      False),
+    ("sd2_dp_1e7", "scDesign2+DP",   r"$\varepsilon=10^{7}$", "ok/scdesign2/eps_10000000",       False),
+    ("sd2_dp_1e6", "scDesign2+DP",   r"$\varepsilon=10^{6}$", "ok/scdesign2/eps_1000000",        False),
+    ("sd2_dp_1e5", "scDesign2+DP",   r"$\varepsilon=10^{5}$", "ok/scdesign2/eps_100000",         False),
+    ("sd2_dp_1e4", "scDesign2+DP",   r"$\varepsilon=10^{4}$", "ok/scdesign2/eps_10000",          False),
+    ("sd2_dp_1e3", "scDesign2+DP",   r"$\varepsilon=10^{3}$", "ok/scdesign2/eps_1000",           False),
+    ("sd2_dp_1e2", "scDesign2+DP",   r"$\varepsilon=10^{2}$", "ok/scdesign2/eps_100",            False),
+    ("sd2_dp_1e1", "scDesign2+DP",   r"$\varepsilon=10^{1}$", "ok/scdesign2/eps_10",             False),
+    ("sd2_dp_1e0", "scDesign2+DP",   r"$\varepsilon=10^{0}$", "ok/scdesign2/eps_1",              False),
+    ("sd3g",       "scDesign3-G",    "",                      "ok/scdesign3/gaussian",           False),
+    ("sd3v",       "scDesign3-V",    "",                      "ok/scdesign3/vine",               False),
+    ("scvi",       "scVI",           "",                      "ok/scvi/no_dp",                   False),
+    ("scdiff",     "scDiffusion",    "",                      "ok/scdiffusion/no_dp",            False),
+    ("nmf",        "NMF",            "",                      "ok/nmf/no_dp",                    False),
 ]
 
 

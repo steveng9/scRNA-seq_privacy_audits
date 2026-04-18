@@ -51,7 +51,7 @@ import tempfile
 # ---------------------------------------------------------------------------
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 SRC_DIR   = os.path.join(REPO_ROOT, "src")
-DATA_DIR  = "/home/golobs/data"
+DATA_DIR  = "/home/golobs/data/scMAMAMIA"
 RUNNER    = os.path.join(SRC_DIR, "run_experiment.py")
 N_TRIALS  = 5
 
@@ -81,33 +81,32 @@ TM_BB_COMBINED = [
 
 SWEEP = [
     # --- scVI ---
-    ("scvi",   "ok_scvi",         "ok", [5, 10, 20, 50, 100, 490], TM_BB_COMBINED, 4),
+    ("scvi",   "ok/scvi/no_dp",         "ok", [5, 10, 20, 50, 100, 490], TM_BB_COMBINED, 4),
 
     # --- scDiffusion ---
-    ("scdiff", "ok_scdiff",       "ok", [10, 20, 50, 490],         TM_BB_COMBINED, 4),
+    ("scdiff", "ok/scdiffusion/no_dp",  "ok", [10, 20, 50, 490],         TM_BB_COMBINED, 4),
 
     # --- scDesign3-Vine ---
-    # NOTE: 50d trial 5 was still being regenerated; trials 1-4 are now available.
-    ("sd3v",   "ok_sd3v",         "ok", [10, 20, 50, 490],         TM_BB_COMBINED, 4),
+    ("sd3v",   "ok/scdesign3/vine",     "ok", [10, 20, 50, 490],         TM_BB_COMBINED, 4),
 
     # --- scDesign3-Gauss ---
-    ("sd3g",   "ok_sd3g",         "ok", [2, 5, 10, 20, 50, 100, 200, 490], TM_BB_COMBINED, 4),
+    ("sd3g",   "ok/scdesign3/gaussian", "ok", [2, 5, 10, 20, 50, 100, 200, 490], TM_BB_COMBINED, 4),
 
     # --- NMF (SingleCellNMFGenerator — CAMDA 2024 winner) ---
-    ("nmf",    "ok_nmf",          "ok",  [10, 20, 50, 100, 200, 490], TM_BB_COMBINED, 4),
-    ("nmf",    "aida_nmf",      "aida",  [10, 20, 50, 100, 200],      TM_BB_COMBINED, 4),
+    ("nmf",    "ok/nmf/no_dp",    "ok",   [10, 20, 50, 100, 200, 490], TM_BB_COMBINED, 4),
+    ("nmf",    "aida/nmf/no_dp",  "aida", [10, 20, 50, 100, 200],      TM_BB_COMBINED, 4),
 
     # --- scDesign2 + DP (synthetic data already generated for all eps/nd/trial) ---
-    ("sd2_dp", "ok_dp/eps_1",          "ok", [10, 20, 50], TM_BB_COMBINED, 4),
-    ("sd2_dp", "ok_dp/eps_10",         "ok", [10, 20, 50], TM_BB_COMBINED, 4),
-    ("sd2_dp", "ok_dp/eps_100",        "ok", [10, 20, 50], TM_BB_COMBINED, 4),
-    ("sd2_dp", "ok_dp/eps_1000",       "ok", [10, 20, 50], TM_BB_COMBINED, 4),
-    ("sd2_dp", "ok_dp/eps_10000",      "ok", [10, 20, 50], TM_BB_COMBINED, 4),
-    ("sd2_dp", "ok_dp/eps_100000",     "ok", [10, 20, 50], TM_BB_COMBINED, 4),
-    ("sd2_dp", "ok_dp/eps_1000000",    "ok", [10, 20, 50], TM_BB_COMBINED, 4),
-    ("sd2_dp", "ok_dp/eps_10000000",   "ok", [10, 20, 50], TM_BB_COMBINED, 4),
-    ("sd2_dp", "ok_dp/eps_100000000",  "ok", [10, 20, 50], TM_BB_COMBINED, 4),
-    ("sd2_dp", "ok_dp/eps_1000000000", "ok", [10, 20, 50], TM_BB_COMBINED, 4),
+    ("sd2_dp", "ok/scdesign2/eps_1",          "ok", [10, 20, 50], TM_BB_COMBINED, 4),
+    ("sd2_dp", "ok/scdesign2/eps_10",         "ok", [10, 20, 50], TM_BB_COMBINED, 4),
+    ("sd2_dp", "ok/scdesign2/eps_100",        "ok", [10, 20, 50], TM_BB_COMBINED, 4),
+    ("sd2_dp", "ok/scdesign2/eps_1000",       "ok", [10, 20, 50], TM_BB_COMBINED, 4),
+    ("sd2_dp", "ok/scdesign2/eps_10000",      "ok", [10, 20, 50], TM_BB_COMBINED, 4),
+    ("sd2_dp", "ok/scdesign2/eps_100000",     "ok", [10, 20, 50], TM_BB_COMBINED, 4),
+    ("sd2_dp", "ok/scdesign2/eps_1000000",    "ok", [10, 20, 50], TM_BB_COMBINED, 4),
+    ("sd2_dp", "ok/scdesign2/eps_10000000",   "ok", [10, 20, 50], TM_BB_COMBINED, 4),
+    ("sd2_dp", "ok/scdesign2/eps_100000000",  "ok", [10, 20, 50], TM_BB_COMBINED, 4),
+    ("sd2_dp", "ok/scdesign2/eps_1000000000", "ok", [10, 20, 50], TM_BB_COMBINED, 4),
 ]
 
 # Standard scMAMA-MIA hyper-parameters (matches existing experiments)
@@ -138,42 +137,10 @@ def _make_symlink(src, dst):
 
 
 def setup_symlinks():
-    """
-    For each SDG-specific data directory that shares a donor pool with a base
-    dataset (e.g. ok_sd3g uses ok's donors), create symlinks so that
-    run_experiment.py can find full_dataset_cleaned.h5ad and hvg.csv.
-    """
-    print("\n[SETUP] Creating symlinks…")
-    seen = set()  # avoid duplicate work for the same (sdg_dir, base_dir) pair
-
-    for sdg_key, dataset_name, base_dataset, donor_counts, tms, pw in SWEEP:
-        sdg_path  = os.path.join(DATA_DIR, *dataset_name.split("/"))
-        base_path = os.path.join(DATA_DIR, base_dataset)
-
-        if not os.path.isdir(sdg_path):
-            continue
-        if (sdg_path, base_path) in seen:
-            continue
-        seen.add((sdg_path, base_path))
-
-        # If the SDG dir IS the base dir (scDesign2 proper), nothing to do.
-        if os.path.abspath(sdg_path) == os.path.abspath(base_path):
-            continue
-
-        h5ad_src = os.path.relpath(
-            os.path.join(base_path, "full_dataset_cleaned.h5ad"), sdg_path
-        )
-        hvg_src = os.path.relpath(
-            os.path.join(DATA_DIR, "ok", "hvg.csv")
-            if base_dataset.startswith("ok")
-            else os.path.join(base_path, "hvg.csv"),
-            sdg_path,
-        )
-
-        _make_symlink(h5ad_src, os.path.join(sdg_path, "full_dataset_cleaned.h5ad"))
-        _make_symlink(hvg_src,  os.path.join(sdg_path, "hvg.csv"))
-
-    print("[SETUP] Symlinks done.")
+    """No-op: symlinks are no longer needed. full_dataset_cleaned.h5ad and
+    hvg.csv live at the dataset root (e.g. scMAMAMIA/ok/), and hvg_path is
+    passed explicitly in each run_experiment.py config YAML."""
+    print("\n[SETUP] Symlinks: not needed in scMAMAMIA layout — skipping.")
 
 
 def setup_dp_splits():
@@ -208,14 +175,15 @@ def setup_dp_splits():
                 if os.path.exists(holdout_npy) and os.path.exists(aux_npy):
                     continue  # already done
 
-                # Load all donors lazily — use the h5ad symlink inside the eps dir
+                # Load all donors lazily — h5ad lives at the base dataset root
                 if dataset_name not in _all_donors_cache:
-                    eps_h5ad = os.path.join(sdg_path, "full_dataset_cleaned.h5ad")
-                    if not os.path.exists(eps_h5ad):
-                        print(f"  [WARN] {eps_h5ad} not found; skipping DP splits for {dataset_name}.")
+                    base_h5ad = os.path.join(DATA_DIR, base_dataset,
+                                             "full_dataset_cleaned.h5ad")
+                    if not os.path.exists(base_h5ad):
+                        print(f"  [WARN] {base_h5ad} not found; skipping DP splits for {dataset_name}.")
                         break
-                    print(f"  Loading donor list from {eps_h5ad} …")
-                    adata = ad.read_h5ad(eps_h5ad, backed="r")
+                    print(f"  Loading donor list from {base_h5ad} …")
+                    adata = ad.read_h5ad(base_h5ad, backed="r")
                     _all_donors_cache[dataset_name] = adata.obs["individual"].unique()
                     adata.file.close()
                 all_donors = _all_donors_cache[dataset_name]
@@ -295,8 +263,8 @@ def n_synth_available(data_dir, nd):
 # Config generation
 # ===========================================================================
 
-def write_config(dataset_name, nd, white_box, use_wb_hvgs, use_aux, parallel_workers,
-                 cfg_dir, run_both_bb=False):
+def write_config(dataset_name, base_dataset, nd, white_box, use_wb_hvgs, use_aux,
+                 parallel_workers, cfg_dir, run_both_bb=False):
     """
     Write a run_experiment.py config YAML to cfg_dir and return its path.
     Both local and server dir_list entries point to the server paths so the
@@ -326,12 +294,15 @@ def write_config(dataset_name, nd, white_box, use_wb_hvgs, use_aux, parallel_wor
     if run_both_bb:
         mia_setting["run_both_bb"] = True
 
+    hvg_path = os.path.join(DATA_DIR, base_dataset, "hvg.csv")
+
     cfg = {
         "dir_list": {
             "local":  {"home": REPO_ROOT, "data": DATA_DIR},
             "server": {"home": REPO_ROOT, "data": DATA_DIR},
         },
         "dataset_name": dataset_name,
+        "hvg_path":     hvg_path,
         "generator_name": "scdesign2",   # always scdesign2 as shadow model
         "plot_results":   False,
         "parallelize":    True,
@@ -487,8 +458,8 @@ def main():
                       f"({n_done}/{min(N_TRIALS, n_avail)} done, need {n_needed} more)")
 
                 config_path = write_config(
-                    dataset_name, nd, white_box, use_wb_hvgs, use_aux, pw, cfg_dir,
-                    run_both_bb=is_combined,
+                    dataset_name, base_dataset, nd, white_box, use_wb_hvgs, use_aux,
+                    pw, cfg_dir, run_both_bb=is_combined,
                 )
 
                 for run_i in range(n_needed):

@@ -10,7 +10,7 @@ import os
 import re
 import subprocess
 
-DATA    = "/home/golobs/data"
+DATA    = "/home/golobs/data/scMAMAMIA"
 LOG_DIR = "/tmp/sdg_comparison_logs"
 
 # --- Dataset / generator definitions ---
@@ -18,34 +18,40 @@ LOG_DIR = "/tmp/sdg_comparison_logs"
 
 GENERATORS = [
     # scDesign2 (original)
-    ("ok  / scDesign2",   f"{DATA}/ok",       [2, 5, 10, 20, 50, 100, 200], False, None),
-    ("cg  / scDesign2",   f"{DATA}/cg",       [2, 5, 10, 20],               False, None),
-    ("aida/ scDesign2",   f"{DATA}/aida",     [5, 10, 20, 50, 100, 200],    False, None),
+    ("ok  / scDesign2",   f"{DATA}/ok/scdesign2/no_dp",   [2, 5, 10, 20, 50, 100, 200], False, None),
+    ("cg  / scDesign2",   f"{DATA}/cg/scdesign2/no_dp",   [2, 5, 10, 20],               False, None),
+    ("aida/ scDesign2",   f"{DATA}/aida/scdesign2/no_dp", [5, 10, 20, 50, 100, 200],    False, None),
 
     # scDesign2 + DP (ok only)
-    ("ok  / scDesign2+DP", f"{DATA}/ok_dp",   [10, 20, 50],                 True,
+    ("ok  / scDesign2+DP", f"{DATA}/ok/scdesign2",        [10, 20, 50],                 True,
      ["eps_0.1", "eps_0.5", "eps_1", "eps_2", "eps_5", "eps_10",
-      "eps_100", "eps_1000", "eps_10000"]),
+      "eps_100", "eps_1000", "eps_10000",
+      "eps_100000", "eps_1000000", "eps_10000000", "eps_100000000", "eps_1000000000"]),
 
     # scDesign3 Gaussian
-    ("ok  / scDesign3-Gauss", f"{DATA}/ok_sd3g",   [2, 5, 10, 20, 50, 100, 200], False, None),
-    ("aida/ scDesign3-Gauss", f"{DATA}/aida_sd3g", [10, 20, 50, 100],             False, None),
+    ("ok  / scDesign3-Gauss", f"{DATA}/ok/scdesign3/gaussian",   [2, 5, 10, 20, 50, 100, 200], False, None),
+    ("aida/ scDesign3-Gauss", f"{DATA}/aida/scdesign3/gaussian", [10, 20, 50, 100],             False, None),
 
     # scDesign3 Vine
-    ("ok  / scDesign3-Vine",  f"{DATA}/ok_sd3v",   [10, 20, 50, 100],            False, None),
-    ("aida/ scDesign3-Vine",  f"{DATA}/aida_sd3v", [10, 20, 50],                  False, None),
+    ("ok  / scDesign3-Vine",  f"{DATA}/ok/scdesign3/vine",   [10, 20, 50, 100],  False, None),
+    ("aida/ scDesign3-Vine",  f"{DATA}/aida/scdesign3/vine", [10, 20, 50],        False, None),
 
     # scVI
-    ("ok  / scVI",   f"{DATA}/ok_scvi",   [5, 10, 20, 50, 100],  False, None),
-    ("aida/ scVI",   f"{DATA}/aida_scvi", [10, 20, 50],           False, None),
+    ("ok  / scVI",   f"{DATA}/ok/scvi/no_dp",   [5, 10, 20, 50, 100], False, None),
+    ("aida/ scVI",   f"{DATA}/aida/scvi/no_dp", [10, 20, 50],          False, None),
 
     # scDiffusion
-    ("ok  / scDiffusion",   f"{DATA}/ok_scdiff",   [10, 20, 50],         False, None),
-    ("aida/ scDiffusion",   f"{DATA}/aida_scdiff", [20, 50],              False, None),
+    ("ok  / scDiffusion",   f"{DATA}/ok/scdiffusion/no_dp",   [10, 20, 50], False, None),
+    ("aida/ scDiffusion",   f"{DATA}/aida/scdiffusion/no_dp", [20, 50],      False, None),
 
     # NMF (SingleCellNMFGenerator — CAMDA 2024 co-winner)
-    ("ok  / NMF",           f"{DATA}/ok_nmf",      [10, 20, 50, 100, 200], False, None),
-    ("aida/ NMF",           f"{DATA}/aida_nmf",    [10, 20, 50, 100, 200], False, None),
+    ("ok  / NMF",    f"{DATA}/ok/nmf/no_dp",   [10, 20, 50, 100], False, None),
+    ("aida/ NMF",    f"{DATA}/aida/nmf/no_dp", [10, 20, 50],       False, None),
+
+    # NMF + DP (ok only)
+    ("ok  / NMF+DP", f"{DATA}/ok/nmf",         [50],               True,
+     ["eps_1", "eps_10", "eps_100", "eps_1000", "eps_10000",
+      "eps_100000", "eps_1000000", "eps_10000000", "eps_100000000"]),
 ]
 
 N_TRIALS = 5

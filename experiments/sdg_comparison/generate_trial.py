@@ -248,7 +248,8 @@ def generate_scvi(out_dir, dataset_path, splits_dir, hvg_path,
 
 def generate_nmf(out_dir, dataset_path, splits_dir, hvg_path,
                  individual_col, cell_type_col, conda_env,
-                 n_components=20, dp_mode="none", seed=42, batch_size=1000):
+                 n_components=20, dp_mode="none", seed=42, batch_size=1000,
+                 dp_eps_nmf=0.5, dp_eps_kmeans=2.1, dp_eps_summaries=0.2):
     """Train NMF-based generator and produce synthetic data."""
     ds_dir    = os.path.join(out_dir, "datasets")
     synth_out = os.path.join(ds_dir, "synthetic.h5ad")
@@ -273,6 +274,9 @@ def generate_nmf(out_dir, dataset_path, splits_dir, hvg_path,
         f"--output-h5ad {synth_out} "
         f"--n-components {n_components} "
         f"--dp-mode {dp_mode} "
+        f"--dp-eps-nmf {dp_eps_nmf} "
+        f"--dp-eps-kmeans {dp_eps_kmeans} "
+        f"--dp-eps-summaries {dp_eps_summaries} "
         f"--cell-type-col {cell_type_col} "
         f"--seed {seed} "
         f"--batch-size {batch_size}"
@@ -386,6 +390,12 @@ def main():
                     default="none",
                     help="NMF DP noise stages (default: none)")
     ap.add_argument("--nmf-seed",    type=int, default=42)
+    ap.add_argument("--dp-eps-nmf",       type=float, default=0.5,
+                    help="NMF basis DP epsilon (used only when --dp-mode includes nmf)")
+    ap.add_argument("--dp-eps-kmeans",    type=float, default=2.1,
+                    help="KMeans centroid DP epsilon (used only when --dp-mode includes kmeans)")
+    ap.add_argument("--dp-eps-summaries", type=float, default=0.2,
+                    help="Cluster summary DP epsilon (used only when --dp-mode includes sampling)")
     args = ap.parse_args()
 
     os.makedirs(args.out_dir, exist_ok=True)
@@ -450,6 +460,9 @@ def main():
             dp_mode=args.dp_mode,
             seed=args.nmf_seed,
             batch_size=args.batch_size,
+            dp_eps_nmf=args.dp_eps_nmf,
+            dp_eps_kmeans=args.dp_eps_kmeans,
+            dp_eps_summaries=args.dp_eps_summaries,
         )
 
     print(f"Done: {args.generator}  {args.out_dir}", flush=True)

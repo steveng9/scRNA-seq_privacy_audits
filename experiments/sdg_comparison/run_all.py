@@ -46,7 +46,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 # Paths
 # ---------------------------------------------------------------------------
 REPO     = "/home/golobs/scRNA-seq_privacy_audits"
-DATA     = "/home/golobs/data"
+DATA     = "/home/golobs/data/scMAMAMIA"
 LOG_DIR  = "/tmp/sdg_comparison_logs"
 PID_FILE = "/tmp/sdg_comparison_pids.txt"
 
@@ -135,18 +135,21 @@ class _GpuPool:
 # Per-trial job builders
 # ---------------------------------------------------------------------------
 
-def _sd3_jobs(dataset, generator, donor_counts):
-    """Yield (label, cmd, log, env) for every scDesign3 trial."""
-    src_dataset = dataset.split("_")[0]  # "ok" or "aida"
-    full_h5ad   = f"{DATA}/{src_dataset}/full_dataset_cleaned.h5ad"
-    hvg_path    = f"{DATA}/{src_dataset}/hvg_full.csv"
-    copula      = "gaussian" if "sd3g" in dataset else "vine"
+def _sd3_jobs(src, copula, donor_counts):
+    """Yield (label, cmd, log, env) for every scDesign3 trial.
+
+    src    — base dataset key, e.g. "ok" or "aida"
+    copula — "gaussian" or "vine"
+    """
+    full_h5ad  = f"{DATA}/{src}/full_dataset_cleaned.h5ad"
+    hvg_path   = f"{DATA}/{src}/hvg_full.csv"
+    out_prefix = f"{DATA}/{src}/scdesign3/{copula}"
 
     for nd in donor_counts:
         for trial in range(1, N_TRIALS + 1):
-            splits_dir = f"{DATA}/{src_dataset}/{nd}d/{trial}/datasets"
-            out_dir    = f"{DATA}/{dataset}/{nd}d/{trial}"
-            label      = f"{dataset}_{nd}d_t{trial}"
+            splits_dir = f"{DATA}/{src}/scdesign2/no_dp/{nd}d/{trial}/datasets"
+            out_dir    = f"{out_prefix}/{nd}d/{trial}"
+            label      = f"{src}_sd3{copula[0]}_{nd}d_t{trial}"
             cmd = (
                 f"{PYTHON} {GEN_TRIAL_PY} "
                 f"--generator sd3_{copula} "
@@ -159,17 +162,16 @@ def _sd3_jobs(dataset, generator, donor_counts):
             yield label, cmd, log, {}
 
 
-def _scvi_jobs(dataset, donor_counts):
+def _scvi_jobs(src, donor_counts):
     """Yield (label, cmd, log, env) for every scVI trial (env set later)."""
-    src = dataset.replace("_scvi", "")  # "ok" or "aida"
     full_h5ad = f"{DATA}/{src}/full_dataset_cleaned.h5ad"
     hvg_path  = f"{DATA}/{src}/hvg_full.csv"
 
     for nd in donor_counts:
         for trial in range(1, N_TRIALS + 1):
-            splits_dir = f"{DATA}/{src}/{nd}d/{trial}/datasets"
-            out_dir    = f"{DATA}/{dataset}/{nd}d/{trial}"
-            label      = f"{dataset}_{nd}d_t{trial}"
+            splits_dir = f"{DATA}/{src}/scdesign2/no_dp/{nd}d/{trial}/datasets"
+            out_dir    = f"{DATA}/{src}/scvi/no_dp/{nd}d/{trial}"
+            label      = f"{src}_scvi_{nd}d_t{trial}"
             cmd = (
                 f"{PYTHON} {GEN_TRIAL_PY} "
                 f"--generator scvi "
@@ -183,17 +185,16 @@ def _scvi_jobs(dataset, donor_counts):
             yield label, cmd, log   # env added by caller
 
 
-def _scdf_jobs(dataset, donor_counts):
+def _scdf_jobs(src, donor_counts):
     """Yield (label, cmd, log) for every scDiffusion trial."""
-    src = dataset.replace("_scdiff", "")
     full_h5ad = f"{DATA}/{src}/full_dataset_cleaned.h5ad"
     hvg_path  = f"{DATA}/{src}/hvg_full.csv"
 
     for nd in donor_counts:
         for trial in range(1, N_TRIALS + 1):
-            splits_dir = f"{DATA}/{src}/{nd}d/{trial}/datasets"
-            out_dir    = f"{DATA}/{dataset}/{nd}d/{trial}"
-            label      = f"{dataset}_{nd}d_t{trial}"
+            splits_dir = f"{DATA}/{src}/scdesign2/no_dp/{nd}d/{trial}/datasets"
+            out_dir    = f"{DATA}/{src}/scdiffusion/no_dp/{nd}d/{trial}"
+            label      = f"{src}_scdf_{nd}d_t{trial}"
             cmd = (
                 f"{PYTHON} {GEN_TRIAL_PY} "
                 f"--generator scdiffusion "
@@ -207,17 +208,16 @@ def _scdf_jobs(dataset, donor_counts):
             yield label, cmd, log   # env added by caller
 
 
-def _nmf_jobs(dataset, donor_counts, n_components=20, dp_mode="none"):
+def _nmf_jobs(src, donor_counts, n_components=20, dp_mode="none"):
     """Yield (label, cmd, log, env) for every NMF trial."""
-    src = dataset.replace("_nmf", "")
     full_h5ad = f"{DATA}/{src}/full_dataset_cleaned.h5ad"
     hvg_path  = f"{DATA}/{src}/hvg_full.csv"
 
     for nd in donor_counts:
         for trial in range(1, N_TRIALS + 1):
-            splits_dir = f"{DATA}/{src}/{nd}d/{trial}/datasets"
-            out_dir    = f"{DATA}/{dataset}/{nd}d/{trial}"
-            label      = f"{dataset}_{nd}d_t{trial}"
+            splits_dir = f"{DATA}/{src}/scdesign2/no_dp/{nd}d/{trial}/datasets"
+            out_dir    = f"{DATA}/{src}/nmf/no_dp/{nd}d/{trial}"
+            label      = f"{src}_nmf_{nd}d_t{trial}"
             cmd = (
                 f"{PYTHON} {GEN_TRIAL_PY} "
                 f"--generator nmf "
@@ -329,26 +329,26 @@ def main():
 
     # scDesign3 CPU jobs
     sd3_jobs = (
-        list(_sd3_jobs("ok_sd3g",   "sd3_gaussian", OK_SD3G)) +
-        list(_sd3_jobs("ok_sd3v",   "sd3_vine",     OK_SD3V)) +
-        list(_sd3_jobs("aida_sd3g", "sd3_gaussian", AIDA_SD3G)) +
-        list(_sd3_jobs("aida_sd3v", "sd3_vine",     AIDA_SD3V))
+        list(_sd3_jobs("ok",   "gaussian", OK_SD3G)) +
+        list(_sd3_jobs("ok",   "vine",     OK_SD3V)) +
+        list(_sd3_jobs("aida", "gaussian", AIDA_SD3G)) +
+        list(_sd3_jobs("aida", "vine",     AIDA_SD3V))
     ) if run_sd3 else []
 
     # NMF CPU jobs (fast; separate semaphore allows N_NMF_WORKERS concurrent)
     nmf_jobs = (
-        list(_nmf_jobs("ok_nmf",   OK_NMF)) +
-        list(_nmf_jobs("aida_nmf", AIDA_NMF))
+        list(_nmf_jobs("ok",   OK_NMF)) +
+        list(_nmf_jobs("aida", AIDA_NMF))
     ) if run_nmf else []
 
     # GPU jobs: scVI (OneK1K → AIDA) then scDiffusion (OneK1K → AIDA)
     gpu_scvi_jobs = (
-        list(_scvi_jobs("ok_scvi",   OK_SCVI)) +
-        list(_scvi_jobs("aida_scvi", AIDA_SCVI))
+        list(_scvi_jobs("ok",   OK_SCVI)) +
+        list(_scvi_jobs("aida", AIDA_SCVI))
     ) if run_scvi else []
     gpu_scdf_jobs = (
-        list(_scdf_jobs("ok_scdiff",   OK_SCDF)) +
-        list(_scdf_jobs("aida_scdiff", AIDA_SCDF))
+        list(_scdf_jobs("ok",   OK_SCDF)) +
+        list(_scdf_jobs("aida", AIDA_SCDF))
     ) if run_scdf else []
     all_gpu_jobs  = gpu_scvi_jobs + gpu_scdf_jobs
 

@@ -33,7 +33,7 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 # Config
 # ---------------------------------------------------------------------------
-DATA_ROOT = Path("/home/golobs/data")
+DATA_ROOT = Path("/home/golobs/data/scMAMAMIA")
 OUT_DIR   = Path("/home/golobs/scRNA-seq_privacy_audits/figures/umaps/mixing")
 
 REAL_PATH = DATA_ROOT / "ok" / "full_dataset_cleaned.h5ad"
@@ -41,10 +41,10 @@ HVG_PATH  = DATA_ROOT / "ok" / "hvg_full.csv"
 CT_COL    = "cell_type"
 
 METHODS = {
-    "sd3v":   DATA_ROOT / "ok_sd3v",
-    "sd3g":   DATA_ROOT / "ok_sd3g",
-    "scvi":   DATA_ROOT / "ok_scvi",
-    "scdiff": DATA_ROOT / "ok_scdiff",
+    "sd3v":   DATA_ROOT / "ok" / "scdesign3" / "vine",
+    "sd3g":   DATA_ROOT / "ok" / "scdesign3" / "gaussian",
+    "scvi":   DATA_ROOT / "ok" / "scvi" / "no_dp",
+    "scdiff": DATA_ROOT / "ok" / "scdiffusion" / "no_dp",
 }
 
 # Donor counts and trial to use
