@@ -201,6 +201,9 @@ mamamia_params:
   uniform_remapping_fn: zinb_cdf
   lin_alg_inverse_fn: pinv_gpu
   closeness_to_correlation_fn: closeness_to_correlation_1
+  class_b_gene_set: secondary
+  class_b_scoring: llr
+  class_b_gamma: auto
 
 mia_setting:
   sample_donors_strategy_fn: sample_donors_strategy_2

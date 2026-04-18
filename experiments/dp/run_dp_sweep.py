@@ -182,8 +182,11 @@ def make_minimal_cfg(trial_dir: str, use_aux: bool) -> Box:
     cfg.train_path           = os.path.join(trial_dir, "datasets", "train.h5ad")
     cfg.holdout_path         = os.path.join(trial_dir, "datasets", "holdout.h5ad")
 
-    cfg.mamamia_params         = Box()
-    cfg.mamamia_params.epsilon = 1e-4   # smoothing ε (not DP ε)
+    cfg.mamamia_params                    = Box()
+    cfg.mamamia_params.epsilon            = 1e-4   # smoothing ε (not DP ε)
+    cfg.mamamia_params.class_b_gene_set   = "secondary"
+    cfg.mamamia_params.class_b_scoring    = "llr"
+    cfg.mamamia_params.class_b_gamma      = "auto"
 
     cfg.lin_alg_inverse_fn    = pinv_gpu
     cfg.uniform_remapping_fn  = zinb_cdf
