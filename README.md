@@ -16,23 +16,57 @@
 scMAMA-MIA is a membership inference attack (MIA) against synthetic single-cell RNA-seq
 (scRNA-seq) data generators.  It exploits the Gaussian copula structure fitted by
 scDesign2 (and scDesign3) to infer which donors' cells were used to train a generator —
-from the synthetic data alone.
+from the synthetic data alone.  For generators without copula structure (scVI, scDiffusion,
+NMF), the attack uses scDesign2 as a proxy shadow model in black-box mode.
 
 The framework supports multiple synthetic data generators (SDGs) and threat models
-(white-box / black-box, with / without auxiliary data).  See `docs/architecture.md` for
-the full design.
+(white-box / black-box, with / without auxiliary data).
 
 ---
 
 ## Datasets
 
-| Dataset | Cells | Donors | Cell types | Source |
-|---------|-------|--------|------------|--------|
+| Dataset | Cells | Donors | Cell types | Notes |
+|---------|-------|--------|------------|-------|
 | **OneK1K** | 1.26M | 981 | 14 | CAMDA 2025 / onek1k.org |
-| **AIDA** | 1.06M | 508 | 33 | CZ CELLxGENE |
-| **HFRA** | 108K | 22 | 9 | CZ CELLxGENE |
+| **AIDA** | 1.06M | 508 | 33 | CZ CELLxGENE; includes sex + ethnicity metadata |
+| **HFRA** | 108K | 22 | 9 | Fetal retina; small donor pool |
 
-See `docs/notes_about_OneK1K.txt`, `docs/notes_about_AIDA.txt`, `docs/notes_about_HFRA.txt` for details.
+---
+
+## Supported SDG Methods
+
+| Method | Variant | Notes |
+|--------|---------|-------|
+| scDesign2 | no-DP, +DP (ε=10⁰–10⁹) | Primary attack target; Gaussian copula |
+| scDesign3 | Gaussian, Vine copula | Proxy shadow model attack |
+| scVI | — | Proxy shadow model attack |
+| scDiffusion | — | Proxy shadow model attack |
+| NMF | no-DP, +DP sweep | CAMDA 2024 co-winner; no copula structure |
+
+---
+
+## Data Layout
+
+All synthetic data lives under `~/data/scMAMAMIA/` with a clean hierarchy:
+
+```
+~/data/scMAMAMIA/
+  {dataset}/                        # ok, aida, cg
+    full_dataset_cleaned.h5ad
+    hvg.csv  /  hvg_full.csv
+    scdesign2/
+      no_dp/{nd}d/{trial}/
+      eps_{e}/{nd}d/{trial}/        # DP variants
+    scdesign3/
+      gaussian/{nd}d/{trial}/
+      vine/{nd}d/{trial}/
+    scvi/no_dp/{nd}d/{trial}/
+    scdiffusion/no_dp/{nd}d/{trial}/
+    nmf/
+      no_dp/{nd}d/{trial}/
+      eps_{e}/{nd}d/{trial}/        # NMF DP sweep
+```
 
 ---
 
@@ -42,6 +76,11 @@ See `docs/notes_about_OneK1K.txt`, `docs/notes_about_AIDA.txt`, `docs/notes_abou
 conda env create -f ENVIRONMENT.yaml
 conda activate camda_conda
 ```
+
+Additional conda environments for specific generators:
+- `nmf_` — NMF generator (`src/sdg/nmf_generator/environment.yml`)
+- `scvi_` — scVI
+- `scdiff_` — scDiffusion
 
 ---
 
@@ -53,54 +92,52 @@ conda activate camda_conda
 python src/data/clean_data.py
 ```
 
-Edit the `data_dir` variable at the top of the file to point to your dataset location.
+### 2. Generate Synthetic Data
 
----
-
-### 2. scMAMA-MIA Experiments
-
-#### Single experiment
-
+**All generators** (scDesign3, scVI, scDiffusion, NMF):
 ```bash
-python src/run_experiment.py <path-to-config>           # local
-python src/run_experiment.py T <path-to-config> P       # server, verbose
+nohup conda run --no-capture-output -n tabddpm_ \
+    python experiments/sdg_comparison/run_all.py --skip-hvg \
+    > /tmp/sdg_generation.log 2>&1 &
 ```
 
-Use `configs/template.yaml` as a starting point for your config file.
-
-The script:
-1. Samples train / holdout / aux donor sets
-2. Trains the SDG (scDesign2 by default) on the train set
-3. Fits shadow copulas on synthetic data and aux data
-4. Runs scMAMA-MIA for each cell type
-5. Aggregates to donor-level AUC; saves results
-
-Trial tracking is automatic — re-running the same config resumes incomplete trials
-(tracked in `tracking.csv` within the experiment output directory).
-
-#### Batch experiments
-
+**Single trial** (e.g., scDesign2, ok, 10 donors, trial 1):
 ```bash
-./create_experiment_config_files.sh     # generate configs for all sizes / datasets
-./run_donor_level_mia.sh               # run all (edit paths for your machine)
+python src/run_experiment.py <path-to-config>
 ```
 
----
-
-### 3. Baseline MIA Experiments
-
-Baselines require scMAMA-MIA trials to have already run (they reuse the same splits).
-
+**Check progress**:
 ```bash
-python src/run_baselines.py <path-to-config>
+python experiments/sdg_comparison/check_generated_data.py
 ```
 
----
+### 3. Run MIA Attacks
+
+**SDG comparison sweep** (all non-scDesign2 methods + DP variants):
+```bash
+python experiments/sdg_comparison/run_mia_sweep.py
+python experiments/sdg_comparison/run_mia_sweep.py --status   # check completion
+python experiments/sdg_comparison/run_mia_sweep.py --dry-run  # preview jobs
+```
+
+**Single experiment** (use a config YAML):
+```bash
+python src/run_experiment.py <path-to-config>
+```
 
 ### 4. Quality Evaluation
 
 ```bash
-python src/run_quality_eval.py <path-to-config>
+python experiments/sdg_comparison/run_quality_evals.py
+```
+
+### 5. Generate Tables and Figures
+
+```bash
+python experiments/sdg_comparison/make_mia_table.py       # LaTeX MIA AUC table
+python experiments/sdg_comparison/make_quality_table.py   # LaTeX quality table
+python experiments/sdg_comparison/make_sdg_umaps.py       # UMAP panels (all SDGs)
+python experiments/sdg_comparison/make_nmf_umaps.py       # NMF-specific 3-panel UMAPs
 ```
 
 ---
@@ -108,37 +145,52 @@ python src/run_quality_eval.py <path-to-config>
 ## Repository Structure
 
 ```
-camda_hpc/
-├── configs/
-│   └── template.yaml               # config template for MIA experiments
-│
+scRNA-seq_privacy_audits/
 ├── src/
-│   ├── run_experiment.py           # MAIN ENTRY POINT
-│   ├── sdg/                        # Synthetic Data Generators
-│   │   ├── base.py                 # abstract SDG interface
-│   │   ├── run.py                  # SDG runner (register new generators here)
-│   │   ├── scdesign2/              # scDesign2 (primary SDG)
-│   │   ├── scdesign3/              # placeholder — not yet implemented
-│   │   └── scvae/                  # placeholder — not yet implemented
+│   ├── run_experiment.py           # main MIA entry point
+│   ├── sdg/                        # synthetic data generators
+│   │   ├── scdesign2/              # scDesign2 (primary; Gaussian copula)
+│   │   ├── scdesign3/              # scDesign3 (Gaussian + Vine copula)
+│   │   ├── scvi/                   # scVI (VAE-based)
+│   │   ├── scdiffusion/            # scDiffusion (diffusion model)
+│   │   ├── nmf/                    # NMF wrapper (CAMDA 2024 co-winner)
+│   │   └── nmf_generator/          # upstream NMF repo (submodule)
 │   ├── attacks/
-│   │   ├── scmamamia/              # scMAMA-MIA attack algorithms
+│   │   ├── scmamamia/              # scMAMA-MIA (Mahalanobis + Class B LLR)
 │   │   └── baselines/              # CAMDA2025 baseline MIAs
 │   ├── evaluation/                 # quality metrics (LISI, ARI, MMD)
 │   └── data/                       # CDF utils, donor splitting strategies
 │
 ├── experiments/
-│   ├── scdesign2/                  # scDesign2 experiment configs + runner
-│   ├── scdesign3/                  # future
-│   ├── dp/                         # differential privacy experiments (HIGH PRIORITY)
-│   ├── baselines/                  # CAMDA2025 baseline comparisons
-│   └── bulk_rna_seq/               # Track I bulk RNA-seq (not implemented)
+│   ├── sdg_comparison/             # multi-SDG generation, attack, and table scripts
+│   │   ├── run_all.py              # batch generation (all SDGs)
+│   │   ├── run_mia_sweep.py        # batch MIA sweep
+│   │   ├── run_quality_evals.py    # batch quality evaluation
+│   │   ├── gen_nmf_dp_sweep.py     # NMF DP epsilon sweep
+│   │   ├── make_mia_table.py       # LaTeX MIA AUC table
+│   │   ├── make_quality_table.py   # LaTeX quality table
+│   │   ├── make_sdg_umaps.py       # UMAP panels (all SDGs)
+│   │   └── make_nmf_umaps.py       # NMF 3-panel UMAPs
+│   ├── ablation/                   # Class B attack ablation framework
+│   ├── dp/                         # differential privacy experiments
+│   └── migrate_data.py             # one-time data layout migration (2026-04-18)
 │
-├── docs/
-│   └── architecture.md             # full design doc
-└── outputs/                        # legacy CAMDA competition output (see outputs/README.md)
+├── figures/                        # generated LaTeX tables and UMAP figures
+└── CLAUDE.md                       # detailed implementation notes for Claude Code
 ```
 
-For the full architecture and how to add new SDGs or DP, see `docs/architecture.md`.
+---
+
+## Key Design Decisions
+
+**Attack variants:**
+- `WB+aux` / `WB-aux` — white-box (copula from training data), with/without auxiliary data
+- `BB+aux` / `BB-aux` — black-box (copula estimated from synthetic data), with/without auxiliary
+- Class B enhancement: adds per-gene LLR evidence from secondary genes; `class_b_gamma="auto"` gives +0.14 AUC on ok 10d
+
+**Evaluation:** ROC AUC at the donor level, averaged over 5 trials with different random donor splits.
+
+**HVG selection:** `sc.pp.highly_variable_genes` with `min_mean=0.0125`, `max_mean=3`, `min_disp=0.5`.
 
 ---
 
@@ -149,7 +201,7 @@ For the full architecture and how to add new SDGs or DP, see `docs/architecture.
   title={Privacy Vulnerabilities in Synthetic Single-Cell RNA-Sequence Data},
   author={Golob, Steven and McKeever, Patrick and Pentyala, Sikha and De Cock, Martine and Peck, Jonathan},
   year={2026},
-  note={Under review}
+  note={Under review at RECOMB-Privacy 2026}
 }
 ```
 
