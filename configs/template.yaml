@@ -1,70 +1,35 @@
-# DIRECTORY STRUCTURE:
-#     BASE
-#        |_REPOSITORY_HOME
-#        |   |_SRC
-#        |      |...
-#        |
-#        |_DATA
-#            |_DATASET_1
-#            |     |-full_dataset.h5ad
-#            |     |-full_dataset_cleaned.h5ad (created with clean_data.py)
-#            |     |-notes_about_dataset.txt
-#            |     |_exp_cfgs
-#            |     |     |-cfg1_<threat model code>.yaml
-#            |     |     |-cfg2_<threat model code>.yaml
-#            |     |     | ...
-#            |     |
-#            |     |_CONFIG_1
-#            |     |     |_trial 1
-#            |     |     |     |_MODELS (white box information)
-#            |     |     |     |     |-config.yaml (used to run scdesign2)
-#            |     |     |     |     |-hvgs.csv
-#            |     |     |     |     |-cell1_copula.rds
-#            |     |     |     |     |-cell2_copula.rds
-#            |     |     |     |     | ...
-#            |     |     |     |
-#            |     |     |     |_ARTIFACTS
-#            |     |     |     |     |-hvgs.csv
-#            |     |     |     |     |_SYNTH
-#            |     |     |     |     |    |-config.yaml (used to run scdesign2)
-#            |     |     |     |     |    |-cell1_copula.rds
-#            |     |     |     |     |    |-cell2_copula.rds
-#            |     |     |     |     |    | ...
-#            |     |     |     |     |
-#            |     |     |     |     |_AUX
-#            |     |     |     |          |-config.yaml (used to run scdesign2)
-#            |     |     |     |          |-cell1_copula.rds
-#            |     |     |     |          |-cell2_copula.rds
-#            |     |     |     |          | ...
-#            |     |     |     |
-#            |     |     |     |_RESULTS
-#            |     |     |     |     |-mamamia_all_scores.csv
-#            |     |     |     |     |-mamamia_results.json
-#            |     |     |     |     |-AUXILIARY_DATA_SHADOW_MODEL_runtime.csv
-#            |     |     |     |     |-SYNTHETIC_DATA_SHADOW_MODEL_runtime.csv
-#            |     |     |     |     |-TARGET_SYNTHETIC_DATA_runtime.csv
-#            |     |     |     |     |-baseline_mia_metrics.json
-#            |     |     |     |     |-quality_results.json
-#            |     |     |     |     |_FIGURES
-#            |     |     |     |     |    |...
-#            |     |     |     |
-#            |     |     |     |_DATASETS
-#            |     |     |     |     |-train.npy (These merely hold the donor ids. H5ad files will be created during an experiment, and then removed to save space.)
-#            |     |     |     |     |-holdout.npy (These merely hold the donor ids. H5ad files will be created during an experiment, and then removed to save space.)
-#            |     |     |     |     |-aux.npy (These merely hold the donor ids. H5ad files will be created during an experiment, and then removed to save space.)
-#            |     |     |     |     |-synth.h5ad
-#            |     |     |
-#            |     |     |_trial 2
-#            |     |     |     |...
-#            |     |     | ...
-#            |     |
-#            |     |_CONFIG_2
-#            |     |     |...
-#            |     | ...
-#            |
-#            |_DATASET_2
-#            |     | ...
-#            | ...
+# DIRECTORY STRUCTURE (~/data/scMAMAMIA/):
+#
+#   {dataset}/                          # ok, aida, cg
+#     full_dataset_cleaned.h5ad         # canonical source data
+#     hvg.csv  /  hvg_full.csv          # shared HVG masks
+#     splits/{nd}d/{trial}/             # donor ID arrays — single source of truth
+#       train.npy                       # shared across ALL SDG variants
+#       holdout.npy
+#       auxiliary.npy
+#     scdesign2/
+#       no_dp/{nd}d/{trial}/
+#       eps_{e}/{nd}d/{trial}/
+#     scdesign3/
+#       gaussian/{nd}d/{trial}/
+#       vine/{nd}d/{trial}/
+#     scvi/no_dp/{nd}d/{trial}/
+#     scdiffusion/no_dp/{nd}d/{trial}/
+#     nmf/
+#       no_dp/{nd}d/{trial}/
+#       eps_{e}/{nd}d/{trial}/
+#
+#   Each SDG trial dir contains:
+#     datasets/synthetic.h5ad
+#     artifacts/
+#       synth/   — shadow-model copulas fitted to synthetic data
+#       aux/     — shadow-model copulas fitted to auxiliary data
+#     models/    — white-box copulas (scDesign2 training artifacts)
+#     results/
+#       mamamia_results.csv
+#       mamamia_all_scores.csv
+#       quality_results.json
+#       figures/
 
 dir_list:
   local:
@@ -85,6 +50,9 @@ mamamia_params:
   uniform_remapping_fn: zinb_cdf
   lin_alg_inverse_fn: pinv_gpu
   closeness_to_correlation_fn: closeness_to_correlation_1
+  class_b_gene_set: secondary
+  class_b_scoring: llr
+  class_b_gamma: auto
 
 mia_setting:
   sample_donors_strategy_fn: sample_donors_strategy_2
@@ -93,7 +61,3 @@ mia_setting:
   white_box: false
   use_wb_hvgs: true
   use_aux: true
-
-
-
-
