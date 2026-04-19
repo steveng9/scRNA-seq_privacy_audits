@@ -36,20 +36,31 @@ if SRC_DIR not in sys.path:
 # Each entry: (data_root, full_data_path, dataset_name)
 # ---------------------------------------------------------------------------
 
+def _nmf_variants(base_dataset):
+    """Dynamically discover all NMF variant subdirectories (no_dp + eps_*) for a dataset."""
+    nmf_root = os.path.join(DATA, base_dataset, "nmf")
+    full_data = os.path.join(DATA, base_dataset, "full_dataset_cleaned.h5ad")
+    if not os.path.isdir(nmf_root):
+        return []
+    return [
+        (os.path.join(nmf_root, variant), full_data, base_dataset)
+        for variant in sorted(os.listdir(nmf_root))
+        if os.path.isdir(os.path.join(nmf_root, variant))
+    ]
+
+
 DATASETS = [
     # --- New SDG methods: OK1K ---
     (f"{DATA}/ok/scdesign3/gaussian",   f"{DATA}/ok/full_dataset_cleaned.h5ad", "ok"),
     (f"{DATA}/ok/scdesign3/vine",       f"{DATA}/ok/full_dataset_cleaned.h5ad", "ok"),
     (f"{DATA}/ok/scvi/no_dp",           f"{DATA}/ok/full_dataset_cleaned.h5ad", "ok"),
     (f"{DATA}/ok/scdiffusion/no_dp",    f"{DATA}/ok/full_dataset_cleaned.h5ad", "ok"),
-    (f"{DATA}/ok/nmf/no_dp",            f"{DATA}/ok/full_dataset_cleaned.h5ad", "ok"),
 
     # --- New SDG methods: AIDA ---
     (f"{DATA}/aida/scdesign3/gaussian",  f"{DATA}/aida/full_dataset_cleaned.h5ad", "aida"),
     (f"{DATA}/aida/scdesign3/vine",      f"{DATA}/aida/full_dataset_cleaned.h5ad", "aida"),
     (f"{DATA}/aida/scvi/no_dp",          f"{DATA}/aida/full_dataset_cleaned.h5ad", "aida"),
     (f"{DATA}/aida/scdiffusion/no_dp",   f"{DATA}/aida/full_dataset_cleaned.h5ad", "aida"),
-    (f"{DATA}/aida/nmf/no_dp",           f"{DATA}/aida/full_dataset_cleaned.h5ad", "aida"),
 
     # scDesign2+DP high-epsilon:
     (f"{DATA}/ok/scdesign2/eps_100000",    f"{DATA}/ok/full_dataset_cleaned.h5ad", "ok"),
@@ -57,6 +68,10 @@ DATASETS = [
     (f"{DATA}/ok/scdesign2/eps_10000000",  f"{DATA}/ok/full_dataset_cleaned.h5ad", "ok"),
     (f"{DATA}/ok/scdesign2/eps_100000000",   f"{DATA}/ok/full_dataset_cleaned.h5ad", "ok"),
     (f"{DATA}/ok/scdesign2/eps_1000000000",  f"{DATA}/ok/full_dataset_cleaned.h5ad", "ok"),
+
+    # NMF variants (no_dp + all eps_* for ok and aida) — discovered dynamically
+    *_nmf_variants("ok"),
+    *_nmf_variants("aida"),
 ]
 
 CELL_TYPE_COL = {

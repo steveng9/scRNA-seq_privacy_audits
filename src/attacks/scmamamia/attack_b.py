@@ -341,6 +341,86 @@ def attack_mahalanobis_b_no_aux(cfg, targets, cell_type, copula_synth_r, copula_
     return compute_cell_scores(cfg, cell_type, raw, targets, d_s.tolist(), None)
 
 
+def attack_mahalanobis_quad(cfg, targets, cell_type, copula_synth_r, copula_aux_r):
+    """
+    Compute all 4 variants in one pass:
+      r100_std, r101_std — standard Mahalanobis BB+aux / BB-aux (no Class B)
+      r100_b,   r101_b   — Class B augmented BB+aux / BB-aux
+
+    Mahalanobis distances and Class B LLR vectors are each computed once and
+    reused across all four outputs.  Returns (r100_std, r101_std, r100_b, r101_b).
+    """
+    gene_set, scoring, gamma, gamma_noaux = _b_params(cfg)
+    eps = cfg.mamamia_params.epsilon
+
+    cs = copula_synth_r if isinstance(copula_synth_r, dict) else parse_copula(copula_synth_r)
+    ca = copula_aux_r   if isinstance(copula_aux_r,   dict) else parse_copula(copula_aux_r)
+
+    half = np.full(len(targets), 0.5)
+
+    if cs.get("copula_type") == "vine" or cs.get("cov_matrix") is None:
+        r100_std = compute_cell_scores(cfg, cell_type, half.copy(), targets, None, None, tm="100")
+        r101_std = compute_cell_scores(cfg, cell_type, half.copy(), targets, None, None, tm="101")
+
+        if gamma != 0.0:
+            log_b, gamma_eff = _class_b_log_evidence(cfg, targets, cs, ca, gene_set, scoring, gamma)
+            r100_b = compute_cell_scores(cfg, cell_type,
+                                         activate_from_logits(np.clip(gamma_eff * log_b, -500, 500)),
+                                         targets, None, None, tm="100")
+        else:
+            r100_b = compute_cell_scores(cfg, cell_type, half.copy(), targets, None, None, tm="100")
+
+        if gamma_noaux != 0.0:
+            log_b_na, g_na = _class_b_log_evidence_noaux(targets, cs, gene_set, gamma_noaux)
+            r101_b = compute_cell_scores(cfg, cell_type,
+                                         activate_from_logits(np.clip(g_na * log_b_na, -500, 500)),
+                                         targets, None, None, tm="101")
+        else:
+            r101_b = compute_cell_scores(cfg, cell_type, half.copy(), targets, None, None, tm="101")
+
+        return r100_std, r101_std, r100_b, r101_b
+
+    covariate_genes, d_s, d_a = _mahalanobis_distances(cfg, targets, cs, ca)
+
+    log_primary_aux   = np.log(d_a + eps) - np.log(d_s + eps)
+    log_primary_noaux = -np.log(d_s + eps)
+
+    # Standard variants: pure Mahalanobis, no Class B
+    logit_std_aux   = log_primary_aux.copy()
+    logit_std_noaux = log_primary_noaux.copy()
+    _fix_nonfinite(logit_std_aux,   cell_type, "BB+aux std")
+    _fix_nonfinite(logit_std_noaux, cell_type, "BB-aux std")
+    r100_std = compute_cell_scores(cfg, cell_type, activate_from_logits(logit_std_aux),
+                                   targets, d_s.tolist(), d_a.tolist(), tm="100")
+    r101_std = compute_cell_scores(cfg, cell_type, activate_from_logits(logit_std_noaux),
+                                   targets, d_s.tolist(), None, tm="101")
+
+    # Class B variants: Mahalanobis + LLR secondary genes
+    logit_b_aux   = log_primary_aux.copy()
+    logit_b_noaux = log_primary_noaux.copy()
+
+    if gamma != 0.0:
+        log_b_aux, gamma_eff = _class_b_log_evidence(
+            cfg, targets, cs, ca, gene_set, scoring, gamma
+        )
+        logit_b_aux = log_primary_aux + gamma_eff * log_b_aux
+
+    if gamma_noaux != 0.0:
+        log_b_noaux_vals, gamma_noaux_eff = _class_b_log_evidence_noaux(
+            targets, cs, gene_set, gamma_noaux
+        )
+        logit_b_noaux = log_primary_noaux + gamma_noaux_eff * log_b_noaux_vals
+
+    _fix_nonfinite(logit_b_aux,   cell_type, "BB+aux ClassB")
+    _fix_nonfinite(logit_b_noaux, cell_type, "BB-aux ClassB")
+    r100_b = compute_cell_scores(cfg, cell_type, activate_from_logits(logit_b_aux),
+                                 targets, d_s.tolist(), d_a.tolist(), tm="100")
+    r101_b = compute_cell_scores(cfg, cell_type, activate_from_logits(logit_b_noaux),
+                                 targets, d_s.tolist(), None, tm="101")
+
+    return r100_std, r101_std, r100_b, r101_b
+
+
 def attack_mahalanobis_b_both(cfg, targets, cell_type, copula_synth_r, copula_aux_r):
     """
     Compute BB+aux (tm:100) and BB-aux (tm:101) Class B attacks in a single pass,

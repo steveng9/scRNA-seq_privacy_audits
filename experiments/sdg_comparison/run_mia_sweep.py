@@ -71,6 +71,14 @@ TM_BB_COMBINED = [
     ("BB+/-aux", "combined", False, True, True),
 ]
 
+# TM_BB_QUAD: one job per (dataset, nd) computes all 4 variants —
+# standard BB+aux/BB-aux (→ mamamia_results.csv) and
+# Class B BB+aux/BB-aux (→ mamamia_results_classb.csv) — reusing all
+# expensive computation.
+TM_BB_QUAD = [
+    ("BB+/-aux quad", "quad", False, True, True),
+]
+
 # ---------------------------------------------------------------------------
 # Sweep definition — OneK1K only, non-scDesign2 SDG methods
 # ---------------------------------------------------------------------------
@@ -93,8 +101,20 @@ SWEEP = [
     ("sd3g",   "ok/scdesign3/gaussian", "ok", [2, 5, 10, 20, 50, 100, 200, 490], TM_BB_COMBINED, 4),
 
     # --- NMF (SingleCellNMFGenerator — CAMDA 2024 winner) ---
-    ("nmf",    "ok/nmf/no_dp",    "ok",   [10, 20, 50, 100, 200, 490], TM_BB_COMBINED, 4),
-    ("nmf",    "aida/nmf/no_dp",  "aida", [10, 20, 50, 100, 200],      TM_BB_COMBINED, 4),
+    ("nmf",    "ok/nmf/no_dp",    "ok",   [10, 20, 50, 100, 200, 490], TM_BB_QUAD, 4),
+    ("nmf",    "aida/nmf/no_dp",  "aida", [10, 20, 50, 100, 200],      TM_BB_QUAD, 4),
+
+    # --- NMF + DP sweep (ok only, 50d) ---
+    ("nmf_dp", "ok/nmf/eps_1",          "ok", [50], TM_BB_QUAD, 4),
+    ("nmf_dp", "ok/nmf/eps_2.8",        "ok", [50], TM_BB_QUAD, 4),
+    ("nmf_dp", "ok/nmf/eps_10",         "ok", [50], TM_BB_QUAD, 4),
+    ("nmf_dp", "ok/nmf/eps_100",        "ok", [50], TM_BB_QUAD, 4),
+    ("nmf_dp", "ok/nmf/eps_1000",       "ok", [50], TM_BB_QUAD, 4),
+    ("nmf_dp", "ok/nmf/eps_10000",      "ok", [50], TM_BB_QUAD, 4),
+    ("nmf_dp", "ok/nmf/eps_100000",     "ok", [50], TM_BB_QUAD, 4),
+    ("nmf_dp", "ok/nmf/eps_1000000",    "ok", [50], TM_BB_QUAD, 4),
+    ("nmf_dp", "ok/nmf/eps_10000000",   "ok", [50], TM_BB_QUAD, 4),
+    ("nmf_dp", "ok/nmf/eps_100000000",  "ok", [50], TM_BB_QUAD, 4),
 
     # --- scDesign2 + DP (synthetic data already generated for all eps/nd/trial) ---
     ("sd2_dp", "ok/scdesign2/eps_1",          "ok", [10, 20, 50], TM_BB_COMBINED, 4),
@@ -120,6 +140,7 @@ MAMAMIA_PARAMS = {
     "class_b_gene_set":          "secondary",
     "class_b_scoring":           "llr",
     "class_b_gamma":             "auto",
+    "class_b_gamma_noaux":       "auto",
 }
 MIN_AUX_DONORS = 10
 
@@ -257,6 +278,36 @@ def count_done(data_dir, nd, tm_code):
     )
 
 
+def get_completed_tm_codes_classb(data_dir, nd, trial):
+    """Return set of tm codes with a valid AUC in mamamia_results_classb.csv."""
+    results_file = os.path.join(data_dir, f"{nd}d", str(trial), "results",
+                                "mamamia_results_classb.csv")
+    if not os.path.exists(results_file):
+        return set()
+    try:
+        df = pd.read_csv(results_file)
+        auc_row = df[df["metric"] == "auc"]
+        if auc_row.empty:
+            return set()
+        done = set()
+        for col in auc_row.columns:
+            if col.startswith("tm:"):
+                val = auc_row[col].values[0]
+                if pd.notna(val):
+                    done.add(col[3:])
+        return done
+    except Exception:
+        return set()
+
+
+def count_done_classb(data_dir, nd, tm_code):
+    """Count trials that have a valid AUC in the Class B results file."""
+    return sum(
+        1 for t in range(1, N_TRIALS + 1)
+        if tm_code in get_completed_tm_codes_classb(data_dir, nd, t)
+    )
+
+
 def synth_exists(data_dir, nd, trial):
     """True if synthetic.h5ad exists for the given trial."""
     path = os.path.join(data_dir, f"{nd}d", str(trial), "datasets", "synthetic.h5ad")
@@ -273,7 +324,7 @@ def n_synth_available(data_dir, nd):
 # ===========================================================================
 
 def write_config(dataset_name, base_dataset, nd, white_box, use_wb_hvgs, use_aux,
-                 parallel_workers, cfg_dir, run_both_bb=False):
+                 parallel_workers, cfg_dir, run_both_bb=False, run_quad_bb=False):
     """
     Write a run_experiment.py config YAML to cfg_dir and return its path.
     Both local and server dir_list entries point to the server paths so the
@@ -284,7 +335,9 @@ def write_config(dataset_name, base_dataset, nd, white_box, use_wb_hvgs, use_aux
         computes BB+aux (tm:100) and BB-aux (tm:101) in a single pass.
         use_aux must be True so trial tracking keys off tm:100.
     """
-    if run_both_bb:
+    if run_quad_bb:
+        cfg_name = f"{nd}d_bb_quad.yaml"
+    elif run_both_bb:
         cfg_name = f"{nd}d_bb_both.yaml"
     else:
         tm_parts = f"{'wb' if white_box else 'bb'}_{'aux' if use_aux else 'noaux'}"
@@ -300,7 +353,9 @@ def write_config(dataset_name, base_dataset, nd, white_box, use_wb_hvgs, use_aux
         "use_wb_hvgs":   use_wb_hvgs,
         "use_aux":       use_aux,
     }
-    if run_both_bb:
+    if run_quad_bb:
+        mia_setting["run_quad_bb"] = True
+    elif run_both_bb:
         mia_setting["run_both_bb"] = True
 
     hvg_path = os.path.join(DATA_DIR, base_dataset, "hvg.csv")
@@ -350,9 +405,17 @@ def run_job(config_path, dry_run=False):
 def _count_done_for_tm(data_dir, nd, tm_code):
     """
     Return number of completed trials for the given tm_code.
-    For the 'combined' sentinel, returns the minimum of tm:100 and tm:101
-    (both must be done to consider a trial complete).
+    'combined' requires tm:100 and tm:101 in mamamia_results.csv.
+    'quad'     requires tm:100/101 in mamamia_results.csv AND
+                        tm:100/101 in mamamia_results_classb.csv.
     """
+    if tm_code == "quad":
+        return min(
+            count_done(data_dir, nd, "100"),
+            count_done(data_dir, nd, "101"),
+            count_done_classb(data_dir, nd, "100"),
+            count_done_classb(data_dir, nd, "101"),
+        )
     if tm_code == "combined":
         return min(count_done(data_dir, nd, "100"), count_done(data_dir, nd, "101"))
     return count_done(data_dir, nd, tm_code)
@@ -367,23 +430,29 @@ def print_status():
     for sdg_key, dataset_name, base_dataset, donor_counts, tms, pw in SWEEP:
         data_dir = os.path.join(DATA_DIR, *dataset_name.split("/"))
 
-        # Expand "combined" into two display columns for clarity
+        # Expand "combined"/"quad" into display columns
         display_cols = []
         for tm_label, tm_code, *_ in tms:
             if tm_code == "combined":
-                display_cols.append(("BB+aux", "100"))
-                display_cols.append(("BB-aux", "101"))
+                display_cols.append(("BB+aux", "100", False))
+                display_cols.append(("BB-aux", "101", False))
+            elif tm_code == "quad":
+                display_cols.append(("BB+aux",   "100", False))
+                display_cols.append(("BB-aux",   "101", False))
+                display_cols.append(("BB+aux_B", "100", True))
+                display_cols.append(("BB-aux_B", "101", True))
             else:
-                display_cols.append((tm_label, tm_code))
+                display_cols.append((tm_label, tm_code, False))
 
         print(f"  [{sdg_key}] {dataset_name}")
-        header = f"    {'nd':>6}  " + "  ".join(f"{lbl:>8}" for lbl, _ in display_cols)
+        header = f"    {'nd':>6}  " + "  ".join(f"{lbl:>8}" for lbl, _, __ in display_cols)
         print(header)
 
         for nd in donor_counts:
             parts = []
-            for _, code in display_cols:
-                done  = count_done(data_dir, nd, code)
+            for _, code, is_classb in display_cols:
+                done  = (count_done_classb(data_dir, nd, code) if is_classb
+                         else count_done(data_dir, nd, code))
                 avail = n_synth_available(data_dir, nd)
                 sym   = "✓" if done == N_TRIALS else (f"~{done}" if done > 0 else "·")
                 parts.append(f"{sym:>8}")
@@ -456,6 +525,7 @@ def main():
 
             for tm_label, tm_code, white_box, use_wb_hvgs, use_aux in tms:
                 is_combined = (tm_code == "combined")
+                is_quad     = (tm_code == "quad")
                 n_done   = _count_done_for_tm(data_dir, nd, tm_code)
                 n_needed = min(N_TRIALS, n_avail) - n_done
 
@@ -468,7 +538,7 @@ def main():
 
                 config_path = write_config(
                     dataset_name, base_dataset, nd, white_box, use_wb_hvgs, use_aux,
-                    pw, cfg_dir, run_both_bb=is_combined,
+                    pw, cfg_dir, run_both_bb=is_combined, run_quad_bb=is_quad,
                 )
 
                 for run_i in range(n_needed):

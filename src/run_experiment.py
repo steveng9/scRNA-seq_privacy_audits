@@ -67,6 +67,7 @@ from attacks.scmamamia.attack_b import (               # noqa: E402
     attack_mahalanobis_b,
     attack_mahalanobis_b_no_aux,
     attack_mahalanobis_b_both,
+    attack_mahalanobis_quad,
 )
 from attacks.scmamamia.scoring import (                # noqa: E402
     merge_cell_type_results,
@@ -142,7 +143,11 @@ def main():
     run_sdg(cfg, cfg.aux_model_config_path, cell_types,
             "AUXILIARY_DATA_SHADOW_MODEL", force=resampled)
 
-    if cfg.mia_setting.get("run_both_bb", False):
+    if cfg.mia_setting.get("run_quad_bb", False):
+        results = run_mamamia_attack_quad(cfg)
+        save_results_quad(cfg, results)
+        register_trial_quad(cfg)
+    elif cfg.mia_setting.get("run_both_bb", False):
         results = run_mamamia_attack_both(cfg)
         save_results_both(cfg, results)
         register_trial_both(cfg)
@@ -197,8 +202,10 @@ def create_config(path):
     cfg.aux_path            = os.path.join(cfg.datasets_path, "auxiliary.h5ad")
 
     cfg.target_synthetic_data_path = os.path.join(cfg.datasets_path, "synthetic.h5ad")
-    cfg.all_scores_file   = os.path.join(cfg.results_path, "mamamia_all_scores.csv")
-    cfg.results_file      = os.path.join(cfg.results_path, "mamamia_results.csv")
+    cfg.all_scores_file         = os.path.join(cfg.results_path, "mamamia_all_scores.csv")
+    cfg.results_file            = os.path.join(cfg.results_path, "mamamia_results.csv")
+    cfg.all_scores_file_classb  = os.path.join(cfg.results_path, "mamamia_all_scores_classb.csv")
+    cfg.results_file_classb     = os.path.join(cfg.results_path, "mamamia_results_classb.csv")
     cfg.target_model_config_path = os.path.join(cfg.models_path, "config.yaml")
     cfg.synth_model_config_path  = os.path.join(cfg.synth_artifacts_path, "config.yaml")
     cfg.aux_model_config_path    = os.path.join(cfg.aux_artifacts_path, "config.yaml")
@@ -245,6 +252,7 @@ def _new_tracking_row(trial_num=1):
         "trial": trial_num,
         "tm:000": 0, "tm:001": 0, "tm:010": 0, "tm:011": 0,
         "tm:100": 0, "tm:101": 0, "tm:110": 0, "tm:111": 0,
+        "classb:100": 0, "classb:101": 0,
         "baselines": 0, "quality": 0,
     }
 
@@ -439,6 +447,21 @@ def _initialise_results_files(cfg, targets):
 
     if not os.path.exists(cfg.results_file):
         pd.DataFrame({"metric": ["runtime", "auc"]}).to_csv(cfg.results_file, index=False)
+
+    if cfg.mia_setting.get("run_quad_bb", False):
+        if not os.path.exists(cfg.all_scores_file_classb):
+            pd.DataFrame({
+                "cell id":    targets.obs_names,
+                "donor id":   targets.obs["individual"].values,
+                "cell type":  targets.obs["cell_type"].values,
+                "membership": targets.obs["individual"].isin(
+                    np.load(cfg.train_donors_path, allow_pickle=True)
+                ).astype(int).values,
+            }).to_csv(cfg.all_scores_file_classb, index=False)
+        if not os.path.exists(cfg.results_file_classb):
+            pd.DataFrame({"metric": ["runtime", "auc"]}).to_csv(
+                cfg.results_file_classb, index=False
+            )
 
 
 def delete_interim_h5ad(cfg):
@@ -782,6 +805,189 @@ def register_trial_both(cfg):
     df, _ = _get_tracking(cfg)
     df.loc[df["trial"] == cfg.trial_num, "tm:100"] = 1
     df.loc[df["trial"] == cfg.trial_num, "tm:101"] = 1
+    df.to_csv(cfg.experiment_tracking_file, index=False)
+
+
+# ===========================================================================
+# Quad BB attack: standard + Class B BB+aux / BB-aux in one pass
+# Stores standard results in mamamia_results.csv (legacy-compatible).
+# Stores Class B results in mamamia_results_classb.csv (separate file).
+# ===========================================================================
+
+def run_mamamia_attack_quad(cfg):
+    """Run all 4 variants (standard+ClassB × aux/no-aux) in one pass per cell type."""
+    print("\n\nRUNNING scMAMA-MIA QUAD (standard + Class B, BB+/-aux)\n" + "_" * 40, flush=True)
+
+    _train_meta = ad.read_h5ad(cfg.train_path, backed="r")
+    cell_types = list(_train_meta.obs["cell_type"].unique())
+    _train_meta.file.close()
+
+    if cfg.parallelize:
+        print(f"  parallelising across cell types (max_workers={cfg.parallel_workers})...",
+              flush=True)
+        results = _run_parallel_attack_quad(cfg, cell_types, cfg.parallel_workers)
+    else:
+        train   = ad.read_h5ad(cfg.train_path)
+        holdout = ad.read_h5ad(cfg.holdout_path)
+        results = []
+        for ct in cell_types:
+            result = _attack_cell_type_quad(cfg, ct, train, holdout)
+            results.append(result)
+            print(f"  finished: {ct}", flush=True)
+
+    results.sort(key=lambda x: x[0])
+    return results
+
+
+def _run_parallel_attack_quad(cfg, cell_types, max_workers):
+    results = []
+    pending = list(cell_types)
+    current_workers = max_workers
+
+    while pending:
+        batch = pending[:current_workers]
+        batch_results, failed_cts = _try_parallel_batch_quad(cfg, batch, current_workers)
+        results.extend(batch_results)
+
+        if failed_cts:
+            if current_workers > 1:
+                current_workers = max(1, current_workers // 2)
+                print(f"  [OOM] Reducing to {current_workers} workers; "
+                      f"retrying {len(failed_cts)} cell types", flush=True)
+                pending = failed_cts + pending[len(batch):]
+            else:
+                print(f"  [FALLBACK] Sequential retry for: {failed_cts}", flush=True)
+                train   = ad.read_h5ad(cfg.train_path)
+                holdout = ad.read_h5ad(cfg.holdout_path)
+                for ct in failed_cts:
+                    try:
+                        result = _attack_cell_type_quad(cfg, ct, train, holdout)
+                        results.append(result)
+                        print(f"  finished (sequential): {result[0]}", flush=True)
+                    except Exception as e:
+                        print(f"  [ERROR] {ct} failed sequentially: {e}", flush=True)
+                        results.append((ct, None, None))
+                pending = pending[len(batch):]
+        else:
+            pending = pending[len(batch):]
+
+    return results
+
+
+def _try_parallel_batch_quad(cfg, batch, max_workers):
+    completed = []
+    failed = []
+    completed_cts = set()
+    ctx = multiprocessing.get_context("spawn")
+
+    try:
+        with ProcessPoolExecutor(max_workers=max_workers, mp_context=ctx) as executor:
+            futures = {
+                executor.submit(_attack_cell_type_from_disk_quad, cfg, ct): ct
+                for ct in batch
+            }
+            for fut in as_completed(futures):
+                ct = futures[fut]
+                try:
+                    result = fut.result()
+                    completed.append(result)
+                    completed_cts.add(ct)
+                    print(f"  finished (quad): {result[0]}", flush=True)
+                except Exception as e:
+                    print(f"  failed: {ct} ({type(e).__name__}: {e})", flush=True)
+                    failed.append(ct)
+                    completed_cts.add(ct)
+    except Exception as e:
+        print(f"  [WARN] Worker pool broke: {type(e).__name__}", flush=True)
+        failed.extend([ct for ct in batch if ct not in completed_cts])
+
+    return completed, failed
+
+
+def _attack_cell_type_from_disk_quad(cfg, cell_type):
+    import anndata as _ad
+    train_backed   = _ad.read_h5ad(cfg.train_path,   backed="r")
+    holdout_backed = _ad.read_h5ad(cfg.holdout_path, backed="r")
+    train_ct   = train_backed  [train_backed  .obs["cell_type"] == cell_type].to_memory()
+    holdout_ct = holdout_backed[holdout_backed.obs["cell_type"] == cell_type].to_memory()
+    train_backed.file.close()
+    holdout_backed.file.close()
+    return _attack_cell_type_quad(cfg, cell_type, train_ct, holdout_ct)
+
+
+def _attack_cell_type_quad(cfg, cell_type, train, holdout):
+    """
+    Run all 4 variants for one cell type.
+    Returns (cell_type, (r100_std, r101_std, r100_b, r101_b), runtime)  or  (cell_type, None, None).
+    """
+    hvg_mask = pd.read_csv(cfg.shadow_modelling_hvg_path)
+    hvgs = hvg_mask[hvg_mask["highly_variable"]].values[:, 0]
+
+    synth_rds = os.path.join(cfg.synth_artifacts_path, f"{cell_type}.rds")
+    aux_rds   = os.path.join(cfg.aux_artifacts_path,   f"{cell_type}.rds")
+
+    if not (os.path.exists(synth_rds) and os.path.exists(aux_rds)):
+        return (cell_type, None, None)
+
+    from rpy2.robjects import r
+    copula_synth_r = r["readRDS"](synth_rds).rx2(str(cell_type))
+    copula_aux_r   = r["readRDS"](aux_rds).rx2(str(cell_type))
+
+    targets = _build_target_dataset(cell_type, hvgs, train, holdout)
+
+    t0 = time.process_time()
+    quad = attack_mahalanobis_quad(cfg, targets, cell_type, copula_synth_r, copula_aux_r)
+    runtime = time.process_time() - t0
+
+    return (cell_type, quad, runtime)
+
+
+def save_results_quad(cfg, results):
+    """
+    Save all 4 variants from a quad attack run.
+
+    Standard results (r100_std, r101_std) → mamamia_results.csv  (legacy-compatible)
+    Class B results  (r100_b,   r101_b)   → mamamia_results_classb.csv
+    """
+    print("\n--- Saving standard results ---", flush=True)
+    results_std_100 = [(ct, pair[0] if pair is not None else None, rt)
+                       for ct, pair, rt in results]
+    results_std_101 = [(ct, pair[1] if pair is not None else None, 0.0)
+                       for ct, pair, rt in results]
+    cfg.mia_setting.use_aux = True
+    save_results(cfg, results_std_100)
+    cfg.mia_setting.use_aux = False
+    save_results(cfg, results_std_101)
+    cfg.mia_setting.use_aux = True
+
+    print("\n--- Saving Class B results ---", flush=True)
+    results_b_100 = [(ct, pair[2] if pair is not None else None, rt)
+                     for ct, pair, rt in results]
+    results_b_101 = [(ct, pair[3] if pair is not None else None, 0.0)
+                     for ct, pair, rt in results]
+
+    orig_results_file  = cfg.results_file
+    orig_scores_file   = cfg.all_scores_file
+    cfg.results_file   = cfg.results_file_classb
+    cfg.all_scores_file = cfg.all_scores_file_classb
+
+    cfg.mia_setting.use_aux = True
+    save_results(cfg, results_b_100)
+    cfg.mia_setting.use_aux = False
+    save_results(cfg, results_b_101)
+    cfg.mia_setting.use_aux = True
+
+    cfg.results_file   = orig_results_file
+    cfg.all_scores_file = orig_scores_file
+
+
+def register_trial_quad(cfg):
+    """Mark standard (tm:100/101) and Class B (classb:100/101) as complete."""
+    df, _ = _get_tracking(cfg)
+    for col in ["tm:100", "tm:101", "classb:100", "classb:101"]:
+        if col not in df.columns:
+            df[col] = 0
+        df.loc[df["trial"] == cfg.trial_num, col] = 1
     df.to_csv(cfg.experiment_tracking_file, index=False)
 
 
