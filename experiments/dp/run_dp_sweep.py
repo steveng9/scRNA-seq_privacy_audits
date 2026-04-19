@@ -128,8 +128,14 @@ def _ensure_h5ad_splits(trial_dir: str) -> None:
     print("datasets/train.h5ad or holdout.h5ad missing — generating from full dataset...",
           flush=True)
 
-    train_npy   = os.path.join(datasets_dir, "train.npy")
-    holdout_npy = os.path.join(datasets_dir, "holdout.npy")
+    # Donor splits live in the shared splits/ dir; find it by walking up to the
+    # dataset root (the ancestor dir that contains full_dataset_cleaned.h5ad)
+    nd_tag = os.path.basename(os.path.dirname(trial_dir))   # e.g. "50d"
+    trial  = os.path.basename(trial_dir)                     # e.g. "1"
+    dataset_root = _find_dataset_root(trial_dir)
+    splits_dir   = os.path.join(dataset_root, "splits", nd_tag, trial)
+    train_npy    = os.path.join(splits_dir, "train.npy")
+    holdout_npy  = os.path.join(splits_dir, "holdout.npy")
     if not os.path.exists(train_npy) or not os.path.exists(holdout_npy):
         raise FileNotFoundError(
             f"Cannot create H5AD splits: missing {train_npy} or {holdout_npy}"
@@ -138,9 +144,9 @@ def _ensure_h5ad_splits(trial_dir: str) -> None:
     train_donors   = np.load(train_npy,   allow_pickle=True)
     holdout_donors = np.load(holdout_npy, allow_pickle=True)
 
-    # Full dataset lives two levels up from trial_dir (e.g. data/ok/50d/1 → data/ok/)
     full_path = None
-    for rel in ["../../full_dataset_cleaned.h5ad", "../../../full_dataset_cleaned.h5ad"]:
+    for rel in ["../../full_dataset_cleaned.h5ad", "../../../full_dataset_cleaned.h5ad",
+                "../../../../full_dataset_cleaned.h5ad", "../../../../../full_dataset_cleaned.h5ad"]:
         candidate = os.path.normpath(os.path.join(trial_dir, rel))
         if os.path.exists(candidate):
             full_path = candidate
@@ -198,6 +204,18 @@ def make_minimal_cfg(trial_dir: str, use_aux: bool) -> Box:
     cfg.mia_setting.use_aux    = use_aux
 
     return cfg
+
+
+def _find_dataset_root(trial_dir: str) -> str:
+    """Walk up from trial_dir until we find full_dataset_cleaned.h5ad."""
+    d = os.path.abspath(trial_dir)
+    for _ in range(8):
+        d = os.path.dirname(d)
+        if os.path.exists(os.path.join(d, "full_dataset_cleaned.h5ad")):
+            return d
+    raise FileNotFoundError(
+        f"Could not find dataset root (full_dataset_cleaned.h5ad) above {trial_dir}"
+    )
 
 
 def _find_hvg_path(trial_dir: str) -> str:

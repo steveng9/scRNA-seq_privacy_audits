@@ -55,7 +55,7 @@ from attacks.scmamamia.attack_b import _mahalanobis_distances
 # Ablation configuration
 # ---------------------------------------------------------------------------
 
-DATA_DIR   = "/home/golobs/data"
+DATA_DIR   = "/home/golobs/data/scMAMAMIA"
 RESULT_DIR = os.path.join(_REPO, "experiments", "ablation", "results")
 N_TRIALS   = 5
 
@@ -89,21 +89,21 @@ ABLATION_VARIANTS = [
 
 # Datasets for primary ablation (true scDesign2 targets)
 SD2_TARGETS = [
-    # (dataset_name, nd, hvg_path_rel_to_dataset)
-    ("ok",   10, "hvg.csv"),
-    ("ok",   50, "hvg.csv"),
-    ("aida", 10, "hvg.csv"),
-    ("aida", 50, "hvg.csv"),
-    ("cg",   10, "hvg.csv"),
+    # (dataset_name, nd, hvg_path_rel_to_base_dataset)
+    ("ok/scdesign2/no_dp",   10, "hvg.csv"),
+    ("ok/scdesign2/no_dp",   50, "hvg.csv"),
+    ("aida/scdesign2/no_dp", 10, "hvg.csv"),
+    ("aida/scdesign2/no_dp", 50, "hvg.csv"),
+    ("cg/scdesign2/no_dp",   10, "hvg.csv"),
 ]
 
 # Datasets for regression sanity check (proxy-model targets)
 # Use only BB+aux for regression (tm:100), first 3 trials only
 NON_SD2_REGRESSION = [
-    ("ok_scvi",   10, "ok"),
-    ("ok_sd3g",   10, "ok"),
-    ("ok_sd3v",   10, "ok"),
-    ("ok_scdiff", 10, "ok"),
+    ("ok/scvi/no_dp",         10, "ok"),
+    ("ok/scdesign3/gaussian", 10, "ok"),
+    ("ok/scdesign3/vine",     10, "ok"),
+    ("ok/scdiffusion/no_dp",  10, "ok"),
 ]
 
 EPS = 1e-4   # matches existing mamamia_params.epsilon
@@ -278,16 +278,17 @@ def run_one_trial(dataset_name, nd, trial, hvg_relpath, base_dataset=None, remap
     if remap_fn is None:
         remap_fn = zinb_cdf
 
-    ds_base = base_dataset or dataset_name
+    # base_dataset_name: first path component (e.g. 'ok' from 'ok/scdesign2/no_dp')
+    base_dataset_name = (base_dataset or dataset_name).split('/')[0]
     data_dir      = os.path.join(DATA_DIR, *dataset_name.split("/"))
-    base_data_dir = os.path.join(DATA_DIR, *ds_base.split("/"))
+    base_data_dir = os.path.join(DATA_DIR, base_dataset_name)
     trial_dir     = os.path.join(data_dir, f"{nd}d", str(trial))
-    datasets_dir  = os.path.join(trial_dir, "datasets")
+    splits_dir    = os.path.join(base_data_dir, "splits", f"{nd}d", str(trial))
     synth_rds_dir = os.path.join(trial_dir, "artifacts", "synth")
     aux_rds_dir   = os.path.join(trial_dir, "artifacts", "aux")
 
-    train_npy   = os.path.join(datasets_dir, "train.npy")
-    holdout_npy = os.path.join(datasets_dir, "holdout.npy")
+    train_npy   = os.path.join(splits_dir, "train.npy")
+    holdout_npy = os.path.join(splits_dir, "holdout.npy")
     full_h5ad   = os.path.join(base_data_dir, "full_dataset_cleaned.h5ad")
     hvg_path    = os.path.join(base_data_dir, hvg_relpath)
 

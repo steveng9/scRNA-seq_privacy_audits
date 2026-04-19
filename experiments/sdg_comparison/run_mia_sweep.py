@@ -145,16 +145,12 @@ def setup_symlinks():
 
 def setup_dp_splits():
     """
-    DP trial directories only contain synthetic.h5ad + train.npy.
-    Pre-populate holdout.npy and auxiliary.npy from the remaining donor pool
-    so that run_experiment.py can skip re-sampling (which would overwrite train.npy).
-
-    The full_dataset_cleaned.h5ad lives inside each eps subdirectory (as a
-    symlink to ok/full_dataset_cleaned.h5ad), not at the ok_dp top level.
+    DP trial directories contain train.npy written during generation.
+    Ensure holdout.npy and auxiliary.npy exist in the shared splits/ directory
+    (DATA_DIR/{base_dataset}/splits/{nd}d/{trial}/) so run_experiment.py finds them.
     """
-    print("\n[SETUP] Pre-populating DP donor splits…")
+    print("\n[SETUP] Pre-populating DP donor splits into shared splits/ dirs…")
 
-    # Lazy-load the full donor list once (use the first eps dir that has the h5ad)
     _all_donors_cache = {}
 
     for sdg_key, dataset_name, base_dataset, donor_counts, tms, pw in SWEEP:
@@ -165,18 +161,31 @@ def setup_dp_splits():
 
         for nd in donor_counts:
             for trial in range(1, N_TRIALS + 1):
-                datasets_dir = os.path.join(sdg_path, f"{nd}d", str(trial), "datasets")
-                train_npy    = os.path.join(datasets_dir, "train.npy")
-                holdout_npy  = os.path.join(datasets_dir, "holdout.npy")
-                aux_npy      = os.path.join(datasets_dir, "auxiliary.npy")
-
-                if not os.path.exists(train_npy):
+                # train.npy lives in the DP SDG trial dir (written during generation)
+                sdg_datasets_dir = os.path.join(sdg_path, f"{nd}d", str(trial), "datasets")
+                train_npy_sdg    = os.path.join(sdg_datasets_dir, "train.npy")
+                if not os.path.exists(train_npy_sdg):
                     continue
+
+                # Target location: shared splits/ dir under dataset root
+                splits_dir = os.path.join(DATA_DIR, base_dataset, "splits",
+                                          f"{nd}d", str(trial))
+                train_npy    = os.path.join(splits_dir, "train.npy")
+                holdout_npy  = os.path.join(splits_dir, "holdout.npy")
+                aux_npy      = os.path.join(splits_dir, "auxiliary.npy")
+
+                os.makedirs(splits_dir, exist_ok=True)
+
+                # Copy train.npy into splits/ if not already there
+                if not os.path.exists(train_npy):
+                    import shutil
+                    shutil.copy2(train_npy_sdg, train_npy)
+
                 if os.path.exists(holdout_npy) and os.path.exists(aux_npy):
                     continue  # already done
 
                 # Load all donors lazily — h5ad lives at the base dataset root
-                if dataset_name not in _all_donors_cache:
+                if base_dataset not in _all_donors_cache:
                     base_h5ad = os.path.join(DATA_DIR, base_dataset,
                                              "full_dataset_cleaned.h5ad")
                     if not os.path.exists(base_h5ad):
@@ -184,9 +193,9 @@ def setup_dp_splits():
                         break
                     print(f"  Loading donor list from {base_h5ad} …")
                     adata = ad.read_h5ad(base_h5ad, backed="r")
-                    _all_donors_cache[dataset_name] = adata.obs["individual"].unique()
+                    _all_donors_cache[base_dataset] = adata.obs["individual"].unique()
                     adata.file.close()
-                all_donors = _all_donors_cache[dataset_name]
+                all_donors = _all_donors_cache[base_dataset]
 
                 train_donors = np.load(train_npy, allow_pickle=True)
                 non_target   = list(set(all_donors) - set(train_donors))
@@ -210,7 +219,7 @@ def setup_dp_splits():
 
                 np.save(holdout_npy, holdout_donors, allow_pickle=True)
                 np.save(aux_npy,     aux_donors,     allow_pickle=True)
-                print(f"  pre-populated splits: {dataset_name}/{nd}d/{trial}")
+                print(f"  pre-populated splits: {base_dataset}/splits/{nd}d/{trial}")
 
     print("[SETUP] DP donor splits done.")
 

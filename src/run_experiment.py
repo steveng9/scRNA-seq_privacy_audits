@@ -164,6 +164,11 @@ def create_config(path):
 
     cfg.split_name = f"{cfg.mia_setting.num_donors}d"
     cfg.top_data_dir = os.path.join(cfg.dir_list[_ENV].data, cfg.dataset_name)
+    # base_data_dir: the dataset root (e.g. scMAMAMIA/ok/), independent of SDG variant.
+    # dataset_name may be 'ok' (old-style) or 'ok/scdesign2/no_dp' (new-style);
+    # the first path component is always the dataset identifier.
+    base_dataset = cfg.dataset_name.split('/')[0]
+    cfg.base_data_dir = os.path.join(cfg.dir_list[_ENV].data, base_dataset)
     cfg.cfg_dir = os.path.join(cfg.top_data_dir, cfg.split_name)
     cfg.experiment_tracking_file = os.path.join(cfg.cfg_dir, "tracking.csv")
 
@@ -179,9 +184,14 @@ def create_config(path):
     cfg.synth_artifacts_path = os.path.join(cfg.artifacts_path, "synth")
     cfg.aux_artifacts_path   = os.path.join(cfg.artifacts_path, "aux")
 
-    cfg.train_donors_path   = os.path.join(cfg.datasets_path, "train.npy")
-    cfg.holdout_donors_path = os.path.join(cfg.datasets_path, "holdout.npy")
-    cfg.aux_donors_path     = os.path.join(cfg.datasets_path, "auxiliary.npy")
+    # Donor splits live in a shared directory under the dataset root, not in each
+    # SDG trial dir. This avoids duplicating the same tiny .npy files across every
+    # SDG variant while keeping a single authoritative source of truth.
+    cfg.splits_path       = os.path.join(cfg.base_data_dir, "splits",
+                                          cfg.split_name, str(trial_num))
+    cfg.train_donors_path   = os.path.join(cfg.splits_path, "train.npy")
+    cfg.holdout_donors_path = os.path.join(cfg.splits_path, "holdout.npy")
+    cfg.aux_donors_path     = os.path.join(cfg.splits_path, "auxiliary.npy")
     cfg.train_path          = os.path.join(cfg.datasets_path, "train.h5ad")
     cfg.holdout_path        = os.path.join(cfg.datasets_path, "holdout.h5ad")
     cfg.aux_path            = os.path.join(cfg.datasets_path, "auxiliary.h5ad")
@@ -193,7 +203,7 @@ def create_config(path):
     cfg.synth_model_config_path  = os.path.join(cfg.synth_artifacts_path, "config.yaml")
     cfg.aux_model_config_path    = os.path.join(cfg.aux_artifacts_path, "config.yaml")
     cfg.permanent_hvg_mask_path  = (cfg.get("hvg_path")
-                                     or os.path.join(cfg.top_data_dir, "hvg.csv"))
+                                     or os.path.join(cfg.base_data_dir, "hvg.csv"))
     cfg.shadow_modelling_hvg_path = (
         cfg.permanent_hvg_mask_path if cfg.mia_setting.use_wb_hvgs
         else cfg.artifacts_path
@@ -283,8 +293,8 @@ def register_trial(cfg):
 
 def make_dir_structure(cfg):
     for path in [
-        cfg.datasets_path, cfg.figures_path, cfg.models_path,
-        cfg.synth_artifacts_path, cfg.aux_artifacts_path,
+        cfg.splits_path, cfg.datasets_path, cfg.figures_path,
+        cfg.models_path, cfg.synth_artifacts_path, cfg.aux_artifacts_path,
     ]:
         os.makedirs(path, exist_ok=True)
 
@@ -347,7 +357,7 @@ def _write_sdg_config_files_sd3(cfg):
 def create_data_splits(cfg):
     # Use backed='r' so only obs metadata is loaded initially; avoids loading multi-GB
     # full datasets (e.g. AIDA 57 GB) entirely into RAM before filtering.
-    full_path = os.path.join(cfg.top_data_dir, "full_dataset_cleaned.h5ad")
+    full_path = os.path.join(cfg.base_data_dir, "full_dataset_cleaned.h5ad")
     all_data = ad.read_h5ad(full_path, backed='r')
     cell_types = all_data.obs["cell_type"].unique()
 

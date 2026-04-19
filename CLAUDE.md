@@ -177,14 +177,18 @@ Before starting any work, use your tools to read the actual repository structure
 understand where things live. Do not assume any particular layout. Map it out first,
 then update this section with the real structure.
 
-### Data Layout (reorganized 2026-04-18)
+### Data Layout (reorganized 2026-04-19)
 
-All synthetic data lives under `~/data/scMAMAMIA/` with a clean hierarchy:
+All data lives under `~/data/scMAMAMIA/` with a clean hierarchy:
 ```
 ~/data/scMAMAMIA/
   {dataset}/                        # ok, aida, cg
     full_dataset_cleaned.h5ad       # canonical source data
     hvg.csv  /  hvg_full.csv        # shared HVG masks
+    splits/{nd}d/{trial}/           # donor ID arrays (shared across ALL SDG variants)
+      train.npy
+      holdout.npy
+      auxiliary.npy
     scdesign2/
       no_dp/{nd}d/{trial}/          # scDesign2 non-DP
       eps_{e}/{nd}d/{trial}/        # scDesign2+DP
@@ -198,8 +202,13 @@ All synthetic data lives under `~/data/scMAMAMIA/` with a clean hierarchy:
       eps_{e}/{nd}d/{trial}/        # NMF+DP sweep
 ```
 
-No symlinks. `run_experiment.py` accepts an optional `hvg_path` config key that overrides
-the auto-derived `top_data_dir/hvg.csv` path. `run_mia_sweep.py` sets this automatically.
+Each SDG trial dir contains only: `datasets/synthetic.h5ad`, `artifacts/`, `models/`,
+`results/`. Donor splits are **not** stored per-SDG — only in the shared `splits/` dir.
+
+No symlinks. `run_experiment.py` derives `base_data_dir` from the first component of
+`dataset_name` (e.g. `"ok"` from `"ok/scdesign2/no_dp"`) and reads splits from
+`base_data_dir/splits/{nd}d/{trial}/`. It also reads `full_dataset_cleaned.h5ad` from
+`base_data_dir`. The optional `hvg_path` config key overrides the auto-derived HVG path.
 
 ---
 
@@ -242,7 +251,7 @@ conda run --no-capture-output -n tabddpm_ \
     python experiments/sdg_comparison/generate_trial.py \
     --generator nmf \
     --dataset /home/golobs/data/scMAMAMIA/ok/full_dataset_cleaned.h5ad \
-    --splits-dir /home/golobs/data/scMAMAMIA/ok/scdesign2/no_dp/10d/1/datasets \
+    --splits-dir /home/golobs/data/scMAMAMIA/ok/splits/10d/1 \
     --out-dir /home/golobs/data/scMAMAMIA/ok/nmf/no_dp/10d/1 \
     --hvg-path /home/golobs/data/scMAMAMIA/ok/hvg_full.csv \
     --conda-env nmf_

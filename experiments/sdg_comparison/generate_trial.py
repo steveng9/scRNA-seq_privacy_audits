@@ -1,9 +1,9 @@
 """
 Generate synthetic scRNA-seq data for one trial of one SDG method.
 
-Loads pre-existing donor splits from a scDesign2 trial directory, trains the
-target generator on D_train, and saves the synthetic output.  No MIA attack
-is run — this is generation only.
+Loads pre-existing donor splits from the shared splits/ directory under the
+dataset root, trains the target generator on D_train, and saves the synthetic
+output.  No MIA attack is run — this is generation only.
 
 Supported generators
 --------------------
@@ -17,32 +17,33 @@ Output layout
 -------------
   <out-dir>/
     datasets/
-      train.npy           copied donor ID array (reference for later attacks)
-      holdout.npy         copied donor ID array
-      train.h5ad          temporary training subset (deleted after generation)
       synthetic.h5ad      final output
+      train.h5ad          temporary training subset (deleted after generation)
     models/
       <cell_type>.rds     (scDesign3 only)
       model/              (scVI only)
       vae/  diff/         (scDiffusion only)
+
+  Donor splits (train.npy, holdout.npy, auxiliary.npy) live in the shared
+  splits/ directory at the dataset root, not in each SDG trial dir.
 
 Usage
 -----
   # scDesign3 Gaussian, OneK1K, 10 donors, trial 3
   python experiments/sdg_comparison/generate_trial.py \\
       --generator  sd3_gaussian \\
-      --dataset    /home/golobs/data/ok/full_dataset_cleaned.h5ad \\
-      --splits-dir /home/golobs/data/ok/10d/3/datasets \\
-      --out-dir    /home/golobs/data/ok_sd3g/10d/3 \\
-      --hvg-path   /home/golobs/data/ok/hvg_full.csv
+      --dataset    /home/golobs/data/scMAMAMIA/ok/full_dataset_cleaned.h5ad \\
+      --splits-dir /home/golobs/data/scMAMAMIA/ok/splits/10d/3 \\
+      --out-dir    /home/golobs/data/scMAMAMIA/ok/scdesign3/gaussian/10d/3 \\
+      --hvg-path   /home/golobs/data/scMAMAMIA/ok/hvg_full.csv
 
   # scVI
   python experiments/sdg_comparison/generate_trial.py \\
       --generator scvi \\
-      --dataset   /home/golobs/data/ok/full_dataset_cleaned.h5ad \\
-      --splits-dir /home/golobs/data/ok/10d/3/datasets \\
-      --out-dir    /home/golobs/data/ok_scvi/10d/3 \\
-      --hvg-path   /home/golobs/data/ok/hvg_full.csv \\
+      --dataset   /home/golobs/data/scMAMAMIA/ok/full_dataset_cleaned.h5ad \\
+      --splits-dir /home/golobs/data/scMAMAMIA/ok/splits/10d/3 \\
+      --out-dir    /home/golobs/data/scMAMAMIA/ok/scvi/no_dp/10d/3 \\
+      --hvg-path   /home/golobs/data/scMAMAMIA/ok/hvg_full.csv \\
       --conda-env  scvi_
 """
 
@@ -161,7 +162,6 @@ def generate_sd3(out_dir, dataset_path, splits_dir, hvg_path,
         print(f"  [SKIP] synthetic.h5ad already exists: {synth_out}")
         return
 
-    _copy_splits(splits_dir, ds_dir)
     train_donors, _ = _load_splits(splits_dir)
 
     # Pre-filter to HVGs to avoid loading full 35k-gene matrix into R
@@ -219,7 +219,6 @@ def generate_scvi(out_dir, dataset_path, splits_dir, hvg_path,
         print(f"  [SKIP] synthetic.h5ad already exists: {synth_out}")
         return
 
-    _copy_splits(splits_dir, ds_dir)
     train_donors, _ = _load_splits(splits_dir)
 
     # Write HVG-filtered train set to avoid loading 35k genes into RAM (OOM on large donors)
@@ -258,7 +257,6 @@ def generate_nmf(out_dir, dataset_path, splits_dir, hvg_path,
         print(f"  [SKIP] synthetic.h5ad already exists: {synth_out}")
         return
 
-    _copy_splits(splits_dir, ds_dir)
     train_donors, _ = _load_splits(splits_dir)
 
     train_h5ad = os.path.join(ds_dir, "train_hvg.h5ad")
@@ -300,7 +298,6 @@ def generate_scdiffusion(out_dir, dataset_path, splits_dir, hvg_path,
         print(f"  [SKIP] synthetic.h5ad already exists: {synth_out}")
         return
 
-    _copy_splits(splits_dir, ds_dir)
     train_donors, _ = _load_splits(splits_dir)
 
     # Write HVG-filtered train set to avoid loading 35k genes into RAM (OOM on large donors)

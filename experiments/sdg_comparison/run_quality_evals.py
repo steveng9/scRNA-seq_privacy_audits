@@ -88,6 +88,7 @@ def collect_jobs(datasets, max_donors=None):
     """Return list of (synth_path, full_data_path, dataset_name, results_dir, out_csv)."""
     jobs = []
     for data_root, full_data_path, dataset_name in datasets:
+        base_data_root = os.path.dirname(full_data_path)  # e.g. scMAMAMIA/ok/
         pattern = os.path.join(data_root, "*d", "*", "datasets", "synthetic.h5ad")
         for synth_path in sorted(glob.glob(pattern)):
             # Extract donor count from path
@@ -101,13 +102,13 @@ def collect_jobs(datasets, max_donors=None):
             trial_dir    = os.path.dirname(datasets_dir)
             results_dir  = os.path.join(trial_dir, "results", "quality_eval_results")
             out_csv      = os.path.join(results_dir, "results", "statistics_evals.csv")
-            jobs.append((synth_path, full_data_path, dataset_name, results_dir, out_csv))
+            jobs.append((synth_path, full_data_path, base_data_root, dataset_name, results_dir, out_csv))
     return jobs
 
 
 def _run_one(args):
     """Worker function: evaluate one synthetic dataset. Returns (label, status, msg)."""
-    synth_path, full_data_path, dataset_name, results_dir, out_csv = args
+    synth_path, full_data_path, base_data_root, dataset_name, results_dir, out_csv = args
 
     parts  = synth_path.split(os.sep)
     src    = parts[-5]
@@ -118,7 +119,8 @@ def _run_one(args):
     if os.path.exists(out_csv):
         return (label, "skip", None)
 
-    train_npy = os.path.join(os.path.dirname(synth_path), "train.npy")
+    # Donor splits live in the shared splits/ dir under the dataset root
+    train_npy = os.path.join(base_data_root, "splits", nd_tag, trial, "train.npy")
     if not os.path.exists(train_npy):
         return (label, "skip-no-train", None)
 
