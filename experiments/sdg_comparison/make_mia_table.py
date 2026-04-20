@@ -123,6 +123,16 @@ SDG_METHODS = [
     ("scvi",       "scVI",           "",                      "ok/scvi/no_dp",                   False),
     ("scdiff",     "scDiffusion",    "",                      "ok/scdiffusion/no_dp",            False),
     ("nmf",        "NMF",            "",                      "ok/nmf/no_dp",                    False),
+    ("nmf_dp_1e8", "NMF+DP",        r"$\varepsilon=10^{8}$", "ok/nmf/eps_100000000",             False),
+    ("nmf_dp_1e7", "NMF+DP",        r"$\varepsilon=10^{7}$", "ok/nmf/eps_10000000",              False),
+    ("nmf_dp_1e6", "NMF+DP",        r"$\varepsilon=10^{6}$", "ok/nmf/eps_1000000",               False),
+    ("nmf_dp_1e5", "NMF+DP",        r"$\varepsilon=10^{5}$", "ok/nmf/eps_100000",                False),
+    ("nmf_dp_1e4", "NMF+DP",        r"$\varepsilon=10^{4}$", "ok/nmf/eps_10000",                 False),
+    ("nmf_dp_1e3", "NMF+DP",        r"$\varepsilon=10^{3}$", "ok/nmf/eps_1000",                  False),
+    ("nmf_dp_1e2", "NMF+DP",        r"$\varepsilon=10^{2}$", "ok/nmf/eps_100",                   False),
+    ("nmf_dp_1e1", "NMF+DP",        r"$\varepsilon=10^{1}$", "ok/nmf/eps_10",                    False),
+    ("nmf_dp_2p8", "NMF+DP",        r"$\varepsilon=2.8$",    "ok/nmf/eps_2.8",                   False),
+    ("nmf_dp_1e0", "NMF+DP",        r"$\varepsilon=10^{0}$", "ok/nmf/eps_1",                     False),
 ]
 
 
@@ -130,7 +140,10 @@ SDG_METHODS = [
 # Data collection
 # ---------------------------------------------------------------------------
 
-def collect_values(dataset_path: str, nd: int, tm_code: str, metric_key: str) -> list[float]:
+def collect_values(
+    dataset_path: str, nd: int, tm_code: str, metric_key: str,
+    results_filename: str = "mamamia_results.csv",
+) -> list[float]:
     """
     Return a list of metric values (one per completed trial) for the given
     (dataset, donor-count, threat-model, metric) combination.
@@ -141,7 +154,7 @@ def collect_values(dataset_path: str, nd: int, tm_code: str, metric_key: str) ->
 
     for trial in range(1, N_TRIALS + 1):
         csv_path = os.path.join(
-            data_dir, f"{nd}d", str(trial), "results", "mamamia_results.csv"
+            data_dir, f"{nd}d", str(trial), "results", results_filename
         )
         if not os.path.exists(csv_path):
             continue
@@ -200,6 +213,7 @@ def make_table(
     decimals: int = 2,
     show_std: bool = True,
     min_trials: int = 1,
+    results_filename: str = "mamamia_results.csv",
 ) -> str:
     """Return a complete LaTeX tabular string."""
 
@@ -250,7 +264,7 @@ def make_table(
                 if is_wb and not wb_supported:
                     row_parts.append(r"N/A")
                     continue
-                values = collect_values(dataset_path, nd, tm_code, metric_key)
+                values = collect_values(dataset_path, nd, tm_code, metric_key, results_filename)
                 row_parts.append(
                     fmt_cell(values, decimals=decimals, show_std=show_std,
                              min_trials=min_trials)
@@ -279,7 +293,10 @@ def make_table(
 # Coverage summary
 # ---------------------------------------------------------------------------
 
-def print_coverage(nd_list: list[int], tm_display: list[str], metric_key: str) -> None:
+def print_coverage(
+    nd_list: list[int], tm_display: list[str], metric_key: str,
+    results_filename: str = "mamamia_results.csv",
+) -> None:
     """Print a plain-text coverage summary to stderr."""
     print("\nCoverage summary:", file=sys.stderr)
     for sdg_key, method_name, sub_label, dataset_path, wb_supported in SDG_METHODS:
@@ -290,7 +307,7 @@ def print_coverage(nd_list: list[int], tm_display: list[str], metric_key: str) -
                 is_wb = tm_code in ("000", "001")
                 if is_wb and not wb_supported:
                     continue
-                n = len(collect_values(dataset_path, nd, tm_code, metric_key))
+                n = len(collect_values(dataset_path, nd, tm_code, metric_key, results_filename))
                 parts.append(f"{nd}d/{TM_LABEL[tm_code]}:{n}/{N_TRIALS}")
         print(f"  {label:<30}  {',  '.join(parts)}", file=sys.stderr)
     print("", file=sys.stderr)
@@ -347,6 +364,14 @@ def main() -> None:
         "--no-save", action="store_true",
         help="Print to stdout only; do not write to file",
     )
+    parser.add_argument(
+        "--classb", action="store_true",
+        help=(
+            "Read from mamamia_results_classb.csv (Class B / Mahalanobis+LLR attack) "
+            "instead of mamamia_results.csv (standard Mahalanobis). "
+            "Default output path becomes figures/mia_table_classb.tex."
+        ),
+    )
     args = parser.parse_args()
 
     # Resolve threat-model codes, preserving order and de-duplicating
@@ -361,8 +386,10 @@ def main() -> None:
                 tm_display.append(code)
                 seen.add(code)
 
+    results_filename = "mamamia_results_classb.csv" if args.classb else "mamamia_results.csv"
+
     # Coverage check to stderr
-    print_coverage(args.nd, tm_display, args.metric)
+    print_coverage(args.nd, tm_display, args.metric, results_filename)
 
     # Build table
     table = make_table(
@@ -372,12 +399,14 @@ def main() -> None:
         decimals=args.decimals,
         show_std=not args.no_std,
         min_trials=args.min_trials,
+        results_filename=results_filename,
     )
 
     print(table)
 
     if not args.no_save:
-        out_path = args.output or os.path.join(REPO_ROOT, "figures", "mia_table.tex")
+        default_tex = "mia_table_classb.tex" if args.classb else "mia_table.tex"
+        out_path = args.output or os.path.join(REPO_ROOT, "figures", default_tex)
         os.makedirs(os.path.dirname(out_path), exist_ok=True)
         with open(out_path, "w") as fh:
             fh.write(table + "\n")

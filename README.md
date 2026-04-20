@@ -134,7 +134,8 @@ python experiments/sdg_comparison/run_quality_evals.py
 ### 5. Generate Tables and Figures
 
 ```bash
-python experiments/sdg_comparison/make_mia_table.py       # LaTeX MIA AUC table
+python experiments/sdg_comparison/make_mia_table.py          # LaTeX MIA AUC table (standard Mahalanobis)
+python experiments/sdg_comparison/make_mia_table.py --classb # LaTeX MIA AUC table (Class B / Mahalanobis+LLR) → figures/mia_table_classb.tex
 python experiments/sdg_comparison/make_quality_table.py   # LaTeX quality table
 python experiments/sdg_comparison/make_sdg_umaps.py       # UMAP panels (all SDGs)
 python experiments/sdg_comparison/make_nmf_umaps.py       # NMF-specific 3-panel UMAPs
