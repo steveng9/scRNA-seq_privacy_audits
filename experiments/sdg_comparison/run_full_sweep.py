@@ -508,6 +508,7 @@ def _make_generate_bash(base_dataset, sdg_subpath, nd):
     ] + extra_args
 
     if conda_env:
+        gen_args += ["--conda-env", conda_env]
         gen_args = ["conda", "run", "--no-capture-output", "-n", conda_env] + gen_args
 
     gen_cmd_str = " ".join(shlex.quote(str(a)) for a in gen_args)

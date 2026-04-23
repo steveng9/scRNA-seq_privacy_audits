@@ -122,6 +122,7 @@ def _write_train_h5ad(dataset_path, train_donors, individual_col, out_path, hvg_
         hvgs = set(hvg_df[hvg_df["highly_variable"]].index)
         keep = [g for g in subset.var_names if g in hvgs]
         subset = subset[:, keep].copy()
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
     subset.write_h5ad(out_path)
     n, n_vars = subset.n_obs, subset.n_vars
     del subset
