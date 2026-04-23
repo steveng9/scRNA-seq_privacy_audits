@@ -284,10 +284,13 @@ def _get_tracking(cfg):
 
 
 def _next_trial_num(cfg, df):
-    # WB quad tracks via classb:000 so it doesn't collide with existing tm:000 entries
-    # from earlier (non-Class-B) white-box runs.
-    is_wb_quad = (cfg.mia_setting.get("run_quad_bb", False) and cfg.mia_setting.white_box)
-    col = "classb:000" if is_wb_quad else ("tm:" + _threat_model_code(cfg))
+    # Quad mode tracks via classb: columns to avoid collision with existing tm: entries
+    # from earlier (non-Class-B) runs on the same trials.
+    is_quad = cfg.mia_setting.get("run_quad_bb", False)
+    if is_quad:
+        col = "classb:000" if cfg.mia_setting.white_box else "classb:100"
+    else:
+        col = "tm:" + _threat_model_code(cfg)
     if col not in df.columns:
         df[col] = 0
         df.to_csv(cfg.experiment_tracking_file, index=False)
@@ -329,46 +332,40 @@ def write_sdg_config_files(cfg):
 
 
 def _write_sdg_config_files_sd2(cfg):
-    """Write scDesign2 per-phase config YAMLs."""
-    if not os.path.exists(cfg.target_model_config_path):
-        c = make_sdg_config(cfg, True, "models",
-                            cfg.permanent_hvg_mask_path, "train.h5ad")
-        with open(cfg.target_model_config_path, "w") as f:
-            yaml.safe_dump(c.to_dict(), f, sort_keys=False)
+    """Write scDesign2 per-phase config YAMLs (always regenerated — paths may have changed)."""
+    c = make_sdg_config(cfg, True, "models",
+                        cfg.permanent_hvg_mask_path, "train.h5ad")
+    with open(cfg.target_model_config_path, "w") as f:
+        yaml.safe_dump(c.to_dict(), f, sort_keys=False)
 
-    if not os.path.exists(cfg.synth_model_config_path):
-        c = make_sdg_config(cfg, False, "artifacts/synth",
-                            cfg.shadow_modelling_hvg_path, "synthetic.h5ad")
-        with open(cfg.synth_model_config_path, "w") as f:
-            yaml.safe_dump(c.to_dict(), f, sort_keys=False)
+    c = make_sdg_config(cfg, False, "artifacts/synth",
+                        cfg.shadow_modelling_hvg_path, "synthetic.h5ad")
+    with open(cfg.synth_model_config_path, "w") as f:
+        yaml.safe_dump(c.to_dict(), f, sort_keys=False)
 
-    if not os.path.exists(cfg.aux_model_config_path):
-        c = make_sdg_config(cfg, False, "artifacts/aux",
-                            cfg.shadow_modelling_hvg_path, "auxiliary.h5ad")
-        with open(cfg.aux_model_config_path, "w") as f:
-            yaml.safe_dump(c.to_dict(), f, sort_keys=False)
+    c = make_sdg_config(cfg, False, "artifacts/aux",
+                        cfg.shadow_modelling_hvg_path, "auxiliary.h5ad")
+    with open(cfg.aux_model_config_path, "w") as f:
+        yaml.safe_dump(c.to_dict(), f, sort_keys=False)
 
 
 def _write_sdg_config_files_sd3(cfg):
-    """Write scDesign3 per-phase config YAMLs."""
+    """Write scDesign3 per-phase config YAMLs (always regenerated — paths may have changed)."""
     from sdg.scdesign3.copula import make_sdg_config_sd3
-    if not os.path.exists(cfg.target_model_config_path):
-        c = make_sdg_config_sd3(cfg, True, "models",
-                                cfg.permanent_hvg_mask_path, "train.h5ad")
-        with open(cfg.target_model_config_path, "w") as f:
-            yaml.safe_dump(c.to_dict(), f, sort_keys=False)
+    c = make_sdg_config_sd3(cfg, True, "models",
+                            cfg.permanent_hvg_mask_path, "train.h5ad")
+    with open(cfg.target_model_config_path, "w") as f:
+        yaml.safe_dump(c.to_dict(), f, sort_keys=False)
 
-    if not os.path.exists(cfg.synth_model_config_path):
-        c = make_sdg_config_sd3(cfg, False, "artifacts/synth",
-                                cfg.shadow_modelling_hvg_path, "synthetic.h5ad")
-        with open(cfg.synth_model_config_path, "w") as f:
-            yaml.safe_dump(c.to_dict(), f, sort_keys=False)
+    c = make_sdg_config_sd3(cfg, False, "artifacts/synth",
+                            cfg.shadow_modelling_hvg_path, "synthetic.h5ad")
+    with open(cfg.synth_model_config_path, "w") as f:
+        yaml.safe_dump(c.to_dict(), f, sort_keys=False)
 
-    if not os.path.exists(cfg.aux_model_config_path):
-        c = make_sdg_config_sd3(cfg, False, "artifacts/aux",
-                                cfg.shadow_modelling_hvg_path, "auxiliary.h5ad")
-        with open(cfg.aux_model_config_path, "w") as f:
-            yaml.safe_dump(c.to_dict(), f, sort_keys=False)
+    c = make_sdg_config_sd3(cfg, False, "artifacts/aux",
+                            cfg.shadow_modelling_hvg_path, "auxiliary.h5ad")
+    with open(cfg.aux_model_config_path, "w") as f:
+        yaml.safe_dump(c.to_dict(), f, sort_keys=False)
 
 
 # ===========================================================================

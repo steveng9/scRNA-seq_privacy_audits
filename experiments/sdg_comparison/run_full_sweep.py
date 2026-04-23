@@ -44,6 +44,7 @@ Usage
 import argparse
 import json
 import os
+import shlex
 import signal
 import subprocess
 import sys
@@ -56,11 +57,12 @@ import yaml
 # ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
-REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-SRC_DIR   = os.path.join(REPO_ROOT, "src")
-DATA_DIR  = "/home/golobs/data/scMAMAMIA"
-RUNNER    = os.path.join(SRC_DIR, "run_experiment.py")
-N_TRIALS  = 5
+REPO_ROOT      = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+SRC_DIR        = os.path.join(REPO_ROOT, "src")
+DATA_DIR       = "/home/golobs/data/scMAMAMIA"
+RUNNER         = os.path.join(SRC_DIR, "run_experiment.py")
+GENERATE_TRIAL = os.path.join(REPO_ROOT, "experiments", "sdg_comparison", "generate_trial.py")
+N_TRIALS       = 5
 MIN_AUX_DONORS = 10
 
 # ---------------------------------------------------------------------------
@@ -92,7 +94,7 @@ SD2_SWEEP = [
 ]
 
 # Non-SD2 — BB quad only; ok and aida; 10/20/50d only
-# Entries where synthetic.h5ad doesn't exist are silently skipped.
+# Synthetic data is generated on-the-fly if not present (requires splits to exist first).
 OTHER_SWEEP = [
     # (base_dataset, sdg_subpath)
     ("ok",   "scvi/no_dp"),
@@ -167,6 +169,42 @@ MAX_CONCURRENT_HARD = 4
 
 # OOM retry: how many times to retry with halved workers before giving up
 MAX_OOM_RETRIES = 3
+
+# ---------------------------------------------------------------------------
+# Generator info for non-SD2 methods
+# sdg_subpath → (generator_name, conda_env_or_None, extra_generate_args)
+# scdesign2/* entries return None — run_experiment.py handles generation.
+# ---------------------------------------------------------------------------
+_NMF_RATIOS = (0.5, 2.1, 0.2)   # eps_nmf : eps_kmeans : eps_summaries (CAMDA 2024 ratios)
+_NMF_TOTAL  = sum(_NMF_RATIOS)
+
+GENERATOR_MAP = {
+    "scvi/no_dp":         ("scvi",         "scvi_",   []),
+    "scdiffusion/no_dp":  ("scdiffusion",  "scdiff_", []),
+    "scdesign3/gaussian": ("sd3_gaussian", None,      []),
+    "scdesign3/vine":     ("sd3_vine",     None,      []),
+    "zinbwave/no_dp":     ("zinbwave",     None,      []),
+    "nmf/no_dp":          ("nmf",          "nmf_",    ["--dp-mode", "none"]),
+}
+
+
+def _generator_info(sdg_subpath):
+    """Return (generator, conda_env, extra_args) or None for SD2 (handled by run_experiment)."""
+    if sdg_subpath.startswith("scdesign2/"):
+        return None
+    if sdg_subpath in GENERATOR_MAP:
+        return GENERATOR_MAP[sdg_subpath]
+    if sdg_subpath.startswith("nmf/eps_"):
+        eps = float(sdg_subpath.split("eps_")[1])
+        r = _NMF_RATIOS
+        extra = [
+            "--dp-mode",          "all",
+            "--dp-eps-nmf",       str(eps * r[0] / _NMF_TOTAL),
+            "--dp-eps-kmeans",    str(eps * r[1] / _NMF_TOTAL),
+            "--dp-eps-summaries", str(eps * r[2] / _NMF_TOTAL),
+        ]
+        return ("nmf", "nmf_", extra)
+    return None  # unknown subpath — assume run_experiment.py handles it
 
 
 # ===========================================================================
@@ -326,13 +364,13 @@ def can_launch(nd, n_currently_running, max_concurrent):
 # ===========================================================================
 
 class Job:
-    def __init__(self, dataset_name, base_dataset, nd, mode, label, is_generative=False):
+    def __init__(self, dataset_name, base_dataset, nd, mode, label, sdg_subpath=""):
         self.dataset_name  = dataset_name
         self.base_dataset  = base_dataset
         self.nd            = nd
         self.mode          = mode            # "bb_quad" or "wb_quad"
         self.label         = label
-        self.is_generative = is_generative   # True → run_experiment.py generates dataset
+        self.sdg_subpath   = sdg_subpath     # e.g. "scdesign2/no_dp", "zinbwave/no_dp"
         self.cfg_path      = None
         self.retries       = 0
         self.parallel_workers = _parallel_workers_for(nd)
@@ -378,8 +416,8 @@ def build_job_queue(args):
                     continue
 
                 label = f"{dataset_name}  {nd}d  [{mode}]"
-                # SD2 jobs are generative: run_experiment.py creates data if missing
-                job = Job(dataset_name, base_dataset, nd, mode, label, is_generative=True)
+                job = Job(dataset_name, base_dataset, nd, mode, label,
+                          sdg_subpath=sdg_subpath)
                 job.cfg_path = write_config(dataset_name, base_dataset, nd, mode, cfg_dir)
                 jobs.append(job)
 
@@ -402,18 +440,13 @@ def build_job_queue(args):
                 if args.nd and args.nd != nd:
                     continue
 
-                # Skip if no synthetic data exists
-                n_avail = n_synth_available(data_dir, nd)
-                if n_avail == 0:
-                    continue
-
                 n_done   = count_done_quad(data_dir, nd, "bb_quad")
-                n_needed = min(N_TRIALS, n_avail) - n_done
-                if n_needed <= 0:
+                if n_done >= N_TRIALS:
                     continue
 
                 label = f"{dataset_name}  {nd}d  [bb_quad]"
-                job = Job(dataset_name, base_dataset, nd, "bb_quad", label)
+                job = Job(dataset_name, base_dataset, nd, "bb_quad", label,
+                          sdg_subpath=sdg_subpath)
                 job.cfg_path = write_config(dataset_name, base_dataset, nd, "bb_quad", cfg_dir)
                 jobs.append(job)
 
@@ -450,14 +483,16 @@ def print_status():
     for base_dataset, sdg_subpath in OTHER_SWEEP:
         dataset_name = f"{base_dataset}/{sdg_subpath}"
         data_dir = os.path.join(DATA_DIR, base_dataset, *sdg_subpath.split("/"))
+        printed = False
         for nd in OTHER_SWEEP_ND:
+            bb    = count_done_quad(data_dir, nd, "bb_quad")
             avail = n_synth_available(data_dir, nd)
-            if avail == 0:
-                continue
-            bb = count_done_quad(data_dir, nd, "bb_quad")
-            bb_s = "✓" if bb == N_TRIALS else (f"~{bb}" if bb > 0 else "·")
-            print(f"  {dataset_name:<40} {nd:>4}d  {bb_s:>9}")
-        print()
+            bb_s  = "✓" if bb == N_TRIALS else (f"~{bb}" if bb > 0 else "·")
+            synth_s = f"  [{avail}/5 synth]" if avail < N_TRIALS else ""
+            print(f"  {dataset_name:<40} {nd:>4}d  {bb_s:>9}{synth_s}")
+            printed = True
+        if printed:
+            print()
 
     print(f"\n  ✓ = all {N_TRIALS} trials done   ~N = N done   · = none\n")
 
@@ -466,26 +501,104 @@ def print_status():
 # Job execution
 # ===========================================================================
 
+def _make_generate_bash(base_dataset, sdg_subpath, nd):
+    """
+    Return a bash snippet that generates synthetic data for all trials 1-N that are missing
+    synthetic.h5ad (but only if splits already exist for that trial).
+    Returns None for SD2 variants — run_experiment.py generates those inline.
+    """
+    gen_info = _generator_info(sdg_subpath)
+    if gen_info is None:
+        return None   # SD2: handled by run_experiment.py
+
+    generator, conda_env, extra_args = gen_info
+    dataset_h5ad = os.path.join(DATA_DIR, base_dataset, "full_dataset_cleaned.h5ad")
+    splits_base  = os.path.join(DATA_DIR, base_dataset, "splits", f"{nd}d")
+    data_base    = os.path.join(DATA_DIR, base_dataset, *sdg_subpath.split("/"), f"{nd}d")
+    hvg_path     = os.path.join(DATA_DIR, base_dataset, "hvg_full.csv")
+    if not os.path.exists(hvg_path):
+        hvg_path = os.path.join(DATA_DIR, base_dataset, "hvg.csv")
+
+    gen_args = [
+        sys.executable, GENERATE_TRIAL,
+        "--generator",   generator,
+        "--dataset",     dataset_h5ad,
+        "--splits-dir",  f"{splits_base}/$trial",
+        "--out-dir",     f"{data_base}/$trial",
+        "--hvg-path",    hvg_path,
+    ] + extra_args
+
+    if conda_env:
+        gen_args = ["conda", "run", "--no-capture-output", "-n", conda_env] + gen_args
+
+    gen_cmd_str = " ".join(shlex.quote(str(a)) for a in gen_args)
+    # $trial substitution must NOT be quoted — replace the quoted versions
+    gen_cmd_str = gen_cmd_str.replace(
+        shlex.quote(f"{splits_base}/$trial"), f"{shlex.quote(splits_base)}/$trial"
+    ).replace(
+        shlex.quote(f"{data_base}/$trial"),   f"{shlex.quote(data_base)}/$trial"
+    )
+
+    lines = [
+        f"for trial in $(seq 1 {N_TRIALS}); do",
+        f"  synth={shlex.quote(data_base)}/$trial/datasets/synthetic.h5ad",
+        f"  splits={shlex.quote(splits_base)}/$trial/train.npy",
+        f"  if [ ! -f \"$synth\" ] && [ -f \"$splits\" ]; then",
+        f"    echo \"[generate] {sdg_subpath} {nd}d trial $trial\" >&2",
+        f"    {gen_cmd_str} || exit 1",
+        f"  fi",
+        f"done",
+    ]
+    return "\n".join(lines)
+
+
 def launch_job(job, log_dir):
     """
-    Launch run_experiment.py as a subprocess.
+    Launch a job as a subprocess in its own session (so kill -PG takes down all children).
+    For non-SD2 methods, prepends a bash loop that generates missing synthetic.h5ad files
+    before running the attack.
     Returns the Popen object.
     """
     os.makedirs(log_dir, exist_ok=True)
     safe_label = job.label.replace("/", "_").replace(" ", "_").replace("[", "").replace("]", "")
     log_path = os.path.join(log_dir, f"{safe_label}_r{job.retries}.log")
 
-    cmd = [sys.executable, RUNNER, job.cfg_path]
+    attack_cmd_str = " ".join(
+        shlex.quote(str(a)) for a in [sys.executable, RUNNER, job.cfg_path]
+    )
+    gen_bash = _make_generate_bash(job.base_dataset, job.sdg_subpath, job.nd)
+
+    if gen_bash:
+        script = f"set -e\n{gen_bash}\n{attack_cmd_str}"
+        cmd = ["bash", "-c", script]
+    else:
+        cmd = [sys.executable, RUNNER, job.cfg_path]
+
     log_fh = open(log_path, "w")
     proc = subprocess.Popen(
         cmd,
         cwd=REPO_ROOT,
         stdout=log_fh,
         stderr=subprocess.STDOUT,
+        start_new_session=True,   # own process group → killpg kills all R children too
     )
     proc._log_path = log_path
     proc._log_fh   = log_fh
     return proc
+
+
+def _kill_all(running):
+    """Kill every running job's entire process group (including R subprocesses)."""
+    for pid, entry in list(running.items()):
+        try:
+            pgid = os.getpgid(entry["proc"].pid)
+            os.killpg(pgid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        try:
+            entry["proc"]._log_fh.close()
+        except Exception:
+            pass
 
 
 def check_completed_after_job(job):
@@ -556,9 +669,8 @@ def main():
             data_dir = os.path.join(DATA_DIR, j.base_dataset, *j.dataset_name.split("/")[1:])
             n_done  = count_done_quad(data_dir, j.nd, j.mode)
             n_avail = n_synth_available(data_dir, j.nd)
-            n_target = (N_TRIALS if j.is_generative else min(N_TRIALS, n_avail))
-            avail_str = f"({n_avail} synth available)" if not j.is_generative else ""
-            print(f"  {j.label:60s}  {n_done}/{n_target} done  {avail_str}")
+            avail_str = f"({n_avail}/5 synth present)" if _generator_info(j.sdg_subpath) else ""
+            print(f"  {j.label:60s}  {n_done}/{N_TRIALS} done  {avail_str}")
         return
 
     max_concurrent = args.max_concurrent if args.max_concurrent > 0 else MAX_CONCURRENT_HARD
@@ -580,8 +692,10 @@ def main():
     shutting_down = [False]
 
     def _sigint_handler(sig, frame):
-        print("\n[sweep] Ctrl+C received — finishing running jobs, then stopping.", flush=True)
+        print("\n[sweep] Signal received — killing all running jobs and exiting.", flush=True)
         shutting_down[0] = True
+        _kill_all(running)
+        sys.exit(1)
 
     signal.signal(signal.SIGINT,  _sigint_handler)
     signal.signal(signal.SIGTERM, _sigint_handler)
@@ -618,9 +732,7 @@ def main():
             data_dir = os.path.join(DATA_DIR, job.base_dataset,
                                     *job.dataset_name.split("/")[1:])
             n_done_now = count_done_quad(data_dir, job.nd, job.mode)
-            n_avail    = n_synth_available(data_dir, job.nd)
-            # Generative SD2 jobs always target N_TRIALS; non-SD2 capped by available synth
-            n_target   = N_TRIALS if job.is_generative else min(N_TRIALS, n_avail)
+            n_target   = N_TRIALS
 
             if rc == 0:
                 total_completed += 1
