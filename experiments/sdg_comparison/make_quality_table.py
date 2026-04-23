@@ -63,6 +63,18 @@ SOURCES = [
     # --- NMF ---
     ("NMF",              "",         f"{DATA}/ok/nmf/no_dp/*/*/results/quality_eval_results/results/statistics_evals.csv"),
     ("NMF",              "",         f"{DATA}/aida/nmf/no_dp/*/*/results/quality_eval_results/results/statistics_evals.csv"),
+
+    # --- NMF + DP (ok only) ---
+    ("NMF+DP",           r"$\varepsilon=10^{8}$",  f"{DATA}/ok/nmf/eps_100000000/*/*/results/quality_eval_results/results/statistics_evals.csv"),
+    ("NMF+DP",           r"$\varepsilon=10^{7}$",  f"{DATA}/ok/nmf/eps_10000000/*/*/results/quality_eval_results/results/statistics_evals.csv"),
+    ("NMF+DP",           r"$\varepsilon=10^{6}$",  f"{DATA}/ok/nmf/eps_1000000/*/*/results/quality_eval_results/results/statistics_evals.csv"),
+    ("NMF+DP",           r"$\varepsilon=10^{5}$",  f"{DATA}/ok/nmf/eps_100000/*/*/results/quality_eval_results/results/statistics_evals.csv"),
+    ("NMF+DP",           r"$\varepsilon=10^{4}$",  f"{DATA}/ok/nmf/eps_10000/*/*/results/quality_eval_results/results/statistics_evals.csv"),
+    ("NMF+DP",           r"$\varepsilon=10^{3}$",  f"{DATA}/ok/nmf/eps_1000/*/*/results/quality_eval_results/results/statistics_evals.csv"),
+    ("NMF+DP",           r"$\varepsilon=10^{2}$",  f"{DATA}/ok/nmf/eps_100/*/*/results/quality_eval_results/results/statistics_evals.csv"),
+    ("NMF+DP",           r"$\varepsilon=10^{1}$",  f"{DATA}/ok/nmf/eps_10/*/*/results/quality_eval_results/results/statistics_evals.csv"),
+    ("NMF+DP",           r"$\varepsilon=2.8$",     f"{DATA}/ok/nmf/eps_2.8/*/*/results/quality_eval_results/results/statistics_evals.csv"),
+    ("NMF+DP",           r"$\varepsilon=10^{0}$",  f"{DATA}/ok/nmf/eps_1/*/*/results/quality_eval_results/results/statistics_evals.csv"),
 ]
 
 DATASETS = ["ok", "aida", "cg"]
@@ -173,6 +185,16 @@ def make_ok_only_table(results, nd_label):
         ("scVI",         ""),
         ("scDiffusion",  ""),
         ("NMF",          ""),
+        ("NMF+DP",       r"$\varepsilon=10^{8}$"),
+        ("NMF+DP",       r"$\varepsilon=10^{7}$"),
+        ("NMF+DP",       r"$\varepsilon=10^{6}$"),
+        ("NMF+DP",       r"$\varepsilon=10^{5}$"),
+        ("NMF+DP",       r"$\varepsilon=10^{4}$"),
+        ("NMF+DP",       r"$\varepsilon=10^{3}$"),
+        ("NMF+DP",       r"$\varepsilon=10^{2}$"),
+        ("NMF+DP",       r"$\varepsilon=10^{1}$"),
+        ("NMF+DP",       r"$\varepsilon=2.8$"),
+        ("NMF+DP",       r"$\varepsilon=10^{0}$"),
     ]
 
     lines = []
@@ -240,6 +262,16 @@ def make_table(results):
         ("scVI",         ""),
         ("scDiffusion",  ""),
         ("NMF",          ""),
+        ("NMF+DP",       r"$\varepsilon=10^{8}$"),
+        ("NMF+DP",       r"$\varepsilon=10^{7}$"),
+        ("NMF+DP",       r"$\varepsilon=10^{6}$"),
+        ("NMF+DP",       r"$\varepsilon=10^{5}$"),
+        ("NMF+DP",       r"$\varepsilon=10^{4}$"),
+        ("NMF+DP",       r"$\varepsilon=10^{3}$"),
+        ("NMF+DP",       r"$\varepsilon=10^{2}$"),
+        ("NMF+DP",       r"$\varepsilon=10^{1}$"),
+        ("NMF+DP",       r"$\varepsilon=2.8$"),
+        ("NMF+DP",       r"$\varepsilon=10^{0}$"),
     ]
 
     DS_LABEL = {"ok": "OK1K", "aida": "AIDA", "cg": "CG"}

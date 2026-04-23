@@ -1,0 +1,59 @@
+                                                                                                                
+  Summary of what was built                                                                                                                                                                   
+                                                                                                                                                                                              
+  New attack infrastructure                                                                                                                                                                   
+                                                                                                                                                                                              
+  src/data/cdf_utils.py                                                                                                                                                                       
+  - zinb_log_pmf(x, pi, theta, mu) — vectorized log-PMF for ZINB/Poisson, used for the LLR computation
+  - activate_from_logits(logits) — sigmoid activation that skips the exp/log roundtrip (cleaner for combined logit scores)                                                                    
+                                                                                                                          
+  src/attacks/scmamamia/attack_b.py — new module, 3 public functions:                                                                                                                         
+  - attack_mahalanobis_b — BB+aux + Class B LLR                                                                                                                                               
+  - attack_mahalanobis_b_no_aux — BB-aux + Class B (controlled by class_b_gamma_noaux, defaults to 0/disabled based on pilot result)                                                          
+  - attack_mahalanobis_b_both — combined single-pass variant                                                                                                                                  
+                                                                                                                                                                                              
+  The combination formula: combined_logit = log(d_aux/d_synth) + γ · Σ_g [log p_synth(x_g) − log p_aux(x_g)] — additive in log-odds space, principled under the independence assumption for   
+  secondary genes.                                                                                                                                                                            
+                                                                                                                                                                                              
+  src/run_experiment.py — hooks the new attack functions in when class_b_gamma is set in config. Fully backward compatible: existing configs without this key use the original attack.        
+                                                            
+  src/data/splits.py — sample_donors_strategy_490: train=491, holdout=490, aux=200 random holdout donors (disjoint from train, clean BB+aux reference).                                       
+                                                            
+  Ablation framework                                                                                                                                                                          
+                                                            
+  experiments/ablation/run_class_b_ablation.py — tests 18 variants (LLR vs diagonal-Mahalanobis × secondary-only vs all-genes × 8 gamma values + auto-normalized) across ok/aida/cg × 10d/50d 
+  plus non-SD2 regression checks. Reuses existing copulas — no regeneration. Currently running in background at PID 2544717.
+                                                                                                                                                                                              
+  experiments/ablation/report_ablation.py — prints ranked variant table with delta vs baseline, recommends the winner, warns on non-SD2 regression.                                           
+  
+  490d infrastructure                                                                                                                                                                         
+                                                            
+  - run_mia_sweep.py — 490 added to all non-SD2 SWEEP donor counts; uses sample_donors_strategy_490 automatically at nd≥490                                                                   
+  - run_all.py — 490 added to all OK_* generation lists
+                                                                                                                                                                                              
+  Pilot result (ok, 10d, trial 1 only)                                                                                                                                                        
+                                                                                                                                                                                              
+  ┌─────────────────────────────┬────────────┬───────────────┐                                                                                                                                
+  │           Variant           │ BB+aux AUC │ Δ vs baseline │
+  ├─────────────────────────────┼────────────┼───────────────┤                                                                                                                                
+  │ baseline (pure Mahalanobis) │ 0.770      │ —             │
+  ├─────────────────────────────┼────────────┼───────────────┤
+  │ llr_sec_auto                │ 0.910      │ +0.140        │                                                                                                                                
+  ├─────────────────────────────┼────────────┼───────────────┤                                                                                                                                
+  │ llr_sec_g0.01               │ 0.900      │ +0.130        │                                                                                                                                
+  ├─────────────────────────────┼────────────┼───────────────┤                                                                                                                                
+  │ diag_mahal_*                │ 0.770      │ ≈0            │
+  └─────────────────────────────┴────────────┴───────────────┘                                                                                                                                
+                                                            
+  Key finding from pilot: LLR is far superior to diagonal-Mahalanobis for BB+aux. For BB-aux, using log p_synth alone (without a ratio) hurts performance, so class_b_gamma_noaux defaults to 
+  0.                                                        
+                                                                                                                                                                                              
+  ---                                                       
+  Next steps once the ablation finishes (~1.5h):
+                                                                                                                                                                                              
+  1. Run python experiments/ablation/report_ablation.py to get the final recommendation across all datasets/trials
+  2. Add the winning class_b_gamma to MAMAMIA_PARAMS in run_mia_sweep.py                                                                                                                      
+  3. Rerun all existing trials using the improved attack (or create new trial directories)                                                                                                    
+                                                                                                                                                                                              
+  One question for you: should the improved Class B attack also be applied retroactively to existing WB+aux / WB-aux trials (ok, aida, cg), or only to new BB+aux trials going forward? The   
+  ablation only covers BB attacks since those are what we can reuse copulas for.                    

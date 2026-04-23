@@ -56,6 +56,10 @@ All synthetic data lives under `~/data/scMAMAMIA/` with a clean hierarchy:
   {dataset}/                        # ok, aida, cg
     full_dataset_cleaned.h5ad
     hvg.csv  /  hvg_full.csv
+    splits/{nd}d/{trial}/           # donor ID arrays — shared across ALL SDG variants
+      train.npy / holdout.npy / auxiliary.npy
+    aux_artifacts/{nd}d/{trial}/    # scDesign2 copulas fitted on aux donors — shared
+      {cell_type}.rds  (one per cell type)
     scdesign2/
       no_dp/{nd}d/{trial}/
       eps_{e}/{nd}d/{trial}/        # DP variants
@@ -70,6 +74,11 @@ All synthetic data lives under `~/data/scMAMAMIA/` with a clean hierarchy:
     zinbwave/
       no_dp/{nd}d/{trial}/          # ZINBWave (10d, 20d, 50d for OneK1K)
 ```
+
+Each SDG trial dir contains: `datasets/synthetic.h5ad`, `artifacts/`, `models/`, `results/`.
+Donor splits and aux copulas are **not** stored per-SDG — only in the shared `splits/` and
+`aux_artifacts/` dirs. All SDG variants for the same (dataset, nd, trial) share the same
+aux copula fit, saving ~30–60 min of scDesign2 computation per trial.
 
 ---
 
@@ -133,11 +142,25 @@ python experiments/sdg_comparison/check_generated_data.py
 
 ### 3. Run MIA Attacks
 
-**SDG comparison sweep** (all non-scDesign2 methods + DP variants):
+**Full quad sweep** (all SDGs, all datasets, Class B + standard, WB + BB):
+```bash
+nohup python experiments/sdg_comparison/run_full_sweep.py \
+    > /tmp/full_sweep.log 2>&1 &
+
+python experiments/sdg_comparison/run_full_sweep.py --status        # completion grid
+python experiments/sdg_comparison/run_full_sweep.py --dry-run       # preview jobs
+python experiments/sdg_comparison/run_full_sweep.py --dataset ok    # single dataset
+python experiments/sdg_comparison/run_full_sweep.py --sdg nmf       # single SDG filter
+```
+
+The sweep is memory-aware (scales parallelism by donor count), guards against OOM
+(retries with halved workers), and skips jobs already complete in
+`mamamia_results_classb.csv`.  Logs go to `experiments/sdg_comparison/_sweep_logs/`.
+
+**Legacy sweep** (non-scDesign2 methods, standard Mahalanobis only):
 ```bash
 python experiments/sdg_comparison/run_mia_sweep.py
 python experiments/sdg_comparison/run_mia_sweep.py --status   # check completion
-python experiments/sdg_comparison/run_mia_sweep.py --dry-run  # preview jobs
 ```
 
 **Single experiment** (use a config YAML):
@@ -185,8 +208,9 @@ scRNA-seq_privacy_audits/
 │
 ├── experiments/
 │   ├── sdg_comparison/             # multi-SDG generation, attack, and table scripts
+│   │   ├── run_full_sweep.py       # comprehensive quad sweep (all SDGs, all datasets)
 │   │   ├── run_all.py              # batch generation (all SDGs)
-│   │   ├── run_mia_sweep.py        # batch MIA sweep
+│   │   ├── run_mia_sweep.py        # legacy batch MIA sweep (standard Mahalanobis)
 │   │   ├── run_quality_evals.py    # batch quality evaluation
 │   │   ├── gen_nmf_dp_sweep.py     # NMF DP epsilon sweep
 │   │   ├── make_mia_table.py       # LaTeX MIA AUC table

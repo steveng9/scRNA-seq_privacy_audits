@@ -140,8 +140,7 @@ def main():
     else:
         print("\n(white-box: skipping synthetic shadow model)", flush=True)
 
-    run_sdg(cfg, cfg.aux_model_config_path, cell_types,
-            "AUXILIARY_DATA_SHADOW_MODEL", force=resampled)
+    _run_aux_shadow_model_shared(cfg, cell_types, force=resampled)
 
     if cfg.mia_setting.get("run_quad_bb", False):
         results = run_mamamia_attack_quad(cfg)
@@ -188,6 +187,12 @@ def create_config(path):
     cfg.artifacts_path    = os.path.join(cfg.trial_dir, "artifacts")
     cfg.synth_artifacts_path = os.path.join(cfg.artifacts_path, "synth")
     cfg.aux_artifacts_path   = os.path.join(cfg.artifacts_path, "aux")
+    # Shared aux copulas across all SDG variants for the same (base_dataset, nd, trial).
+    # The first SDG attack on a given (nd, trial) trains scDesign2 on the aux data and
+    # saves here; subsequent SDG attacks reuse these without retraining.
+    cfg.shared_aux_artifacts_path = os.path.join(
+        cfg.base_data_dir, "aux_artifacts", cfg.split_name, str(trial_num)
+    )
 
     # Donor splits live in a shared directory under the dataset root, not in each
     # SDG trial dir. This avoids duplicating the same tiny .npy files across every
@@ -253,6 +258,7 @@ def _new_tracking_row(trial_num=1):
         "tm:000": 0, "tm:001": 0, "tm:010": 0, "tm:011": 0,
         "tm:100": 0, "tm:101": 0, "tm:110": 0, "tm:111": 0,
         "classb:100": 0, "classb:101": 0,
+        "classb:000": 0, "classb:001": 0,
         "baselines": 0, "quality": 0,
     }
 
@@ -278,7 +284,13 @@ def _get_tracking(cfg):
 
 
 def _next_trial_num(cfg, df):
-    col = "tm:" + _threat_model_code(cfg)
+    # WB quad tracks via classb:000 so it doesn't collide with existing tm:000 entries
+    # from earlier (non-Class-B) white-box runs.
+    is_wb_quad = (cfg.mia_setting.get("run_quad_bb", False) and cfg.mia_setting.white_box)
+    col = "classb:000" if is_wb_quad else ("tm:" + _threat_model_code(cfg))
+    if col not in df.columns:
+        df[col] = 0
+        df.to_csv(cfg.experiment_tracking_file, index=False)
     if df[col].all():
         trial_num = int(df["trial"].max()) + 1
         df.loc[trial_num] = _new_tracking_row(trial_num)
@@ -303,6 +315,7 @@ def make_dir_structure(cfg):
     for path in [
         cfg.splits_path, cfg.datasets_path, cfg.figures_path,
         cfg.models_path, cfg.synth_artifacts_path, cfg.aux_artifacts_path,
+        cfg.shared_aux_artifacts_path,
     ]:
         os.makedirs(path, exist_ok=True)
 
@@ -473,6 +486,47 @@ def delete_interim_h5ad(cfg):
 # ===========================================================================
 # SDG runner (generic wrapper)
 # ===========================================================================
+
+def _run_aux_shadow_model_shared(cfg, cell_types, force=False):
+    """
+    Train the aux shadow model (scDesign2 on auxiliary.h5ad), but reuse shared
+    copula artifacts when they already exist for this (base_dataset, nd, trial).
+
+    The shared dir lives at:
+        {base_data_dir}/aux_artifacts/{nd}d/{trial}/
+
+    If another SDG variant already trained the aux copulas for this split, we copy
+    them into the per-trial artifacts/aux/ dir and skip retraining. After training,
+    we copy the new copulas to the shared dir for future reuse.
+    """
+    import shutil
+    shared_dir   = cfg.shared_aux_artifacts_path
+    per_trial_dir = cfg.aux_artifacts_path
+
+    if not force:
+        shared_ok = all(
+            os.path.exists(os.path.join(shared_dir, f"{ct}.rds"))
+            for ct in cell_types
+        )
+        if shared_ok:
+            print("(aux copulas: reusing shared artifacts — skipping scDesign2 fit)", flush=True)
+            for ct in cell_types:
+                dst = os.path.join(per_trial_dir, f"{ct}.rds")
+                if not os.path.exists(dst):
+                    shutil.copy2(os.path.join(shared_dir, f"{ct}.rds"), dst)
+            return
+
+    # Train normally (run_sdg has its own skip check if per-trial artifacts already exist)
+    run_sdg(cfg, cfg.aux_model_config_path, cell_types,
+            "AUXILIARY_DATA_SHADOW_MODEL", force=force)
+
+    # Propagate to shared dir so subsequent SDG attacks on this split skip training
+    for ct in cell_types:
+        src = os.path.join(per_trial_dir, f"{ct}.rds")
+        dst = os.path.join(shared_dir, f"{ct}.rds")
+        if os.path.exists(src) and not os.path.exists(dst):
+            shutil.copy2(src, dst)
+
 
 def generate_target_synthetic_data(cfg, cell_types, force=False):
     if not os.path.exists(cfg.target_synthetic_data_path) or force:
@@ -917,14 +971,17 @@ def _attack_cell_type_from_disk_quad(cfg, cell_type):
 
 def _attack_cell_type_quad(cfg, cell_type, train, holdout):
     """
-    Run all 4 variants for one cell type.
-    Returns (cell_type, (r100_std, r101_std, r100_b, r101_b), runtime)  or  (cell_type, None, None).
+    Run all 4 variants for one cell type (standard + Class B, +aux / -aux).
+    Supports both BB (synth_artifacts_path) and WB (models_path) copula sources.
+    Returns (cell_type, (r_std_aux, r_std_noaux, r_b_aux, r_b_noaux), runtime)
+    or (cell_type, None, None).
     """
     hvg_mask = pd.read_csv(cfg.shadow_modelling_hvg_path)
     hvgs = hvg_mask[hvg_mask["highly_variable"]].values[:, 0]
 
-    synth_rds = os.path.join(cfg.synth_artifacts_path, f"{cell_type}.rds")
-    aux_rds   = os.path.join(cfg.aux_artifacts_path,   f"{cell_type}.rds")
+    synth_dir = cfg.models_path if cfg.mia_setting.white_box else cfg.synth_artifacts_path
+    synth_rds = os.path.join(synth_dir, f"{cell_type}.rds")
+    aux_rds   = os.path.join(cfg.aux_artifacts_path, f"{cell_type}.rds")
 
     if not (os.path.exists(synth_rds) and os.path.exists(aux_rds)):
         return (cell_type, None, None)
@@ -935,8 +992,12 @@ def _attack_cell_type_quad(cfg, cell_type, train, holdout):
 
     targets = _build_target_dataset(cell_type, hvgs, train, holdout)
 
+    wb = cfg.mia_setting.white_box
+    tm_aux, tm_noaux = ("000", "001") if wb else ("100", "101")
+
     t0 = time.process_time()
-    quad = attack_mahalanobis_quad(cfg, targets, cell_type, copula_synth_r, copula_aux_r)
+    quad = attack_mahalanobis_quad(cfg, targets, cell_type, copula_synth_r, copula_aux_r,
+                                    tm_aux=tm_aux, tm_noaux=tm_noaux)
     runtime = time.process_time() - t0
 
     return (cell_type, quad, runtime)
@@ -982,9 +1043,12 @@ def save_results_quad(cfg, results):
 
 
 def register_trial_quad(cfg):
-    """Mark standard (tm:100/101) and Class B (classb:100/101) as complete."""
+    """Mark standard and Class B results as complete for the current trial."""
     df, _ = _get_tracking(cfg)
-    for col in ["tm:100", "tm:101", "classb:100", "classb:101"]:
+    wb = cfg.mia_setting.white_box
+    cols = (["tm:000", "tm:001", "classb:000", "classb:001"] if wb
+            else ["tm:100", "tm:101", "classb:100", "classb:101"])
+    for col in cols:
         if col not in df.columns:
             df[col] = 0
         df.loc[df["trial"] == cfg.trial_num, col] = 1
