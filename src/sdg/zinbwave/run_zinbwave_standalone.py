@@ -244,10 +244,19 @@ def main():
             continue
         mat_dict = pyreadr.read_r(out_rds)
         mat = list(mat_dict.values())[0]
-        # mat is a DataFrame: n_cells rows × n_genes cols
-        counts_np = mat.to_numpy() if hasattr(mat, "to_numpy") else np.array(mat)
-        n_new = counts_np.shape[0]
-        all_counts.append(counts_np.astype(np.float32))
+        # mat is a DataFrame: n_cells rows × modeled_genes cols
+        # colnames = subset of gene_names (all-zero genes were dropped before fitting)
+        counts_raw = mat.to_numpy() if hasattr(mat, "to_numpy") else np.array(mat)
+        modeled_genes = list(mat.columns)
+        n_new = counts_raw.shape[0]
+
+        # Reconstruct full-gene matrix (zeros for dropped all-zero genes)
+        full_row = np.zeros((n_new, n_vars), dtype=np.float32)
+        gene_idx = [gene_names.index(g) for g in modeled_genes if g in gene_names]
+        for col_i, g_i in enumerate(gene_idx):
+            full_row[:, g_i] = counts_raw[:, col_i]
+
+        all_counts.append(full_row)
         all_obs_ct.extend([ct] * n_new)
 
     if not all_counts:

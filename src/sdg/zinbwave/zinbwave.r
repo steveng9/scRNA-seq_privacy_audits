@@ -36,17 +36,29 @@ train_zinbwave <- function(h5ad_path, n_latent, out_rds) {
   cat(sprintf("Reading %s\n", h5ad_path))
   sce <- readH5AD(h5ad_path, use_hdf5 = FALSE)
 
-  # zellkonverter puts counts in the "X" assay; ensure it's accessible
-  if (!("counts" %in% assayNames(sce))) {
-    assay(sce, "counts") <- assay(sce, "X")
-  }
+  # zellkonverter puts raw counts in the "X" assay
+  raw_assay <- if ("counts" %in% assayNames(sce)) "counts" else "X"
+  cnt <- assay(sce, raw_assay)
 
-  # zinbwave requires integer counts
-  cnt <- assay(sce, "counts")
-  if (!is.integer(cnt)) {
-    cnt <- round(cnt)
-    storage.mode(cnt) <- "integer"
-    assay(sce, "counts") <- cnt
+  # zinbwave needs integer-valued counts stored as numeric (double).
+  # Avoid converting dgCMatrix@x to integer — that changes the class to igCMatrix
+  # which breaks zinbwave's method dispatch.  Round values but keep as double.
+  if (methods::is(cnt, "sparseMatrix")) {
+    cnt <- methods::as(cnt, "dgCMatrix")   # canonical sparse class for zinbwave
+    cnt@x <- as.numeric(round(cnt@x))
+  } else {
+    cnt <- matrix(as.numeric(round(cnt)), nrow = nrow(cnt), ncol = ncol(cnt),
+                  dimnames = dimnames(cnt))
+  }
+  assay(sce, "counts") <- cnt
+
+  # Remove genes that are all-zero for this cell type (zinbwave crashes on them)
+  gene_sums <- Matrix::rowSums(cnt)
+  keep_genes <- gene_sums > 0
+  if (any(!keep_genes)) {
+    cat(sprintf("  Dropping %d all-zero genes (keeping %d / %d)\n",
+                sum(!keep_genes), sum(keep_genes), length(keep_genes)))
+    sce <- sce[keep_genes, ]
   }
 
   n_cells <- ncol(sce)
