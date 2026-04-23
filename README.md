@@ -43,6 +43,7 @@ The framework supports multiple synthetic data generators (SDGs) and threat mode
 | scVI | — | Proxy shadow model attack |
 | scDiffusion | — | Proxy shadow model attack |
 | NMF | no-DP, +DP sweep | CAMDA 2024 co-winner; no copula structure |
+| ZINBWave | no-DP | Risso et al. 2018; per-cell-type ZINB latent-factor model; proxy shadow model attack |
 
 ---
 
@@ -66,6 +67,8 @@ All synthetic data lives under `~/data/scMAMAMIA/` with a clean hierarchy:
     nmf/
       no_dp/{nd}d/{trial}/
       eps_{e}/{nd}d/{trial}/        # NMF DP sweep
+    zinbwave/
+      no_dp/{nd}d/{trial}/          # ZINBWave (10d, 20d, 50d for OneK1K)
 ```
 
 ---
@@ -99,6 +102,23 @@ python src/data/clean_data.py
 nohup conda run --no-capture-output -n tabddpm_ \
     python experiments/sdg_comparison/run_all.py --skip-hvg \
     > /tmp/sdg_generation.log 2>&1 &
+```
+
+**ZINBWave** (OneK1K, 10d/20d/50d, 5 trials each):
+```bash
+nohup bash experiments/sdg_comparison/run_zinbwave_generation.sh \
+    > /tmp/zinbwave_generation.log 2>&1 &
+# Monitor:  tail -f /tmp/zinbwave_generation.log
+```
+
+**Single ZINBWave trial**:
+```bash
+python experiments/sdg_comparison/generate_trial.py \
+    --generator zinbwave \
+    --dataset   /home/golobs/data/scMAMAMIA/ok/full_dataset_cleaned.h5ad \
+    --splits-dir /home/golobs/data/scMAMAMIA/ok/splits/10d/1 \
+    --out-dir    /home/golobs/data/scMAMAMIA/ok/zinbwave/no_dp/10d/1 \
+    --hvg-path   /home/golobs/data/scMAMAMIA/ok/hvg_full.csv
 ```
 
 **Single trial** (e.g., scDesign2, ok, 10 donors, trial 1):
@@ -155,7 +175,8 @@ scRNA-seq_privacy_audits/
 │   │   ├── scvi/                   # scVI (VAE-based)
 │   │   ├── scdiffusion/            # scDiffusion (diffusion model)
 │   │   ├── nmf/                    # NMF wrapper (CAMDA 2024 co-winner)
-│   │   └── nmf_generator/          # upstream NMF repo (submodule)
+│   │   ├── nmf_generator/          # upstream NMF repo (submodule)
+│   │   └── zinbwave/               # ZINBWave (Risso et al. 2018)
 │   ├── attacks/
 │   │   ├── scmamamia/              # scMAMA-MIA (Mahalanobis + Class B LLR)
 │   │   └── baselines/              # CAMDA2025 baseline MIAs

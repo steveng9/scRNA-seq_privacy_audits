@@ -12,6 +12,7 @@ Supported generators
   scvi           scVI VAE
   scdiffusion    scDiffusion (VAE + diffusion backbone)
   nmf            SingleCellNMFGenerator (NMF + KMeans + ZINB sampling)
+  zinbwave       ZINBWave (ZINB latent-factor model, Risso et al. 2018)
 
 Output layout
 -------------
@@ -45,6 +46,14 @@ Usage
       --out-dir    /home/golobs/data/scMAMAMIA/ok/scvi/no_dp/10d/3 \\
       --hvg-path   /home/golobs/data/scMAMAMIA/ok/hvg_full.csv \\
       --conda-env  scvi_
+
+  # ZINBWave, 10 donors, trial 3:
+  python experiments/sdg_comparison/generate_trial.py \\
+      --generator zinbwave \\
+      --dataset   /home/golobs/data/scMAMAMIA/ok/full_dataset_cleaned.h5ad \\
+      --splits-dir /home/golobs/data/scMAMAMIA/ok/splits/10d/3 \\
+      --out-dir    /home/golobs/data/scMAMAMIA/ok/zinbwave/no_dp/10d/3 \\
+      --hvg-path   /home/golobs/data/scMAMAMIA/ok/hvg_full.csv
 """
 
 import argparse
@@ -259,6 +268,7 @@ def generate_nmf(out_dir, dataset_path, splits_dir, hvg_path,
 
     train_donors, _ = _load_splits(splits_dir)
 
+    os.makedirs(ds_dir, exist_ok=True)
     train_h5ad = os.path.join(ds_dir, "train_hvg.h5ad")
     n_cells = _write_train_h5ad(dataset_path, train_donors, individual_col, train_h5ad,
                                 hvg_path=hvg_path)
@@ -278,6 +288,46 @@ def generate_nmf(out_dir, dataset_path, splits_dir, hvg_path,
         f"--cell-type-col {cell_type_col} "
         f"--seed {seed} "
         f"--batch-size {batch_size}"
+    )
+
+    print(f"  Saved → {synth_out}")
+    if os.path.exists(train_h5ad):
+        os.remove(train_h5ad)
+
+
+def generate_zinbwave(out_dir, dataset_path, splits_dir, hvg_path,
+                      individual_col, cell_type_col,
+                      n_latent=10, max_cells_per_type=3000, n_workers=4, seed=42):
+    """Train ZINBWave and generate synthetic data."""
+    ds_dir      = os.path.join(out_dir, "datasets")
+    model_dir   = os.path.join(out_dir, "models")
+    synth_out   = os.path.join(ds_dir, "synthetic.h5ad")
+
+    if os.path.exists(synth_out):
+        print(f"  [SKIP] synthetic.h5ad already exists: {synth_out}")
+        return
+
+    train_donors, _ = _load_splits(splits_dir)
+
+    os.makedirs(ds_dir,    exist_ok=True)
+    os.makedirs(model_dir, exist_ok=True)
+
+    train_h5ad = os.path.join(ds_dir, "train_hvg.h5ad")
+    _write_train_h5ad(dataset_path, train_donors, individual_col, train_h5ad,
+                      hvg_path=hvg_path)
+
+    zinbwave_script = os.path.join(_SRC, "sdg", "zinbwave", "run_zinbwave_standalone.py")
+
+    _run(
+        f"python {zinbwave_script} "
+        f"--train-h5ad {train_h5ad} "
+        f"--output-h5ad {synth_out} "
+        f"--model-dir {model_dir} "
+        f"--n-latent {n_latent} "
+        f"--max-cells-per-type {max_cells_per_type} "
+        f"--cell-type-col {cell_type_col} "
+        f"--n-workers {n_workers} "
+        f"--seed {seed}"
     )
 
     print(f"  Saved → {synth_out}")
@@ -360,7 +410,8 @@ def generate_scdiffusion(out_dir, dataset_path, splits_dir, hvg_path,
 def main():
     ap = argparse.ArgumentParser(description="Generate synthetic data for one SDG trial")
     ap.add_argument("--generator",      required=True,
-                    choices=["sd3_gaussian", "sd3_vine", "scvi", "scdiffusion", "nmf"])
+                    choices=["sd3_gaussian", "sd3_vine", "scvi", "scdiffusion", "nmf",
+                             "zinbwave"])
     ap.add_argument("--dataset",        required=True,
                     help="Path to full_dataset_cleaned.h5ad")
     ap.add_argument("--splits-dir",     required=True,
@@ -393,6 +444,15 @@ def main():
                     help="KMeans centroid DP epsilon (used only when --dp-mode includes kmeans)")
     ap.add_argument("--dp-eps-summaries", type=float, default=0.2,
                     help="Cluster summary DP epsilon (used only when --dp-mode includes sampling)")
+    # ZINBWave options
+    ap.add_argument("--n-latent",         type=int, default=10,
+                    help="ZINBWave latent factors K (default: 10)")
+    ap.add_argument("--max-cells-per-type", type=int, default=3000,
+                    help="Max cells per cell type for zinbwave fitting (default: 3000)")
+    ap.add_argument("--zinbwave-workers", type=int, default=4,
+                    help="Parallel R workers for ZINBWave (default: 4)")
+    ap.add_argument("--zinbwave-seed",    type=int, default=42,
+                    help="Random seed for ZINBWave generation (default: 42)")
     args = ap.parse_args()
 
     os.makedirs(args.out_dir, exist_ok=True)
@@ -460,6 +520,20 @@ def main():
             dp_eps_nmf=args.dp_eps_nmf,
             dp_eps_kmeans=args.dp_eps_kmeans,
             dp_eps_summaries=args.dp_eps_summaries,
+        )
+
+    elif args.generator == "zinbwave":
+        generate_zinbwave(
+            out_dir=args.out_dir,
+            dataset_path=args.dataset,
+            splits_dir=args.splits_dir,
+            hvg_path=args.hvg_path,
+            individual_col=args.individual_col,
+            cell_type_col=args.cell_type_col,
+            n_latent=args.n_latent,
+            max_cells_per_type=args.max_cells_per_type,
+            n_workers=args.zinbwave_workers,
+            seed=args.zinbwave_seed,
         )
 
     print(f"Done: {args.generator}  {args.out_dir}", flush=True)

@@ -100,18 +100,21 @@ SWEEP = [
     # --- scDesign3-Gauss ---
     ("sd3g",   "ok/scdesign3/gaussian", "ok", [2, 5, 10, 20, 50, 100, 200, 490], TM_BB_COMBINED, 4),
 
+    # --- ZINBWave (Risso et al. 2018) ---
+    ("zinbwave", "ok/zinbwave/no_dp", "ok", [10, 20, 50], TM_BB_QUAD, 4),
+
     # --- NMF (SingleCellNMFGenerator — CAMDA 2024 winner) ---
     ("nmf",    "ok/nmf/no_dp",    "ok",   [10, 20, 50, 100, 200, 490], TM_BB_QUAD, 4),
     ("nmf",    "aida/nmf/no_dp",  "aida", [10, 20, 50, 100, 200],      TM_BB_QUAD, 4),
 
     # --- NMF + DP sweep (ok only, 50d) ---
-    ("nmf_dp", "ok/nmf/eps_1",          "ok", [50], TM_BB_QUAD, 4),
-    ("nmf_dp", "ok/nmf/eps_2.8",        "ok", [50], TM_BB_QUAD, 4),
-    ("nmf_dp", "ok/nmf/eps_10",         "ok", [50], TM_BB_QUAD, 4),
-    ("nmf_dp", "ok/nmf/eps_100",        "ok", [50], TM_BB_QUAD, 4),
-    ("nmf_dp", "ok/nmf/eps_1000",       "ok", [50], TM_BB_QUAD, 4),
-    ("nmf_dp", "ok/nmf/eps_10000",      "ok", [50], TM_BB_QUAD, 4),
-    ("nmf_dp", "ok/nmf/eps_100000",     "ok", [50], TM_BB_QUAD, 4),
+    ("nmf_dp", "ok/nmf/eps_1",          "ok", [10, 20, 50], TM_BB_QUAD, 4),
+    ("nmf_dp", "ok/nmf/eps_2.8",        "ok", [10, 20, 50], TM_BB_QUAD, 4),
+    ("nmf_dp", "ok/nmf/eps_10",         "ok", [10, 20, 50], TM_BB_QUAD, 4),
+    ("nmf_dp", "ok/nmf/eps_100",        "ok", [10, 20, 50], TM_BB_QUAD, 4),
+    ("nmf_dp", "ok/nmf/eps_1000",       "ok", [10, 20, 50], TM_BB_QUAD, 4),
+    ("nmf_dp", "ok/nmf/eps_10000",      "ok", [10, 20, 50], TM_BB_QUAD, 4),
+    ("nmf_dp", "ok/nmf/eps_100000",     "ok", [10, 20, 50], TM_BB_QUAD, 4),
     ("nmf_dp", "ok/nmf/eps_1000000",    "ok", [50], TM_BB_QUAD, 4),
     ("nmf_dp", "ok/nmf/eps_10000000",   "ok", [50], TM_BB_QUAD, 4),
     ("nmf_dp", "ok/nmf/eps_100000000",  "ok", [50], TM_BB_QUAD, 4),
