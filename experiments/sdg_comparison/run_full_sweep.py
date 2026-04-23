@@ -13,8 +13,7 @@ Runs all scMAMA-MIA attacks with the Class B enhancement (optimal gamma=auto), c
     ok + aida : 10, 20, 50d
     Methods   : scvi, scdiffusion, sd3g, sd3v, zinbwave, nmf, nmf+dp, sd2+dp
 
-Generates scDesign2 datasets if they don't exist.
-Skips non-SD2 entries where synthetic.h5ad hasn't been generated yet.
+Generates datasets if they don't exist.
 
 Completion is tracked by the presence of AUC values in mamamia_results_classb.csv:
   BB quad → tm:100 and tm:101 in classb file
@@ -107,12 +106,6 @@ OTHER_SWEEP = [
     ("ok",   "nmf/eps_2.8"),
     ("ok",   "nmf/eps_10"),
     ("ok",   "nmf/eps_100"),
-    ("ok",   "nmf/eps_1000"),
-    ("ok",   "nmf/eps_10000"),
-    ("ok",   "nmf/eps_100000"),
-    ("ok",   "nmf/eps_1000000"),
-    ("ok",   "nmf/eps_10000000"),
-    ("ok",   "nmf/eps_100000000"),
     ("ok",   "scdesign2/eps_1"),
     ("ok",   "scdesign2/eps_10"),
     ("ok",   "scdesign2/eps_100"),
@@ -129,23 +122,7 @@ OTHER_SWEEP = [
     ("aida", "scdesign3/vine"),
     ("aida", "zinbwave/no_dp"),
     ("aida", "nmf/no_dp"),
-    ("aida", "nmf/eps_1"),
     ("aida", "nmf/eps_2.8"),
-    ("aida", "nmf/eps_10"),
-    ("aida", "nmf/eps_100"),
-    ("aida", "nmf/eps_1000"),
-    ("aida", "nmf/eps_10000"),
-    ("aida", "nmf/eps_100000"),
-    ("aida", "scdesign2/eps_1"),
-    ("aida", "scdesign2/eps_10"),
-    ("aida", "scdesign2/eps_100"),
-    ("aida", "scdesign2/eps_1000"),
-    ("aida", "scdesign2/eps_10000"),
-    ("aida", "scdesign2/eps_100000"),
-    ("aida", "scdesign2/eps_1000000"),
-    ("aida", "scdesign2/eps_10000000"),
-    ("aida", "scdesign2/eps_100000000"),
-    ("aida", "scdesign2/eps_1000000000"),
 ]
 OTHER_SWEEP_ND = [10, 20, 50]  # donor counts to sweep for all non-SD2 entries
 
@@ -471,11 +448,13 @@ def print_status():
         dataset_name = f"{base_dataset}/{sdg_subpath}"
         data_dir = os.path.join(DATA_DIR, base_dataset, *sdg_subpath.split("/"))
         for nd in donor_counts:
-            bb = count_done_quad(data_dir, nd, "bb_quad")
-            wb = count_done_quad(data_dir, nd, "wb_quad")
-            bb_s = "✓" if bb == N_TRIALS else (f"~{bb}" if bb > 0 else "·")
-            wb_s = "✓" if wb == N_TRIALS else (f"~{wb}" if wb > 0 else "·")
-            print(f"  {dataset_name:<40} {nd:>4}d  {bb_s:>9}  {wb_s:>9}")
+            bb    = count_done_quad(data_dir, nd, "bb_quad")
+            wb    = count_done_quad(data_dir, nd, "wb_quad")
+            avail = n_synth_available(data_dir, nd)
+            bb_s  = "✓" if bb == N_TRIALS else (f"~{bb}" if bb > 0 else "·")
+            wb_s  = "✓" if wb == N_TRIALS else (f"~{wb}" if wb > 0 else "·")
+            synth_s = f"  [{avail}/5 synth]" if avail < N_TRIALS else ""
+            print(f"  {dataset_name:<40} {nd:>4}d  {bb_s:>9}  {wb_s:>9}{synth_s}")
         print()
 
     print(f"  {'Dataset':<40} {'nd':>6}  {'BB-quad':>9}")
