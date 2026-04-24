@@ -64,6 +64,13 @@ GENERATE_TRIAL = os.path.join(REPO_ROOT, "experiments", "sdg_comparison", "gener
 N_TRIALS       = 5
 MIN_AUX_DONORS = 10
 
+# Per-(dataset_name, nd) override for how many completed trials counts as "done".
+# Use this to cap a configuration at fewer than N_TRIALS when the last trial is
+# not worth the cost (e.g. missing synthetic data that won't be regenerated).
+TRIAL_OVERRIDES = {
+    ("aida/scdesign2/no_dp", 200): 4,
+}
+
 # ---------------------------------------------------------------------------
 # scMAMA-MIA hyper-parameters (Class B optimal from ablation study)
 # ---------------------------------------------------------------------------
@@ -356,6 +363,43 @@ class Job:
         return f"Job({self.label}, nd={self.nd}, {self.mode})"
 
 
+def _n_trials_required(dataset_name, nd):
+    """How many completed trials counts as done for this (dataset, nd) pair."""
+    return TRIAL_OVERRIDES.get((dataset_name, nd), N_TRIALS)
+
+
+def _job_priority(job):
+    """Return a sort key (lower = runs sooner).
+
+    Priority tiers:
+      0 — ok/scdesign2/no_dp (generate 490d + all pending attacks); larger nd first
+          so the long-running 490d generation starts immediately.
+      1 — ok/zinbwave/no_dp 50d (generate + attack)
+      2 — Attack-only jobs: synthetic data already fully present, no generation wait.
+          Includes all remaining SD2 entries (inline generation) and OTHER_SWEEP
+          entries where n_synth >= required trials.
+      3 — Generate + attack: synthetic data missing, needs generation first.
+    """
+    ds = job.dataset_name
+
+    if ds == "ok/scdesign2/no_dp":
+        return (0, -job.nd, 0 if job.mode == "bb_quad" else 1)
+
+    if ds == "ok/zinbwave/no_dp" and job.nd == 50:
+        return (1, 0, 0)
+
+    gen_info = _generator_info(job.sdg_subpath)
+    if gen_info is None:
+        # SD2 family: generation is inline with run_experiment — no separate wait.
+        return (2, job.nd, 0)
+
+    data_dir = os.path.join(DATA_DIR, job.base_dataset, *job.dataset_name.split("/")[1:])
+    if n_synth_available(data_dir, job.nd) >= _n_trials_required(job.dataset_name, job.nd):
+        return (2, job.nd, 0)
+
+    return (3, job.nd, 0)
+
+
 def build_job_queue(args):
     """Build ordered list of pending Job objects from SD2_SWEEP and OTHER_SWEEP."""
     jobs = []
@@ -387,8 +431,7 @@ def build_job_queue(args):
 
             for mode in modes:
                 n_done = count_done_quad(data_dir, nd, mode)
-                # For scDesign2, we generate datasets if not present → use N_TRIALS
-                n_needed = N_TRIALS - n_done
+                n_needed = _n_trials_required(dataset_name, nd) - n_done
                 if n_needed <= 0:
                     continue
 
@@ -418,7 +461,7 @@ def build_job_queue(args):
                     continue
 
                 n_done   = count_done_quad(data_dir, nd, "bb_quad")
-                if n_done >= N_TRIALS:
+                if n_done >= _n_trials_required(dataset_name, nd):
                     continue
 
                 label = f"{dataset_name}  {nd}d  [bb_quad]"
@@ -427,8 +470,8 @@ def build_job_queue(args):
                 job.cfg_path = write_config(dataset_name, base_dataset, nd, "bb_quad", cfg_dir)
                 jobs.append(job)
 
-    # Sort: smaller nd first (cheaper jobs first, enables more parallelism early)
-    jobs.sort(key=lambda j: (j.nd, j.dataset_name, j.mode))
+    # Sort by priority tier first, then by nd within tier.
+    jobs.sort(key=_job_priority)
     return jobs
 
 
@@ -712,7 +755,7 @@ def main():
             data_dir = os.path.join(DATA_DIR, job.base_dataset,
                                     *job.dataset_name.split("/")[1:])
             n_done_now = count_done_quad(data_dir, job.nd, job.mode)
-            n_target   = N_TRIALS
+            n_target   = _n_trials_required(job.dataset_name, job.nd)
 
             if rc == 0:
                 total_completed += 1
