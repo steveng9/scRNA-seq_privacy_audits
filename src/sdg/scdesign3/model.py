@@ -9,6 +9,7 @@ Copula parsing for the attack is in src/sdg/scdesign3/copula.py.
 """
 
 import os
+import shutil
 import sys
 import subprocess
 import pandas as pd
@@ -170,6 +171,10 @@ class ScDesign3(BaseSingleCellDataGenerator):
                     print(f"  A cell type failed — skipped.")
         print("Training complete.")
 
+        # hvg_train.h5ad is only needed during training; delete it now to free disk.
+        if os.path.exists(hvg_subset_path):
+            os.remove(hvg_subset_path)
+
     # ------------------------------------------------------------------
 
     def generate(self) -> ad.AnnData:
@@ -235,6 +240,10 @@ class ScDesign3(BaseSingleCellDataGenerator):
         synthetic_adata.obs[self.cell_type_col] = test_cell_types
         synthetic_adata.var_names = X_test.var_names
         print("Synthetic AnnData ready.")
+
+        # Remove generation intermediates (.rds per-cell-type files).
+        shutil.rmtree(self.tmp_dir, ignore_errors=True)
+
         return synthetic_adata
 
     # ------------------------------------------------------------------

@@ -204,17 +204,17 @@ def generate_sd3(out_dir, dataset_path, splits_dir, hvg_path,
         },
     }
 
-    model = ScDesign3(config)
-    print(f"  Training scDesign3 ({copula_type}) ...", flush=True)
-    model.train()
-    print(f"  Generating {n_cells:,} synthetic cells ...", flush=True)
-    synth = model.generate()
-    synth.write_h5ad(synth_out)
-    print(f"  Saved → {synth_out}")
-
-    # Clean up temporary train.h5ad (it's large; splits are already saved)
-    if os.path.exists(train_h5ad):
-        os.remove(train_h5ad)
+    try:
+        model = ScDesign3(config)
+        print(f"  Training scDesign3 ({copula_type}) ...", flush=True)
+        model.train()
+        print(f"  Generating {n_cells:,} synthetic cells ...", flush=True)
+        synth = model.generate()
+        synth.write_h5ad(synth_out)
+        print(f"  Saved → {synth_out}")
+    finally:
+        if os.path.exists(train_h5ad):
+            os.remove(train_h5ad)
 
 
 def generate_scvi(out_dir, dataset_path, splits_dir, hvg_path,
@@ -240,19 +240,21 @@ def generate_scvi(out_dir, dataset_path, splits_dir, hvg_path,
     scvi_script = os.path.join(_SRC, "sdg", "scvi", "run_scvi_standalone.py")
     conda_prefix = f"conda run --no-capture-output -n {conda_env}"
 
-    # Train
-    _run(f"{conda_prefix} python {scvi_script} train "
-         f"{train_h5ad} {model_dir} "
-         f"--hvg-path {hvg_path} "
-         f"--max-epochs {max_epochs} --batch-size {batch_size}")
+    try:
+        # Train
+        _run(f"{conda_prefix} python {scvi_script} train "
+             f"{train_h5ad} {model_dir} "
+             f"--hvg-path {hvg_path} "
+             f"--max-epochs {max_epochs} --batch-size {batch_size}")
 
-    # Generate
-    _run(f"{conda_prefix} python {scvi_script} generate "
-         f"{train_h5ad} {model_dir} {synth_out} {n_cells}")
+        # Generate
+        _run(f"{conda_prefix} python {scvi_script} generate "
+             f"{train_h5ad} {model_dir} {synth_out} {n_cells}")
 
-    print(f"  Saved → {synth_out}")
-    if os.path.exists(train_h5ad):
-        os.remove(train_h5ad)
+        print(f"  Saved → {synth_out}")
+    finally:
+        if os.path.exists(train_h5ad):
+            os.remove(train_h5ad)
 
 
 def generate_nmf(out_dir, dataset_path, splits_dir, hvg_path,
@@ -277,23 +279,24 @@ def generate_nmf(out_dir, dataset_path, splits_dir, hvg_path,
     nmf_script   = os.path.join(_SRC, "sdg", "nmf", "run_nmf_standalone.py")
     conda_prefix = f"conda run --no-capture-output -n {conda_env}"
 
-    _run(
-        f"{conda_prefix} python {nmf_script} "
-        f"--train-h5ad {train_h5ad} "
-        f"--output-h5ad {synth_out} "
-        f"--n-components {n_components} "
-        f"--dp-mode {dp_mode} "
-        f"--dp-eps-nmf {dp_eps_nmf} "
-        f"--dp-eps-kmeans {dp_eps_kmeans} "
-        f"--dp-eps-summaries {dp_eps_summaries} "
-        f"--cell-type-col {cell_type_col} "
-        f"--seed {seed} "
-        f"--batch-size {batch_size}"
-    )
-
-    print(f"  Saved → {synth_out}")
-    if os.path.exists(train_h5ad):
-        os.remove(train_h5ad)
+    try:
+        _run(
+            f"{conda_prefix} python {nmf_script} "
+            f"--train-h5ad {train_h5ad} "
+            f"--output-h5ad {synth_out} "
+            f"--n-components {n_components} "
+            f"--dp-mode {dp_mode} "
+            f"--dp-eps-nmf {dp_eps_nmf} "
+            f"--dp-eps-kmeans {dp_eps_kmeans} "
+            f"--dp-eps-summaries {dp_eps_summaries} "
+            f"--cell-type-col {cell_type_col} "
+            f"--seed {seed} "
+            f"--batch-size {batch_size}"
+        )
+        print(f"  Saved → {synth_out}")
+    finally:
+        if os.path.exists(train_h5ad):
+            os.remove(train_h5ad)
 
 
 def generate_zinbwave(out_dir, dataset_path, splits_dir, hvg_path,
@@ -319,21 +322,22 @@ def generate_zinbwave(out_dir, dataset_path, splits_dir, hvg_path,
 
     zinbwave_script = os.path.join(_SRC, "sdg", "zinbwave", "run_zinbwave_standalone.py")
 
-    _run(
-        f"python {zinbwave_script} "
-        f"--train-h5ad {train_h5ad} "
-        f"--output-h5ad {synth_out} "
-        f"--model-dir {model_dir} "
-        f"--n-latent {n_latent} "
-        f"--max-cells-per-type {max_cells_per_type} "
-        f"--cell-type-col {cell_type_col} "
-        f"--n-workers {n_workers} "
-        f"--seed {seed}"
-    )
-
-    print(f"  Saved → {synth_out}")
-    if os.path.exists(train_h5ad):
-        os.remove(train_h5ad)
+    try:
+        _run(
+            f"python {zinbwave_script} "
+            f"--train-h5ad {train_h5ad} "
+            f"--output-h5ad {synth_out} "
+            f"--model-dir {model_dir} "
+            f"--n-latent {n_latent} "
+            f"--max-cells-per-type {max_cells_per_type} "
+            f"--cell-type-col {cell_type_col} "
+            f"--n-workers {n_workers} "
+            f"--seed {seed}"
+        )
+        print(f"  Saved → {synth_out}")
+    finally:
+        if os.path.exists(train_h5ad):
+            os.remove(train_h5ad)
 
 
 def generate_scdiffusion(out_dir, dataset_path, splits_dir, hvg_path,
@@ -361,47 +365,49 @@ def generate_scdiffusion(out_dir, dataset_path, splits_dir, hvg_path,
     scd_script  = os.path.join(_SRC, "sdg", "scdiffusion", "run_scdiffusion_standalone.py")
     conda_prefix = f"conda run --no-capture-output -n {conda_env}"
 
-    # Train VAE (skip if checkpoint already exists)
     try:
-        vae_ckpt = _latest_checkpoint(vae_dir)
-        print(f"  [SKIP] VAE checkpoint already exists: {vae_ckpt}", flush=True)
-    except FileNotFoundError:
-        _run(f"{conda_prefix} python {scd_script} train_vae "
-             f"{train_h5ad} {vae_dir} "
-             f"--hvg-path {hvg_path} "
-             f"--vae-steps {vae_steps} --batch-size {batch_size}")
-        vae_ckpt = _latest_checkpoint(vae_dir)
-    print(f"  VAE checkpoint: {vae_ckpt}", flush=True)
+        # Train VAE (skip if checkpoint already exists)
+        try:
+            vae_ckpt = _latest_checkpoint(vae_dir)
+            print(f"  [SKIP] VAE checkpoint already exists: {vae_ckpt}", flush=True)
+        except FileNotFoundError:
+            _run(f"{conda_prefix} python {scd_script} train_vae "
+                 f"{train_h5ad} {vae_dir} "
+                 f"--hvg-path {hvg_path} "
+                 f"--vae-steps {vae_steps} --batch-size {batch_size}")
+            vae_ckpt = _latest_checkpoint(vae_dir)
+        print(f"  VAE checkpoint: {vae_ckpt}", flush=True)
 
-    # Train diffusion (skip only if final checkpoint at diff_steps already exists)
-    diff_subdir = os.path.join(diff_dir, "diffusion")
-    _diff_ckpt_exists = False
-    try:
-        candidate = _latest_checkpoint(diff_subdir, pattern="model*.pt")
-        step = int(re.findall(r"\d+", os.path.basename(candidate))[-1])
-        if step >= diff_steps:
-            _diff_ckpt_exists = True
-            diff_ckpt = candidate
-            print(f"  [SKIP] Diffusion checkpoint already at step {step}: {diff_ckpt}", flush=True)
-    except (FileNotFoundError, IndexError):
-        pass
-    if not _diff_ckpt_exists:
-        _run(f"{conda_prefix} python {scd_script} train "
-             f"{train_h5ad} {vae_ckpt} {diff_dir} "
-             f"--hvg-path {hvg_path} "
-             f"--diff-steps {diff_steps} --batch-size {batch_size}")
-        # Use model*.pt (not ema_*.pt or opt*.pt) — the model weights, not EMA/optimizer state
-        diff_ckpt = _latest_checkpoint(diff_subdir, pattern="model*.pt")
-    print(f"  Diff checkpoint: {diff_ckpt}", flush=True)
+        # Train diffusion (skip only if final checkpoint at diff_steps already exists)
+        diff_subdir = os.path.join(diff_dir, "diffusion")
+        _diff_ckpt_exists = False
+        try:
+            candidate = _latest_checkpoint(diff_subdir, pattern="model*.pt")
+            step = int(re.findall(r"\d+", os.path.basename(candidate))[-1])
+            if step >= diff_steps:
+                _diff_ckpt_exists = True
+                diff_ckpt = candidate
+                print(f"  [SKIP] Diffusion checkpoint already at step {step}: {diff_ckpt}", flush=True)
+        except (FileNotFoundError, IndexError):
+            pass
+        if not _diff_ckpt_exists:
+            _run(f"{conda_prefix} python {scd_script} train "
+                 f"{train_h5ad} {vae_ckpt} {diff_dir} "
+                 f"--hvg-path {hvg_path} "
+                 f"--diff-steps {diff_steps} --batch-size {batch_size}")
+            # Use model*.pt (not ema_*.pt or opt*.pt) — the model weights, not EMA/optimizer state
+            diff_ckpt = _latest_checkpoint(diff_subdir, pattern="model*.pt")
+        print(f"  Diff checkpoint: {diff_ckpt}", flush=True)
 
-    # Generate
-    _run(f"{conda_prefix} python {scd_script} generate "
-         f"{train_h5ad} {vae_ckpt} {diff_ckpt} {synth_out} {n_cells} "
-         f"--hvg-path {hvg_path}")
+        # Generate
+        _run(f"{conda_prefix} python {scd_script} generate "
+             f"{train_h5ad} {vae_ckpt} {diff_ckpt} {synth_out} {n_cells} "
+             f"--hvg-path {hvg_path}")
 
-    print(f"  Saved → {synth_out}", flush=True)
-    if os.path.exists(train_h5ad):
-        os.remove(train_h5ad)
+        print(f"  Saved → {synth_out}", flush=True)
+    finally:
+        if os.path.exists(train_h5ad):
+            os.remove(train_h5ad)
 
 
 # ---------------------------------------------------------------------------

@@ -16,6 +16,7 @@ Pipeline:
     7. Register completed trial in tracking.csv
 """
 
+import shutil
 import sys
 import os
 import time
@@ -130,32 +131,33 @@ def main():
 
     make_dir_structure(cfg)
     write_sdg_config_files(cfg)
-    resampled, cell_types = create_data_splits(cfg)
+    try:
+        resampled, cell_types = create_data_splits(cfg)
 
-    regenerated = generate_target_synthetic_data(cfg, cell_types, force=resampled)
+        regenerated = generate_target_synthetic_data(cfg, cell_types, force=resampled)
 
-    if not cfg.mia_setting.white_box:
-        run_sdg(cfg, cfg.synth_model_config_path, cell_types,
-                "SYNTHETIC_DATA_SHADOW_MODEL", force=regenerated)
-    else:
-        print("\n(white-box: skipping synthetic shadow model)", flush=True)
+        if not cfg.mia_setting.white_box:
+            run_sdg(cfg, cfg.synth_model_config_path, cell_types,
+                    "SYNTHETIC_DATA_SHADOW_MODEL", force=regenerated)
+        else:
+            print("\n(white-box: skipping synthetic shadow model)", flush=True)
 
-    _run_aux_shadow_model_shared(cfg, cell_types, force=resampled)
+        _run_aux_shadow_model_shared(cfg, cell_types, force=resampled)
 
-    if cfg.mia_setting.get("run_quad_bb", False):
-        results = run_mamamia_attack_quad(cfg)
-        save_results_quad(cfg, results)
-        register_trial_quad(cfg)
-    elif cfg.mia_setting.get("run_both_bb", False):
-        results = run_mamamia_attack_both(cfg)
-        save_results_both(cfg, results)
-        register_trial_both(cfg)
-    else:
-        results = run_mamamia_attack(cfg)
-        save_results(cfg, results)
-        register_trial(cfg)
-
-    delete_interim_h5ad(cfg)
+        if cfg.mia_setting.get("run_quad_bb", False):
+            results = run_mamamia_attack_quad(cfg)
+            save_results_quad(cfg, results)
+            register_trial_quad(cfg)
+        elif cfg.mia_setting.get("run_both_bb", False):
+            results = run_mamamia_attack_both(cfg)
+            save_results_both(cfg, results)
+            register_trial_both(cfg)
+        else:
+            results = run_mamamia_attack(cfg)
+            save_results(cfg, results)
+            register_trial(cfg)
+    finally:
+        delete_interim_h5ad(cfg)
 
 
 # ===========================================================================
@@ -478,6 +480,12 @@ def delete_interim_h5ad(cfg):
     for path in [cfg.train_path, cfg.holdout_path, cfg.aux_path]:
         if os.path.exists(path):
             os.remove(path)
+    # Clean up scDesign2/scDesign3 tmp dirs (hvg_train.h5ad + generation .rds files).
+    # These live at {trial_dir}/tmp/ and {trial_dir}/tmp_sd3/ respectively.
+    for tmp_name in ("tmp", "tmp_sd3"):
+        tmp_dir = os.path.join(cfg.trial_dir, tmp_name)
+        if os.path.exists(tmp_dir):
+            shutil.rmtree(tmp_dir, ignore_errors=True)
 
 
 # ===========================================================================
