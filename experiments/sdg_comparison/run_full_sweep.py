@@ -795,8 +795,14 @@ def main():
                 })
 
         # ---- Launch new jobs if resources allow ----
+        # running_keys tracks (dataset_name, nd) pairs currently in flight; updated
+        # within the loop so same-nd siblings don't launch in the same polling tick
+        # (they share a trial directory and would race on train.h5ad writes).
+        running_keys = {(e["job"].dataset_name, e["job"].nd) for e in running.values()}
         if not shutting_down[0]:
             for job in list(pending):
+                if (job.dataset_name, job.nd) in running_keys:
+                    continue
                 if can_launch(job.nd, len(running), max_concurrent):
                     print(f"[sweep] → launching: {job.label}  "
                           f"(mem_avail={get_available_memory_gb():.1f}GB, "
@@ -807,6 +813,7 @@ def main():
                         "job":     job,
                         "started": time.time(),
                     }
+                    running_keys.add((job.dataset_name, job.nd))
                     pending.remove(job)
                     total_launched += 1
                     time.sleep(2)  # brief gap so launched process can claim memory
