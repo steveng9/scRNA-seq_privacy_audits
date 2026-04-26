@@ -1,0 +1,16 @@
+\begin{tabular}{lccccccccc}
+\toprule
+Subgroup & \multicolumn{3}{c|}{scDesign2} & \multicolumn{3}{c|}{scDiffusion} & \multicolumn{3}{c}{NMF} \\
+ & \multicolumn{1}{c}{10d} & \multicolumn{1}{c}{20d} & \multicolumn{1}{c}{50d} & \multicolumn{1}{c}{10d} & \multicolumn{1}{c}{20d} & \multicolumn{1}{c}{50d} & \multicolumn{1}{c}{10d} & \multicolumn{1}{c}{20d} & \multicolumn{1}{c}{50d} \\
+ & BB+aux & BB+aux & BB+aux & BB+aux & BB+aux & BB+aux & BB+aux & BB+aux & BB+aux \\
+\midrule
+female & 1.00{\scriptsize$\pm$0.00} & 1.00{\scriptsize$\pm$0.00} & 0.96{\scriptsize$\pm$0.03} & 0.52{\scriptsize$\pm$0.09} & 0.55{\scriptsize$\pm$0.24} & 0.54{\scriptsize$\pm$0.03} & 0.68{\scriptsize$\pm$0.20} & 0.68{\scriptsize$\pm$0.20} & --- \\
+male & 1.00{\scriptsize$\pm$0.00} & 1.00{\scriptsize$\pm$0.00} & 0.97{\scriptsize$\pm$0.02} & 0.44{\scriptsize$\pm$0.17} & 0.48{\scriptsize$\pm$0.14} & 0.56{\scriptsize$\pm$0.07} & 0.75{\scriptsize$\pm$0.16} & 0.54{\scriptsize$\pm$0.12} & --- \\
+\bottomrule
+\end{tabular}
+
+% Dataset: aida, subgroup: sex
+% Metric: Donor-level ROC AUC restricted to subgroup, mean over up to 5 trials
+% Subscript shows \pm std over trials
+% * = fewer than 5 trials available; --- = below min-trials threshold
+% N/A = white-box not applicable to this SDG
