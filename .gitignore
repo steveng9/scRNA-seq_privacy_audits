@@ -235,3 +235,20 @@ rsconnect/
 #.idea/
 
 .DS_Store
+
+# Sweep transient state (logs and generated configs)
+experiments/sdg_comparison/_baseline_logs/
+experiments/sdg_comparison/_baseline_sweep_cfgs/
+experiments/sdg_comparison/_sweep_logs/
+experiments/sdg_comparison/_sweep_cfgs/
+
+# Saved sweep stdout (nohup-style log captures)
+outfiles/
+
+# Repo-root debug artifacts (writers removed 2026-04-29; defensive ignore in
+# case any code path or already-running process recreates them)
+/X.npy
+/Y.npy
+/scores.csv
+/yscores.npy
+/ytrue.npy

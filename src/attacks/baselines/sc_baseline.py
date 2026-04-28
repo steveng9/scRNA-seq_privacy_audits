@@ -147,7 +147,6 @@ class DOMIASSingleCellBaselineModels(BaseMIAModel):
                 'score': pred,
                 'y_test': labels,
             })
-            scores_df.to_csv("scores.csv")
             grouped = scores_df.groupby('donor')
 
             grp_predictions[method_name] = np.array([grouped.get_group(donor)['score'].mean() for donor in unique_donors])

@@ -170,8 +170,6 @@ class BaseMIAModel(ABC):
                 y_true: np.ndarray, 
                 sample_weight: Optional[np.ndarray] = None):
         y_pred_median = y_scores > np.median(y_scores)
-        np.save("yscores.npy", y_scores)
-        np.save("ytrue.npy", y_true)
 
         # compute F1 for multiple thresholds
         thresholds = np.sort(np.unique(y_scores))
