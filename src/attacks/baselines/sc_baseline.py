@@ -14,51 +14,7 @@ sys.path.append(src_dir)
 
 from attacks.baselines.base import BaseMIAModel
 from attacks.baselines.baseline import run_baselines
-#from domias.baselines import (MC, GAN_leaks)
 
-
-#Adapted from https://github.com/holarissun/DOMIAS/blob/main/src/domias/baselines.py
-## code is modified to handle batch processing due to memory-extensive needs of scrna-seq data
-
-def d(X: np.ndarray, Y: np.ndarray) -> np.ndarray:
-    """Compute squared L2 distances between two sets of vectors X and Y."""
-    np.save("X.npy", X)
-    np.save("Y.npy", Y)
-    X_sq = np.sum(X**2, axis=1, keepdims=True)  # (m, 1)
-    Y_sq = np.sum(Y**2, axis=1)  # (n,)
-    XY = np.dot(X, Y.T)  # (m, n)
-    distances = X_sq + Y_sq - 2 * XY
-    return np.maximum(distances, 0)  # Ensure non-negative distances
-    
-
-def batch_d(X: np.ndarray, Y: np.ndarray, batch_size=1000) -> np.ndarray:
-    results = []
-    for i in range(0, X.shape[0], batch_size):  # Iterate by batch size
-        batch = X[i:i + batch_size]
-        results.append(d(batch, Y))  # Use the batch_d() function for the whole batch
-    return np.vstack(results)  # Combine results from all batches
-
-
-def d_min(X: np.ndarray, Y: np.ndarray) -> np.ndarray:
-    return np.min(d(X, Y))
-
-
-def batch_d_min(X: np.ndarray, Y: np.ndarray, batch_size=1000) -> np.ndarray:
-    min_dists = []
-    for i in range(0, X.shape[0], batch_size):
-        print(f":::: {i} / {X.shape[0]}")
-        batch = X[i:i + batch_size]
-        distances = batch_d(batch, Y, batch_size)
-        min_dists.append(np.min(distances, axis=1))
-    return np.concatenate(min_dists)
-
-
-
-def batch_GAN_leaks(X_test: np.ndarray, X_G: np.ndarray, batch_size=1000) -> np.ndarray:
-    min_dists = batch_d_min(X_test, X_G, batch_size)
-    scores = np.exp(-min_dists)
-    assert not np.any(np.isinf(scores)), "Infinity values found in scores."
-    return scores
 
 def sigmoid(x: np.ndarray) -> np.ndarray:
     return 1 / (1 + np.exp(-x))
@@ -165,14 +121,13 @@ class DOMIASSingleCellBaselineModels(BaseMIAModel):
         ref_dense = reference.X.toarray() if hasattr(reference.X, "toarray") else reference.X
 
         scores, runtimes = run_baselines(X_test_dense, syn_dense, ref_dense, ref_dense, None)
-
-        print("\n\nrunning batch_gan_leaks baseline")
-        start = time.process_time()
-        scores["gan_leaks_sc"] = batch_GAN_leaks(X_test_dense, syn_dense)
-        runtime = time.process_time() - start
-        print("took %.1f seconds" % runtime)
-        runtimes["gan_leaks_sc"] = runtime
-
+        # Note: a redundant `gan_leaks_sc` (batch_GAN_leaks) baseline used to run
+        # here. It produces bit-for-bit identical scores to `gan_leaks` from
+        # run_baselines() (both compute exp(-min_g ||x - g||²)) — confirmed
+        # empirically on aida/20d/t5 (aucroc, AP, PR-AUC, TPR@FPR all match).
+        # Dropped 2026-04-29 to save ~45 min/trial. The retained `gan_leaks` is
+        # the cleaner batched implementation in batched_baselines.py with the
+        # Chen et al. 2020 citation.
         return scores, y_test, runtimes
 
     

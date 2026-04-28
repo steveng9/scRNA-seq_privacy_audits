@@ -171,16 +171,30 @@ python src/run_experiment.py <path-to-config>
 ### 4. Quality Evaluation
 
 ```bash
-python experiments/sdg_comparison/run_quality_evals.py
-# Re-run after metric-code changes (e.g. the 2026-03-25 MMD median-heuristic fix):
-python experiments/sdg_comparison/run_quality_evals.py --force --max-donors 200 \
-    --dataset-filter ok/scdesign2/no_dp
+python experiments/sdg_comparison/run_quality_evals.py              # run sweep
+python experiments/sdg_comparison/run_quality_evals.py --status     # fresh / stale / missing grid
+python experiments/sdg_comparison/run_quality_evals.py --dry-run    # list pending
+python experiments/sdg_comparison/run_quality_evals.py --max-donors 50 --workers 1
 ```
+
+**Stale-aware default behavior.** A CSV is "stale" if its mtime is older than
+the MMD median-heuristic fix at commit `d9ae732` (2026-03-25 19:51 UTC). Stale
+CSVs are treated as needing re-run *by default* — no `--force` flag required.
+`--force` only matters if you also want to re-run *fresh* CSVs.
+
+`--status` shows three columns:
+- **fresh** — CSV exists and was written after the MMD fix
+- **stale** — CSV exists but pre-dates the MMD fix (queued for re-run)
+- **synth** — total trials with synthetic data available
+
+The registry covers scDesign2 (no_dp + full ε ladder 10⁰…10⁹), scDesign3
+(Gaussian + Vine), scVI, scDiffusion, NMF (no_dp + DP sweep), and ZINBWave,
+across `ok` / `aida` / `cg` as applicable.
 
 ### 4b. Baseline-MIA Sweep
 
-DOMIAS-style baselines (MC, GAN-Leaks, GAN-Leaks-Cal, GAN-Leaks-SC, LOGAN-D1,
-DOMIAS-KDE) across `{ok,aida,cg}/scdesign2/no_dp` up to 200d:
+DOMIAS-style baselines (MC, GAN-Leaks, GAN-Leaks-Cal, LOGAN-D1, DOMIAS-KDE)
+across `{ok,aida,cg}/scdesign2/no_dp` up to 200d:
 
 ```bash
 python experiments/sdg_comparison/run_baselines_sweep.py            # run sweep
@@ -194,6 +208,19 @@ match to the unbatched `domias.baselines_optimized` versions (verified to
 ≤1e-6 max diff) but with bounded RAM, so they scale to 200d. The DOMIAS-KDE
 baseline subsamples its fit set (max_fit=20k per side, matching the DOMIAS
 reference protocol; see `notes/PRIORITY_TODO.md` for citations).
+
+**Memory-bounded full-dataset load.** `src/run_baselines.py` opens the
+canonical `full_dataset_cleaned.h5ad` in `backed='r'` mode and materializes
+only the per-donor (train/holdout/aux) subsets via `.to_memory()`. This drops
+peak RAM on aida (57 GB on disk) from a near-OOM eager load to a few GB per
+trial, letting the sweep run aida 50d/100d/200d under concurrency. (Without
+this fix the kernel OOM-killer terminated all aida ≥ 50d trials within ~2 min
+of launch — see `notes/PRIORITY_TODO.md` §0.)
+
+A previously-redundant `gan_leaks_sc` baseline (in `sc_baseline.py`,
+producing scores bit-for-bit identical to `gan_leaks` from
+`batched_baselines.py`) was removed 2026-04-29. The retained `gan_leaks` is
+the cleaner batched implementation with the Chen et al. 2020 citation.
 
 ### 5. Generate Tables and Figures
 

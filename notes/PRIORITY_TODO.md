@@ -16,9 +16,48 @@ finalization sweep so we don't lose the threads. Sorted by descending priority.
 - `run_quality_evals.py` now includes scdesign2/no_dp + zinbwave entries and
   exposes a `--force` flag so we can re-run after metric-code changes.
 
+## ✅ Fixes shipped 2026-04-29
+- **Backed-mode load in `run_baselines.py`**: replaced `ad.read_h5ad(path)`
+  with `ad.read_h5ad(path, backed="r")` followed by `.to_memory()` on the
+  per-donor subsets. Fixes the OOM that killed all aida 50d/100d/200d trials
+  in the first sweep (aida full h5ad is 57 GB; eager load + concurrency=3 →
+  rc=-9 from kernel OOM killer within ~2 min of launch).
+- **Removed redundant `gan_leaks_sc` baseline**: it was bit-for-bit identical
+  to `gan_leaks` (both compute `exp(-min_g ||x-g||²)`) — verified on the
+  aida/20d/t5 CSV (matching aucroc, AP, PR-AUC, TPR@FPR). Its implementation
+  in `sc_baseline.py` was unbatched, called `np.save("X.npy", X)` /
+  `np.save("Y.npy", Y)` on every chunk (creating a 5 GB Y.npy in repo root),
+  and added ~45 min/trial. Dropped 2026-04-29; kept the cleaner
+  `GAN_leaks_batched` from `batched_baselines.py` (with the Chen et al. 2020
+  citation in the docstring).
+- **`run_quality_evals.py --status`** flag added — mirrors
+  `run_baselines_sweep.py --status` (dataset × donor-count completion grid).
+
 ---
 
 ## 🔴 Defer-but-do-soon
+
+### 0. Re-run the 14 failed aida baseline trials (post-OOM fix)
+After the in-flight 2026-04-28 sweep finishes (queue: ok 100d × 3 + ok 200d × 5),
+relaunch baselines for the aida trials that were OOM-killed:
+- aida/scdesign2/no_dp 50d × {1,2,3,4,5}
+- aida/scdesign2/no_dp 100d × {1,2,3,4,5}
+- aida/scdesign2/no_dp 200d × {1,2,3,4} (t5 has no synth)
+
+The sweep script already detects completion via
+`baselines_evaluation_results.csv`, so a plain re-launch will pick up only
+the missing trials:
+```
+nohup setsid /home/golobs/miniconda3/envs/tabddpm_/bin/python \
+    experiments/sdg_comparison/run_baselines_sweep.py \
+    --dataset aida --max-concurrent 1 \
+    > experiments/sdg_comparison/_baseline_logs/SWEEP_AIDA_RETRY.log 2>&1 < /dev/null &
+```
+Use `--max-concurrent 1` for aida specifically — even with backed-mode loading,
+the in-memory subsets at 200d are large (~95k cells × 5k HVG dense = ~1.9 GB
+per side, plus working buffers and KDE fits). Single-stream is safest.
+
+---
 
 ### 1. 490d baseline attacks for `ok/scdesign2/no_dp`
 Why: 200d already covers the table for the paper revision; 490d is the
@@ -33,29 +72,38 @@ Expected RAM: ~80-100 GB peak (HVG dense matrices for ~600k train+holdout
 cells × 5000 genes ≈ 24 GB each, ×2 sides + synth + ref + working buffers).
 Run serially, no other heavy jobs concurrently. Likely overnight.
 
-### 2. Re-run quality metrics for `{ok,aida,cg}/sd2/no_dp` (MMD median-heuristic fix)
-Why: existing CSVs were written 2026-03-25 03:00–04:57 UTC; the median-heuristic
-gamma fix in `compute_mmd_optimized` landed at 2026-03-25 19:51 UTC
-(commit `d9ae732`). MMD values in those CSVs were either ~2/n or ~0 — useless.
+### 2. Re-run quality metrics for ALL stale (pre-MMD-fix) CSVs
+Why: existing CSVs were written before commit `d9ae732` (2026-03-25 19:51 UTC),
+which fixed the median-heuristic gamma in `compute_mmd_optimized`. MMD values
+in those CSVs are either ~2/n or ~0 — useless.
 
-Scope updated 2026-04-28: ok is included too (originally trusted, but the
-timestamp evidence shows ok is also pre-fix).
+Scope (updated 2026-04-29 after running `--status` with mtime-based stale
+detection): **158 stale CSVs across multiple SDG variants**, broader than
+originally thought:
+- ok/aida/cg sd2/no_dp:           91 stale
+- ok/scvi/no_dp + aida/scvi/no_dp: 24 stale (new finding)
+- ok/scdesign3/gaussian:           28 stale (new finding)
+- aida/scvi/no_dp 50d:              4 stale + 1 fresh (partial)
 
-How to apply:
+How to apply: `run_quality_evals.py` now treats stale CSVs as needing re-run
+by default — no `--force` needed. Just run without filters and it'll regenerate
+all 158:
 ```
 conda run -n tabddpm_ python experiments/sdg_comparison/run_quality_evals.py \
-    --force --max-donors 200 \
-    --dataset-filter ok/scdesign2/no_dp
-conda run -n tabddpm_ python experiments/sdg_comparison/run_quality_evals.py \
-    --force --max-donors 200 \
-    --dataset-filter aida/scdesign2/no_dp
-conda run -n tabddpm_ python experiments/sdg_comparison/run_quality_evals.py \
-    --force --max-donors 200 \
-    --dataset-filter cg/scdesign2/no_dp
+    --max-donors 200 --workers 1
 ```
-ok: 35 trials. aida: 36 trials. cg: 27 trials. Total ~98 evaluations.
-~2-5 minutes per trial at ≤50d, longer at 100/200d. OK to run with
-`--workers 4`.
+Or scope to one tier at a time (recommended, so the heavy 100d/200d trials
+don't block the cheap 10-50d ones):
+```
+# Cheap tier first:
+conda run -n tabddpm_ python experiments/sdg_comparison/run_quality_evals.py \
+    --max-donors 50 --workers 1
+# Then heavy:
+conda run -n tabddpm_ python experiments/sdg_comparison/run_quality_evals.py \
+    --max-donors 200 --workers 1
+```
+~2-5 minutes per trial at ≤50d, 10-30 min at 100/200d. Use `--status` to
+inspect the fresh / stale / missing grid before launching.
 
 ---
 

@@ -30,6 +30,25 @@ SRC_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "s
 if SRC_DIR not in sys.path:
     sys.path.insert(0, SRC_DIR)
 
+# Quality CSVs written before this timestamp used the broken MMD path
+# (commit d9ae732, 2026-03-25 19:51:05 UTC, fixed the median-heuristic gamma
+# in compute_mmd_optimized). Older CSVs have either ~2/n or ~0 MMD values
+# and need to be re-run.
+MMD_FIX_TS = 1774417865
+
+
+def is_fresh(out_csv):
+    """True iff CSV exists AND was written after the MMD-fix commit."""
+    try:
+        return os.path.getmtime(out_csv) >= MMD_FIX_TS
+    except OSError:
+        return False
+
+
+def is_stale(out_csv):
+    """True iff CSV exists but was written before the MMD-fix commit."""
+    return os.path.exists(out_csv) and not is_fresh(out_csv)
+
 
 # ---------------------------------------------------------------------------
 # Dataset registry
@@ -72,12 +91,24 @@ DATASETS = [
     (f"{DATA}/aida/scvi/no_dp",          f"{DATA}/aida/full_dataset_cleaned.h5ad", "aida"),
     (f"{DATA}/aida/scdiffusion/no_dp",   f"{DATA}/aida/full_dataset_cleaned.h5ad", "aida"),
 
-    # scDesign2+DP high-epsilon:
+    # scDesign2+DP — full epsilon sweep, ε = 10⁰ … 10⁹.
+    # Low-ε (1..10⁴) added 2026-04-29: their existing CSVs were written
+    # 2026-03-25 ~05 UTC, ~14 hours before the MMD-fix commit at 19:51 UTC.
+    # Conservatively flagged STALE by the mtime cutoff — they MIGHT have been
+    # written with an in-progress local version of the fix, but until we
+    # verify the MMD values aren't degenerate (~2/n or ~0), we re-run them.
+    # The eps_noclip / eps_noclip_cliptrue ablation variants are intentionally
+    # excluded from the registry (paper uses the standard ε ladder only).
+    (f"{DATA}/ok/scdesign2/eps_1",         f"{DATA}/ok/full_dataset_cleaned.h5ad", "ok"),
+    (f"{DATA}/ok/scdesign2/eps_10",        f"{DATA}/ok/full_dataset_cleaned.h5ad", "ok"),
+    (f"{DATA}/ok/scdesign2/eps_100",       f"{DATA}/ok/full_dataset_cleaned.h5ad", "ok"),
+    (f"{DATA}/ok/scdesign2/eps_1000",      f"{DATA}/ok/full_dataset_cleaned.h5ad", "ok"),
+    (f"{DATA}/ok/scdesign2/eps_10000",     f"{DATA}/ok/full_dataset_cleaned.h5ad", "ok"),
     (f"{DATA}/ok/scdesign2/eps_100000",    f"{DATA}/ok/full_dataset_cleaned.h5ad", "ok"),
     (f"{DATA}/ok/scdesign2/eps_1000000",   f"{DATA}/ok/full_dataset_cleaned.h5ad", "ok"),
     (f"{DATA}/ok/scdesign2/eps_10000000",  f"{DATA}/ok/full_dataset_cleaned.h5ad", "ok"),
-    (f"{DATA}/ok/scdesign2/eps_100000000",   f"{DATA}/ok/full_dataset_cleaned.h5ad", "ok"),
-    (f"{DATA}/ok/scdesign2/eps_1000000000",  f"{DATA}/ok/full_dataset_cleaned.h5ad", "ok"),
+    (f"{DATA}/ok/scdesign2/eps_100000000", f"{DATA}/ok/full_dataset_cleaned.h5ad", "ok"),
+    (f"{DATA}/ok/scdesign2/eps_1000000000",f"{DATA}/ok/full_dataset_cleaned.h5ad", "ok"),
 
     # NMF variants (no_dp + all eps_* for ok and aida) — discovered dynamically
     *_nmf_variants("ok"),
@@ -141,7 +172,9 @@ def _run_one(args):
     trial  = parts[-3]
     label  = f"{src}/{nd_tag}/t{trial}"
 
-    if os.path.exists(out_csv) and not force:
+    # Treat stale (pre-MMD-fix) CSVs as needing re-run even without --force.
+    # Only fresh CSVs (mtime >= MMD_FIX_TS) count as "done" for skip purposes.
+    if is_fresh(out_csv) and not force:
         return (label, "skip", None)
 
     # Donor splits live in the shared splits/ dir under the dataset root
@@ -174,6 +207,58 @@ def _run_one(args):
         return (label, "error", f"{e}\n{tb}")
 
 
+def print_status(datasets, max_donors=None):
+    """Print a per-dataset × donor-count completion grid (mirrors run_baselines_sweep.py --status).
+
+    Distinguishes:
+      fresh  — CSV exists and was written after the MMD median-heuristic fix
+      stale  — CSV exists but pre-dates the MMD fix (values unreliable, will
+               be re-run by default)
+      synth  — total trials with synthetic data available
+    """
+    from collections import defaultdict
+    rows = defaultdict(lambda: defaultdict(lambda: [0, 0, 0]))  # rows[label][nd] = [fresh, stale, synth]
+
+    for data_root, full_data_path, dataset_name in datasets:
+        label = data_root.replace(DATA + "/", "")
+        pattern = os.path.join(data_root, "*d", "*", "datasets", "synthetic.h5ad")
+        for synth_path in sorted(glob.glob(pattern)):
+            parts = synth_path.split(os.sep)
+            nd_tag = parts[-4]
+            nd = int(nd_tag.rstrip("d")) if nd_tag.rstrip("d").isdigit() else None
+            if max_donors is not None and nd is not None and nd > max_donors:
+                continue
+            trial_dir = os.path.dirname(os.path.dirname(synth_path))
+            out_csv   = os.path.join(trial_dir, "results", "quality_eval_results",
+                                     "results", "statistics_evals.csv")
+            rows[label][nd][2] += 1
+            if is_fresh(out_csv):
+                rows[label][nd][0] += 1
+            elif is_stale(out_csv):
+                rows[label][nd][1] += 1
+
+    print("\n" + "=" * 86)
+    print("  Quality-Eval Sweep Completion")
+    print("=" * 86 + "\n")
+    print(f"  {'Dataset':<32} {'nd':>4}   {'fresh':>6}   {'stale':>6}   {'synth':>8}")
+    print(f"  {'-'*32} {'-'*4}   {'-'*6}   {'-'*6}   {'-'*8}")
+    total_fresh = total_stale = total_missing = total_synth = 0
+    for label in sorted(rows.keys()):
+        for nd in sorted(rows[label].keys()):
+            fresh, stale, synth = rows[label][nd]
+            missing = synth - fresh - stale
+            total_fresh += fresh; total_stale += stale; total_synth += synth
+            total_missing += missing
+            fsym = "✓" if fresh == synth and synth > 0 else (f"~{fresh}" if fresh > 0 else "·")
+            ssym = f"!{stale}" if stale > 0 else "·"
+            print(f"  {label:<32} {nd:>3}d   {fsym:>6}   {ssym:>6}   {fresh + stale}/{synth}")
+        print()
+    print(f"  Totals: fresh={total_fresh}  stale={total_stale}  "
+          f"missing={total_missing}  synth={total_synth}")
+    print("  ✓ = fully fresh    !N = N stale (pre-MMD-fix; will re-run)    · = none")
+    print(f"  Stale cutoff: mtime < {MMD_FIX_TS} (2026-03-25 19:51 UTC, commit d9ae732)\n")
+
+
 def run(dry_run=False, workers=4, max_donors=None, dataset_filter=None, force=False):
     datasets = DATASETS
     if dataset_filter:
@@ -181,32 +266,36 @@ def run(dry_run=False, workers=4, max_donors=None, dataset_filter=None, force=Fa
         print(f"Dataset filter '{dataset_filter}': {len(datasets)} dataset(s) matched.", flush=True)
     jobs = collect_jobs(datasets, max_donors=max_donors)
     total   = len(jobs)
+    # "Done" = fresh CSV (post-MMD-fix). Stale CSVs count as todo, same as missing.
     if force:
-        skipped = 0
+        skipped = stale = 0
         todo    = total
     else:
-        skipped = sum(1 for *_, out_csv in jobs if os.path.exists(out_csv))
+        skipped = sum(1 for *_, out_csv in jobs if is_fresh(out_csv))
+        stale   = sum(1 for *_, out_csv in jobs if is_stale(out_csv))
         todo    = total - skipped
 
     print(f"Found {total} synthetic datasets (max_donors={max_donors}, force={force}): "
-          f"{skipped} already evaluated, {todo} to run.\n", flush=True)
+          f"{skipped} fresh, {stale} stale (will re-run), "
+          f"{todo - stale} missing → {todo} to run.\n", flush=True)
 
     if dry_run:
         for synth_path, _full_data_path, _base_root, _dataset_name, _results_dir, out_csv in jobs:
             parts  = synth_path.split(os.sep)
             label  = f"{parts[-5]}/{parts[-4]}/t{parts[-3]}"
-            if force or not os.path.exists(out_csv):
-                status = "EVAL"
+            if force or not is_fresh(out_csv):
+                tag = "EVAL-STALE" if is_stale(out_csv) else "EVAL"
+                status = tag
             else:
                 status = "SKIP"
-            print(f"  {status}  {label}")
+            print(f"  {status:<10}  {label}")
         return
 
-    # Jobs that actually need running
+    # Jobs that actually need running: missing OR stale (unless --force, which re-runs all).
     if force:
         pending = list(jobs)
     else:
-        pending = [j for j in jobs if not os.path.exists(j[-1])]
+        pending = [j for j in jobs if not is_fresh(j[-1])]
 
     if not pending:
         print("Nothing to do.")
@@ -252,9 +341,20 @@ if __name__ == "__main__":
                         help="Only process dataset roots containing this substring "
                              "(e.g. 'nmf', 'ok_scvi', 'aida')")
     parser.add_argument("--force", action="store_true",
-                        help="Re-run evaluation even if statistics_evals.csv "
-                             "already exists (use after metric-code changes such "
-                             "as the 2026-03-25 MMD median-heuristic fix).")
+                        help="Re-run evaluation even on fresh CSVs (post-MMD-fix). "
+                             "Without this flag, the script already re-runs any "
+                             "stale CSV (mtime < 2026-03-25 19:51 UTC, commit d9ae732); "
+                             "use --force only to also re-run fresh ones.")
+    parser.add_argument("--status", action="store_true",
+                        help="Print completion grid (dataset × donor count) and exit.")
     args = parser.parse_args()
+
+    if args.status:
+        datasets = DATASETS
+        if args.dataset_filter:
+            datasets = [d for d in datasets if args.dataset_filter in d[0]]
+        print_status(datasets, max_donors=args.max_donors)
+        sys.exit(0)
+
     run(dry_run=args.dry_run, workers=args.workers, max_donors=args.max_donors,
         dataset_filter=args.dataset_filter, force=args.force)

@@ -104,14 +104,21 @@ def create_config(config_path):
 
 
 def create_datasets_for_baseline_experiment(cfg):
-    all_data = ad.read_h5ad(cfg.full_data_path)
+    # Open in backed='r' mode so we never load the full 57 GB aida h5ad into RAM.
+    # obs/var are still read eagerly (small); X stays on disk and only the
+    # rows we materialise (train/holdout/aux donor cells) ever hit memory.
+    all_data = ad.read_h5ad(cfg.full_data_path, backed="r")
     train_donors = np.load(cfg.train_donor_path, allow_pickle=True)
     holdout_donors = np.load(cfg.holdout_donor_path, allow_pickle=True)
     aux_donors = np.load(cfg.aux_donor_path, allow_pickle=True)
 
-    all_train = all_data[all_data.obs["individual"].isin(train_donors)]
-    all_holdout = all_data[all_data.obs["individual"].isin(holdout_donors)]
-    all_aux = all_data[all_data.obs["individual"].isin(aux_donors)]
+    train_mask   = all_data.obs["individual"].isin(train_donors).to_numpy()
+    holdout_mask = all_data.obs["individual"].isin(holdout_donors).to_numpy()
+    aux_mask     = all_data.obs["individual"].isin(aux_donors).to_numpy()
+
+    all_train   = all_data[train_mask].to_memory()
+    all_holdout = all_data[holdout_mask].to_memory()
+    all_aux     = all_data[aux_mask].to_memory()
     targets = ad.concat([all_train, all_holdout])
     targets.obs["barcode_col"] = targets.to_df().index
 
