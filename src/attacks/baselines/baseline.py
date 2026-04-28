@@ -12,15 +12,25 @@ src_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.append(src_dir)
 
 
-if sys.argv[1] == 'T':
-    from mia.utils.prepare_data import MIADataLoader
-    from mia.models.base import BaseMIAModel
-else:
-    from src.mia.utils.prepare_data import MIADataLoader
-    from src.mia.models.base import BaseMIAModel
+# DOMIASBaselineModels (the non-scRNA dataframe variant) depends on the legacy
+# `mia.utils.prepare_data.MIADataLoader` / `mia.models.base.BaseMIAModel`
+# modules, whose source files no longer exist in this repo. The scRNA-seq
+# baseline path (`DOMIASSingleCellBaselineModels` in sc_baseline.py) does NOT
+# need them and defines its own data loader. Import lazily so the live path
+# keeps working even if the legacy modules are absent.
+try:
+    from mia.utils.prepare_data import MIADataLoader  # type: ignore
+    from mia.models.base import BaseMIAModel          # type: ignore
+except ModuleNotFoundError:
+    MIADataLoader = None  # type: ignore
+    BaseMIAModel = object  # type: ignore
 from domias.bnaf.density_estimation import compute_log_p_x, density_estimator_trainer
 from domias.baselines_optimized import (MC, LOGAN_D1,
                               GAN_leaks, GAN_leaks_cal, MC_optimized, GAN_leaks_optimized, GAN_leaks_cal_optimized)
+from attacks.baselines.batched_baselines import (
+    MC_batched, GAN_leaks_batched, GAN_leaks_cal_batched,
+    kde_domias_subsampled, LOGAN_D1_gpu,
+)
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print("Using device:", DEVICE)
@@ -73,20 +83,29 @@ def run_baselines(
     X_ref: np.ndarray,
     X_ref_GLC: np.ndarray,
     sample_weight: Optional[np.ndarray] = None,
+    distance_batch_size: int = 2000,
+    kde_max_fit: int = 20000,
 ) -> Tuple[dict, dict]:
+    """
+    Distance baselines (MC, GAN_leaks, GAN_leaks_cal) use the batched
+    implementations from batched_baselines.py — exact, identical results to
+    the unbatched optimized versions, but with bounded memory so they run at
+    nd ≥ 50.  KDE uses a subsampled-fit + batched-query implementation; this
+    is approximate but matches the protocol used by the DOMIAS reference.
+    """
     score = {}
     runtimes = {}
 
-    print("\n\nrunning MC baseline")
+    print("\n\nrunning MC baseline (batched)")
     start = time.process_time()
-    score["MC"] = MC_optimized(X_test, X_G)
+    score["MC"] = MC_batched(X_test, X_G, batch_size=distance_batch_size)
     runtime = time.process_time() - start
     print("took %.1f seconds" % runtime)
     runtimes["MC"] = runtime
 
-    print("\n\nrunning gan_leaks baseline")
+    print("\n\nrunning gan_leaks baseline (batched)")
     start = time.process_time()
-    score["gan_leaks"] = GAN_leaks_optimized(X_test, X_G)
+    score["gan_leaks"] = GAN_leaks_batched(X_test, X_G, batch_size=distance_batch_size)
     runtime = time.process_time() - start
     print("took %.1f seconds" % runtime)
     runtimes["gan_leaks"] = runtime
@@ -95,14 +114,16 @@ def run_baselines(
 
         print("\n\nrunning logan baseline")
         start = time.process_time()
-        score["LOGAN_D1"] = LOGAN_D1(X_test, X_G, X_ref)
+        score["LOGAN_D1"] = LOGAN_D1_gpu(X_test, X_G, X_ref)
         runtime = time.process_time() - start
         print("took %.1f seconds" % runtime)
         runtimes["LOGAN_D1"] = runtime
 
-        print("\n\nrunning gan_leaks_cal baseline")
+        print("\n\nrunning gan_leaks_cal baseline (batched)")
         start = time.process_time()
-        score["gan_leaks_cal"] = GAN_leaks_cal_optimized(X_test, X_G, X_ref_GLC)
+        score["gan_leaks_cal"] = GAN_leaks_cal_batched(
+            X_test, X_G, X_ref_GLC, batch_size=distance_batch_size
+        )
         runtime = time.process_time() - start
         print("took %.1f seconds" % runtime)
         runtimes["gan_leaks_cal"] = runtime
@@ -117,9 +138,11 @@ def run_baselines(
         pca_runtime = time.process_time() - start
         print("took %.1f seconds" % pca_runtime)
 
-        print("\n\nrunning domias baseline")
+        print(f"\n\nrunning domias baseline (KDE, max_fit={kde_max_fit})")
         start = time.process_time()
-        score["domias_kde"] = kde_domias(pca_test, pca_synth, pca_ref)
+        score["domias_kde"] = kde_domias_subsampled(
+            pca_test, pca_synth, pca_ref, max_fit=kde_max_fit,
+        )
         runtime = time.process_time() - start
         print("took %.1f seconds" % runtime)
         runtimes["domias_kde"] = runtime + pca_runtime

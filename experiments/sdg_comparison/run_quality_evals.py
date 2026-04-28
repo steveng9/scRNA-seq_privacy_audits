@@ -50,6 +50,16 @@ def _nmf_variants(base_dataset):
 
 
 DATASETS = [
+    # --- scDesign2/no_dp (added 2026-04-28 — needed for MMD-fix re-runs on
+    # aida and cg; ok results are pre-fix but explicitly trusted by user) ---
+    (f"{DATA}/ok/scdesign2/no_dp",      f"{DATA}/ok/full_dataset_cleaned.h5ad",   "ok"),
+    (f"{DATA}/aida/scdesign2/no_dp",    f"{DATA}/aida/full_dataset_cleaned.h5ad", "aida"),
+    (f"{DATA}/cg/scdesign2/no_dp",      f"{DATA}/cg/full_dataset_cleaned.h5ad",   "cg"),
+
+    # --- ZINBWave (added 2026-04-28) ---
+    (f"{DATA}/ok/zinbwave/no_dp",       f"{DATA}/ok/full_dataset_cleaned.h5ad",   "ok"),
+    (f"{DATA}/aida/zinbwave/no_dp",     f"{DATA}/aida/full_dataset_cleaned.h5ad", "aida"),
+
     # --- New SDG methods: OK1K ---
     (f"{DATA}/ok/scdesign3/gaussian",   f"{DATA}/ok/full_dataset_cleaned.h5ad", "ok"),
     (f"{DATA}/ok/scdesign3/vine",       f"{DATA}/ok/full_dataset_cleaned.h5ad", "ok"),
@@ -123,7 +133,7 @@ def collect_jobs(datasets, max_donors=None):
 
 def _run_one(args):
     """Worker function: evaluate one synthetic dataset. Returns (label, status, msg)."""
-    synth_path, full_data_path, base_data_root, dataset_name, results_dir, out_csv = args
+    synth_path, full_data_path, base_data_root, dataset_name, results_dir, out_csv, force = args
 
     parts  = synth_path.split(os.sep)
     src    = parts[-5]
@@ -131,7 +141,7 @@ def _run_one(args):
     trial  = parts[-3]
     label  = f"{src}/{nd_tag}/t{trial}"
 
-    if os.path.exists(out_csv):
+    if os.path.exists(out_csv) and not force:
         return (label, "skip", None)
 
     # Donor splits live in the shared splits/ dir under the dataset root
@@ -164,33 +174,46 @@ def _run_one(args):
         return (label, "error", f"{e}\n{tb}")
 
 
-def run(dry_run=False, workers=4, max_donors=None, dataset_filter=None):
+def run(dry_run=False, workers=4, max_donors=None, dataset_filter=None, force=False):
     datasets = DATASETS
     if dataset_filter:
         datasets = [d for d in datasets if dataset_filter in d[0]]
         print(f"Dataset filter '{dataset_filter}': {len(datasets)} dataset(s) matched.", flush=True)
     jobs = collect_jobs(datasets, max_donors=max_donors)
     total   = len(jobs)
-    skipped = sum(1 for *_, out_csv in jobs if os.path.exists(out_csv))
-    todo    = total - skipped
+    if force:
+        skipped = 0
+        todo    = total
+    else:
+        skipped = sum(1 for *_, out_csv in jobs if os.path.exists(out_csv))
+        todo    = total - skipped
 
-    print(f"Found {total} synthetic datasets (max_donors={max_donors}): "
+    print(f"Found {total} synthetic datasets (max_donors={max_donors}, force={force}): "
           f"{skipped} already evaluated, {todo} to run.\n", flush=True)
 
     if dry_run:
-        for synth_path, _, dataset_name, results_dir, out_csv in jobs:
+        for synth_path, _full_data_path, _base_root, _dataset_name, _results_dir, out_csv in jobs:
             parts  = synth_path.split(os.sep)
             label  = f"{parts[-5]}/{parts[-4]}/t{parts[-3]}"
-            status = "SKIP" if os.path.exists(out_csv) else "EVAL"
+            if force or not os.path.exists(out_csv):
+                status = "EVAL"
+            else:
+                status = "SKIP"
             print(f"  {status}  {label}")
         return
 
     # Jobs that actually need running
-    pending = [j for j in jobs if not os.path.exists(j[-1])]
+    if force:
+        pending = list(jobs)
+    else:
+        pending = [j for j in jobs if not os.path.exists(j[-1])]
 
     if not pending:
         print("Nothing to do.")
         return
+
+    # Append force flag to each job tuple for the worker
+    pending = [(*j, force) for j in pending]
 
     done = errors = 0
 
@@ -228,6 +251,10 @@ if __name__ == "__main__":
     parser.add_argument("--dataset-filter", default=None,
                         help="Only process dataset roots containing this substring "
                              "(e.g. 'nmf', 'ok_scvi', 'aida')")
+    parser.add_argument("--force", action="store_true",
+                        help="Re-run evaluation even if statistics_evals.csv "
+                             "already exists (use after metric-code changes such "
+                             "as the 2026-03-25 MMD median-heuristic fix).")
     args = parser.parse_args()
     run(dry_run=args.dry_run, workers=args.workers, max_donors=args.max_donors,
-        dataset_filter=args.dataset_filter)
+        dataset_filter=args.dataset_filter, force=args.force)

@@ -172,7 +172,28 @@ python src/run_experiment.py <path-to-config>
 
 ```bash
 python experiments/sdg_comparison/run_quality_evals.py
+# Re-run after metric-code changes (e.g. the 2026-03-25 MMD median-heuristic fix):
+python experiments/sdg_comparison/run_quality_evals.py --force --max-donors 200 \
+    --dataset-filter ok/scdesign2/no_dp
 ```
+
+### 4b. Baseline-MIA Sweep
+
+DOMIAS-style baselines (MC, GAN-Leaks, GAN-Leaks-Cal, GAN-Leaks-SC, LOGAN-D1,
+DOMIAS-KDE) across `{ok,aida,cg}/scdesign2/no_dp` up to 200d:
+
+```bash
+python experiments/sdg_comparison/run_baselines_sweep.py            # run sweep
+python experiments/sdg_comparison/run_baselines_sweep.py --status   # check completion
+python experiments/sdg_comparison/run_baselines_sweep.py --dry-run  # list pending
+```
+
+The distance baselines (MC, GAN-Leaks, GAN-Leaks-Cal) use exact batched
+implementations in `src/attacks/baselines/batched_baselines.py` — bit-for-bit
+match to the unbatched `domias.baselines_optimized` versions (verified to
+≤1e-6 max diff) but with bounded RAM, so they scale to 200d. The DOMIAS-KDE
+baseline subsamples its fit set (max_fit=20k per side, matching the DOMIAS
+reference protocol; see `notes/PRIORITY_TODO.md` for citations).
 
 ### 5. Generate Tables and Figures
 
@@ -209,6 +230,7 @@ scRNA-seq_privacy_audits/
 ├── experiments/
 │   ├── sdg_comparison/             # multi-SDG generation, attack, and table scripts
 │   │   ├── run_full_sweep.py       # comprehensive quad sweep (all SDGs, all datasets)
+│   │   ├── run_baselines_sweep.py  # DOMIAS baseline MIAs across sd2/no_dp
 │   │   ├── run_all.py              # batch generation (all SDGs)
 │   │   ├── run_mia_sweep.py        # legacy batch MIA sweep (standard Mahalanobis)
 │   │   ├── run_quality_evals.py    # batch quality evaluation

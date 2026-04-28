@@ -70,12 +70,23 @@ def create_config(config_path):
         cfg.experiment_tracking_file = os.path.join(cfg.experiment_setting_path, "tracking.csv")
         cfg.trial_num = get_next_baseline_trial_num(cfg)
 
+        # base_data_dir is the dataset root (e.g. scMAMAMIA/ok/), independent of
+        # SDG variant. Donor IDs and the canonical h5ad live here.
+        base_dataset = cfg.dataset_name.split('/')[0]
+        cfg.base_data_dir = os.path.join(cfg.dir_list[_ENV].data, base_dataset)
+        cfg.full_data_path = os.path.join(cfg.base_data_dir, "full_dataset_cleaned.h5ad")
+
         cfg.experiment_data_path = os.path.join(cfg.experiment_setting_path, str(cfg.trial_num), "datasets")
         cfg.results_path = os.path.join(cfg.experiment_setting_path, str(cfg.trial_num), "results", "baseline_mias")
+        os.makedirs(cfg.experiment_data_path, exist_ok=True)
         os.makedirs(cfg.results_path, exist_ok=True)
-        cfg.train_donor_path = os.path.join(cfg.experiment_data_path, "train.npy")
-        cfg.holdout_donor_path = os.path.join(cfg.experiment_data_path, "holdout.npy")
-        cfg.aux_donor_path = os.path.join(cfg.experiment_data_path, "auxiliary.npy")
+
+        # Donor IDs live in the shared splits/ dir under the dataset root.
+        cfg.splits_path = os.path.join(cfg.base_data_dir, "splits",
+                                       cfg.split_name, str(cfg.trial_num))
+        cfg.train_donor_path   = os.path.join(cfg.splits_path, "train.npy")
+        cfg.holdout_donor_path = os.path.join(cfg.splits_path, "holdout.npy")
+        cfg.aux_donor_path     = os.path.join(cfg.splits_path, "auxiliary.npy")
 
         cfg.train_path = os.path.join(cfg.experiment_data_path, "train.h5ad")
         cfg.holdout_path = os.path.join(cfg.experiment_data_path, "holdout.h5ad")
@@ -93,7 +104,7 @@ def create_config(config_path):
 
 
 def create_datasets_for_baseline_experiment(cfg):
-    all_data = ad.read_h5ad(os.path.join(cfg.dir_list[_ENV].data, cfg.dataset_name, "full_dataset_cleaned.h5ad"))
+    all_data = ad.read_h5ad(cfg.full_data_path)
     train_donors = np.load(cfg.train_donor_path, allow_pickle=True)
     holdout_donors = np.load(cfg.holdout_donor_path, allow_pickle=True)
     aux_donors = np.load(cfg.aux_donor_path, allow_pickle=True)
