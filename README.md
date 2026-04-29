@@ -299,10 +299,10 @@ scRNA-seq_privacy_audits/
 
 ```bibtex
 @misc{golob2025scmamamia,
-  title={Privacy Vulnerabilities in Synthetic Single-Cell RNA-Sequence Data},
+  title={Membership Inference on Synthetic Single-Cell Genomic Data},
   author={Golob, Steven and McKeever, Patrick and Pentyala, Sikha and De Cock, Martine and Peck, Jonathan},
   year={2026},
-  note={Under review at RECOMB-Privacy 2026}
+  note={Under review}
 }
 ```
 
