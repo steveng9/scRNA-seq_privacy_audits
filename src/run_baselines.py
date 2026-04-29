@@ -119,6 +119,11 @@ def create_datasets_for_baseline_experiment(cfg):
     all_train   = all_data[train_mask].to_memory()
     all_holdout = all_data[holdout_mask].to_memory()
     all_aux     = all_data[aux_mask].to_memory()
+    # Cast to float32: halves the dense HVG buffers downstream (~1 GB → 0.5 GB
+    # per side at aida 100d) without affecting baseline-MIA scores. Works for
+    # both sparse and dense X.
+    for _ad in (all_train, all_holdout, all_aux):
+        _ad.X = _ad.X.astype(np.float32)
     targets = ad.concat([all_train, all_holdout])
     targets.obs["barcode_col"] = targets.to_df().index
 
