@@ -48,6 +48,7 @@ def apply_gaussian_dp(
     clip_value: float = 3.0,
     rng=None,
     clip: bool = True,
+    dp_variant: str = "v1",
 ) -> dict:
     """
     Inject (ε, δ)-DP Gaussian noise into a parsed copula dict.
@@ -71,6 +72,10 @@ def apply_gaussian_dp(
                               output should be bit-for-bit identical to the
                               original copula, confirming that clipping (not
                               noise) is the source of any residual quality gap.
+    dp_variant  : str   — sensitivity variant: "v1" (centered cov, σ uses
+                          factor 4) or "v2" (uncentered second moment, σ
+                          uses factor 1 → 4× smaller σ for the same ε).
+                          See sdg.dp.sensitivity module docstring.
 
     Returns
     -------
@@ -100,6 +105,7 @@ def apply_gaussian_dp(
         k_max=k_max,
         n_genes=n_genes,
         clip_value=clip_value,
+        dp_variant=dp_variant,
     )
 
     noised_cov = _add_symmetric_gaussian_noise(cov_np, sigma, rng)
