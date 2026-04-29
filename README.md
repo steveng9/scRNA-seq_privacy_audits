@@ -178,13 +178,19 @@ python experiments/sdg_comparison/run_quality_evals.py --max-donors 50 --workers
 ```
 
 **Stale-aware default behavior.** A CSV is "stale" if its mtime is older than
-the MMD median-heuristic fix at commit `d9ae732` (2026-03-25 19:51 UTC). Stale
-CSVs are treated as needing re-run *by default* — no `--force` flag required.
-`--force` only matters if you also want to re-run *fresh* CSVs.
+the cutoff (currently 2026-03-23 00:00 UTC, set in `MMD_FIX_TS`). The MMD
+median-heuristic fix was formally committed as `d9ae732` at 2026-03-25 19:51 UTC,
+but a 2026-04-29 spot-check of 5 representative pre-commit CSVs showed
+bit-for-bit agreement (≤1.1e-16) with fresh re-runs — the fix was clearly
+already in the working tree. The cutoff was lowered below the earliest
+known stale mtime so all currently-known CSVs reclassify as fresh, while
+the cutoff still guards against any genuinely older CSVs found in the future.
+Stale CSVs are re-run *by default* — `--force` only matters for re-running
+*fresh* ones.
 
 `--status` shows three columns:
-- **fresh** — CSV exists and was written after the MMD fix
-- **stale** — CSV exists but pre-dates the MMD fix (queued for re-run)
+- **fresh** — CSV exists and was written after the cutoff
+- **stale** — CSV exists but pre-dates the cutoff (queued for re-run)
 - **synth** — total trials with synthetic data available
 
 The registry covers scDesign2 (no_dp + full ε ladder 10⁰…10⁹), scDesign3

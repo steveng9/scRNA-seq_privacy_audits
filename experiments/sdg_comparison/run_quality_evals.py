@@ -30,11 +30,17 @@ SRC_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "s
 if SRC_DIR not in sys.path:
     sys.path.insert(0, SRC_DIR)
 
-# Quality CSVs written before this timestamp used the broken MMD path
-# (commit d9ae732, 2026-03-25 19:51:05 UTC, fixed the median-heuristic gamma
-# in compute_mmd_optimized). Older CSVs have either ~2/n or ~0 MMD values
-# and need to be re-run.
-MMD_FIX_TS = 1774417865
+# Quality CSVs written before this timestamp are flagged as stale (potentially
+# pre-MMD-fix). Commit d9ae732 (2026-03-25 19:51 UTC) formally fixed the
+# median-heuristic gamma in compute_mmd_optimized, but the fix was clearly
+# already in the working tree earlier on the same day: a spot-check of 5
+# trials written 2026-03-25 03:19–05:29 UTC (covering the full stale window
+# 03:19–05:50) showed bit-for-bit agreement (≤1.1e-16) with fresh re-runs.
+# Cutoff lowered 2026-04-29 to 2026-03-23 00:00 UTC — strictly below the
+# earliest stale mtime, so all known stale CSVs reclassify as fresh, while
+# the cutoff still serves as a guard against any genuinely older CSV that
+# might appear in the future.
+MMD_FIX_TS = 1774224000  # 2026-03-23 00:00 UTC
 
 
 def is_fresh(out_csv):
@@ -94,9 +100,8 @@ DATASETS = [
     # scDesign2+DP — full epsilon sweep, ε = 10⁰ … 10⁹.
     # Low-ε (1..10⁴) added 2026-04-29: their existing CSVs were written
     # 2026-03-25 ~05 UTC, ~14 hours before the MMD-fix commit at 19:51 UTC.
-    # Conservatively flagged STALE by the mtime cutoff — they MIGHT have been
-    # written with an in-progress local version of the fix, but until we
-    # verify the MMD values aren't degenerate (~2/n or ~0), we re-run them.
+    # Spot-check on 2026-04-29 confirmed bit-for-bit agreement with fresh
+    # re-runs (max delta 1.1e-16) — the fix was already in the working tree.
     # The eps_noclip / eps_noclip_cliptrue ablation variants are intentionally
     # excluded from the registry (paper uses the standard ε ladder only).
     (f"{DATA}/ok/scdesign2/eps_1",         f"{DATA}/ok/full_dataset_cleaned.h5ad", "ok"),
@@ -256,7 +261,7 @@ def print_status(datasets, max_donors=None):
     print(f"  Totals: fresh={total_fresh}  stale={total_stale}  "
           f"missing={total_missing}  synth={total_synth}")
     print("  ✓ = fully fresh    !N = N stale (pre-MMD-fix; will re-run)    · = none")
-    print(f"  Stale cutoff: mtime < {MMD_FIX_TS} (2026-03-25 19:51 UTC, commit d9ae732)\n")
+    print(f"  Stale cutoff: mtime < {MMD_FIX_TS} (2026-03-23 00:00 UTC; commit d9ae732 = 03-25 19:51)\n")
 
 
 def run(dry_run=False, workers=4, max_donors=None, dataset_filter=None, force=False):
@@ -343,8 +348,10 @@ if __name__ == "__main__":
     parser.add_argument("--force", action="store_true",
                         help="Re-run evaluation even on fresh CSVs (post-MMD-fix). "
                              "Without this flag, the script already re-runs any "
-                             "stale CSV (mtime < 2026-03-25 19:51 UTC, commit d9ae732); "
-                             "use --force only to also re-run fresh ones.")
+                             "stale CSV (mtime < 2026-03-23 00:00 UTC; cutoff lowered "
+                             "2026-04-29 after spot-check verified pre-commit CSVs match "
+                             "fresh re-runs bit-for-bit); use --force only to also "
+                             "re-run fresh ones.")
     parser.add_argument("--status", action="store_true",
                         help="Print completion grid (dataset × donor count) and exit.")
     args = parser.parse_args()

@@ -72,38 +72,17 @@ Expected RAM: ~80-100 GB peak (HVG dense matrices for ~600k train+holdout
 cells × 5000 genes ≈ 24 GB each, ×2 sides + synth + ref + working buffers).
 Run serially, no other heavy jobs concurrently. Likely overnight.
 
-### 2. Re-run quality metrics for ALL stale (pre-MMD-fix) CSVs
-Why: existing CSVs were written before commit `d9ae732` (2026-03-25 19:51 UTC),
-which fixed the median-heuristic gamma in `compute_mmd_optimized`. MMD values
-in those CSVs are either ~2/n or ~0 — useless.
+### 2. ~~Re-run quality metrics for ALL stale (pre-MMD-fix) CSVs~~ — RESOLVED 2026-04-29
+Spot-check on 2026-04-29 (5 trials covering the full stale window 2026-03-25
+03:19–05:50 UTC) showed bit-for-bit agreement (max delta 1.1e-16) between
+stale CSVs and fresh re-runs. The MMD median-heuristic fix was already in the
+working tree before the formal commit `d9ae732` (2026-03-25 19:51 UTC).
+Cutoff `MMD_FIX_TS` lowered to 2026-03-23 00:00 UTC; all 174 previously-stale
+CSVs now reclassify as fresh. Re-running them was unnecessary.
 
-Scope (updated 2026-04-29 after running `--status` with mtime-based stale
-detection): **158 stale CSVs across multiple SDG variants**, broader than
-originally thought:
-- ok/aida/cg sd2/no_dp:           91 stale
-- ok/scvi/no_dp + aida/scvi/no_dp: 24 stale (new finding)
-- ok/scdesign3/gaussian:           28 stale (new finding)
-- aida/scvi/no_dp 50d:              4 stale + 1 fresh (partial)
-
-How to apply: `run_quality_evals.py` now treats stale CSVs as needing re-run
-by default — no `--force` needed. Just run without filters and it'll regenerate
-all 158:
-```
-conda run -n tabddpm_ python experiments/sdg_comparison/run_quality_evals.py \
-    --max-donors 200 --workers 1
-```
-Or scope to one tier at a time (recommended, so the heavy 100d/200d trials
-don't block the cheap 10-50d ones):
-```
-# Cheap tier first:
-conda run -n tabddpm_ python experiments/sdg_comparison/run_quality_evals.py \
-    --max-donors 50 --workers 1
-# Then heavy:
-conda run -n tabddpm_ python experiments/sdg_comparison/run_quality_evals.py \
-    --max-donors 200 --workers 1
-```
-~2-5 minutes per trial at ≤50d, 10-30 min at 100/200d. Use `--status` to
-inspect the fresh / stale / missing grid before launching.
+Spot-check tool: `experiments/sdg_comparison/spot_check_stale_quality.py`
+(retained for reference; runs the 5 representative trials with a /tmp results
+dir and compares fresh values to stored ones without mutating originals).
 
 ---
 
