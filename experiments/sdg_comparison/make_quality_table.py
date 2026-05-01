@@ -60,6 +60,10 @@ SOURCES = [
     ("scDiffusion",      "",         f"{DATA}/ok/scdiffusion/no_dp/*/*/results/quality_eval_results/results/statistics_evals.csv"),
     ("scDiffusion",      "",         f"{DATA}/aida/scdiffusion/no_dp/*/*/results/quality_eval_results/results/statistics_evals.csv"),
 
+    # --- ZINBWave ---
+    ("ZINBWave",         "",         f"{DATA}/ok/zinbwave/no_dp/*/*/results/quality_eval_results/results/statistics_evals.csv"),
+    ("ZINBWave",         "",         f"{DATA}/aida/zinbwave/no_dp/*/*/results/quality_eval_results/results/statistics_evals.csv"),
+
     # --- NMF ---
     ("NMF",              "",         f"{DATA}/ok/nmf/no_dp/*/*/results/quality_eval_results/results/statistics_evals.csv"),
     ("NMF",              "",         f"{DATA}/aida/nmf/no_dp/*/*/results/quality_eval_results/results/statistics_evals.csv"),
@@ -184,6 +188,7 @@ def make_ok_only_table(results, nd_label):
         ("scDesign3-V",  ""),
         ("scVI",         ""),
         ("scDiffusion",  ""),
+        ("ZINBWave",     ""),
         ("NMF",          ""),
         ("NMF+DP",       r"$\varepsilon=10^{8}$"),
         ("NMF+DP",       r"$\varepsilon=10^{7}$"),
@@ -261,6 +266,7 @@ def make_table(results):
         ("scDesign3-V",  ""),
         ("scVI",         ""),
         ("scDiffusion",  ""),
+        ("ZINBWave",     ""),
         ("NMF",          ""),
         ("NMF+DP",       r"$\varepsilon=10^{8}$"),
         ("NMF+DP",       r"$\varepsilon=10^{7}$"),

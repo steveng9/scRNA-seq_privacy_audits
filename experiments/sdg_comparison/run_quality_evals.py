@@ -360,7 +360,10 @@ if __name__ == "__main__":
         datasets = DATASETS
         if args.dataset_filter:
             datasets = [d for d in datasets if args.dataset_filter in d[0]]
-        print_status(datasets, max_donors=args.max_donors)
+        # --status should surface all donor counts present on disk (incl. 490d);
+        # the --max-donors default (100) only governs which jobs run.
+        status_max = None if args.max_donors == parser.get_default("max_donors") else args.max_donors
+        print_status(datasets, max_donors=status_max)
         sys.exit(0)
 
     run(dry_run=args.dry_run, workers=args.workers, max_donors=args.max_donors,

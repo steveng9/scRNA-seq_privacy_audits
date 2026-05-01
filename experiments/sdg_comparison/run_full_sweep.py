@@ -138,18 +138,37 @@ OTHER_SWEEP_ND = [10, 20, 50]  # donor counts to sweep for all non-SD2 entries
 #   nd_tier → (min_free_gb_to_launch, parallel_workers_in_job)
 # Jobs are launched only when MemAvailable > min_free_gb.
 # parallel_workers is the number of cell-type workers inside run_experiment.py.
+# Thresholds are intentionally conservative because non-SD2 generation jobs
+# spawn unaccounted R subprocesses (10-17 GB each) that the sweep does not
+# track in `running`, so the visible MemAvailable can drop fast post-launch.
 # ---------------------------------------------------------------------------
 MEM_TIERS = [
-    (490,  20, 2),   # nd ≥ 490  : need 20 GB free, 2 internal workers
-    (200,  16, 2),   # nd ≥ 200
-    (100,  12, 3),   # nd ≥ 100
-    (50,    8, 4),   # nd ≥ 50
-    (20,    6, 4),   # nd ≥ 20
-    (0,     4, 4),   # nd < 20
+    (490,  50, 2),   # nd ≥ 490  : need 50 GB free, 2 internal workers
+    (200,  45, 2),   # nd ≥ 200  : need 45 GB free, 2 internal workers
+    (100,  16, 3),   # nd ≥ 100
+    (50,   10, 4),   # nd ≥ 50
+    (20,    8, 4),   # nd ≥ 20
+    (0,     6, 4),   # nd < 20
 ]
 
-# Global cap on concurrent jobs regardless of memory
+# Global cap on concurrent jobs regardless of memory. Memory is gated per-job
+# by MEM_TIERS, and heavy jobs (≥200d) are throttled by HEAVY_ND below, so
+# a higher cap is safe — it only matters when several small jobs can coexist.
 MAX_CONCURRENT_HARD = 4
+
+# Exclusivity: while a job with nd ≥ EXCLUSIVE_ND is running, do not launch
+# anything else. The 490d WB attack on OneK1K alone needs >30 GB at peak.
+EXCLUSIVE_ND = 490
+
+# Same idea but for WB-quad attacks: WB at nd ≥ EXCLUSIVE_ND_WB is treated as
+# exclusive too. WB attacks load train+holdout (≥800K cells at AIDA 200d) and
+# fit per-cell-type copulas; co-launching them with generation jobs (which
+# spawn untracked R subprocesses, 8–11 GB each) reliably triggers OOM kills.
+EXCLUSIVE_ND_WB = 200
+
+# Soft cap: while any job with nd ≥ HEAVY_ND is running, allow at most 1
+# additional concurrent job (instead of MAX_CONCURRENT_HARD).
+HEAVY_ND = 200
 
 # OOM retry: how many times to retry with halved workers before giving up
 MAX_OOM_RETRIES = 3
@@ -799,11 +818,34 @@ def main():
         # within the loop so same-nd siblings don't launch in the same polling tick
         # (they share a trial directory and would race on train.h5ad writes).
         running_keys = {(e["job"].dataset_name, e["job"].nd) for e in running.values()}
+        # Track (nd, mode) inside the launch loop so newly-launched jobs
+        # immediately update exclusivity (a 490d or WB-200d launched in this
+        # tick must block subsequent launches in the same tick).
+        running_jobs_set = {(e["job"].nd, e["job"].mode) for e in running.values()}
         if not shutting_down[0]:
             for job in list(pending):
                 if (job.dataset_name, job.nd) in running_keys:
                     continue
-                if can_launch(job.nd, len(running), max_concurrent):
+                exclusive_running = any(
+                    nd >= EXCLUSIVE_ND
+                    or (mode == "wb_quad" and nd >= EXCLUSIVE_ND_WB)
+                    for (nd, mode) in running_jobs_set
+                )
+                heavy_running = any(nd >= HEAVY_ND for (nd, _) in running_jobs_set)
+                if exclusive_running:
+                    break  # 490d or WB ≥ 200d job holds the system — wait it out
+                # Also treat THIS job as exclusive: don't launch a WB ≥ 200d
+                # alongside any other running job.
+                is_exclusive_candidate = (
+                    job.nd >= EXCLUSIVE_ND
+                    or (job.mode == "wb_quad" and job.nd >= EXCLUSIVE_ND_WB)
+                )
+                if is_exclusive_candidate and len(running) > 0:
+                    continue
+                effective_max = (
+                    min(2, max_concurrent) if heavy_running else max_concurrent
+                )
+                if can_launch(job.nd, len(running), effective_max):
                     print(f"[sweep] → launching: {job.label}  "
                           f"(mem_avail={get_available_memory_gb():.1f}GB, "
                           f"running={len(running)})", flush=True)
@@ -814,6 +856,7 @@ def main():
                         "started": time.time(),
                     }
                     running_keys.add((job.dataset_name, job.nd))
+                    running_jobs_set.add((job.nd, job.mode))
                     pending.remove(job)
                     total_launched += 1
                     time.sleep(2)  # brief gap so launched process can claim memory

@@ -112,3 +112,22 @@ def sample_donors_strategy_3(cfg, all_data, _cell_types):
         sys.exit(0)
 
     return train_donors, holdout_donors, aux_donors
+
+
+def sample_donors_strategy_camda_half(cfg, all_data, _cell_types):
+    """
+    CAMDA 2026 'half' submission setting: use the entire OneK1K train-release
+    donor pool as the training set; no holdout, no aux.
+
+    This is a non-sampling strategy — train donors are exactly the donors
+    present in `all_data` (typically the train-release h5ad, ~490 donors).
+    For submission generation we are not running attacks, so holdout / aux are
+    intentionally empty.
+    """
+    all_donors = all_data.obs["individual"].unique()
+    train_donors   = np.array(sorted(all_donors))
+    holdout_donors = np.array([], dtype=train_donors.dtype)
+    aux_donors     = np.array([], dtype=train_donors.dtype)
+    print(f"camda_half: train={len(train_donors)} donors; no holdout/aux",
+          flush=True)
+    return train_donors, holdout_donors, aux_donors

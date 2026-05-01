@@ -58,9 +58,15 @@ N_TRIALS  = 5
 # All other targets are intentionally deferred.
 # ---------------------------------------------------------------------------
 SWEEP = [
-    ("ok",   "scdesign2/no_dp", [2, 5, 10, 20, 50, 100, 200]),
+    ("ok",   "scdesign2/no_dp", [2, 5, 10, 20, 50, 100, 200, 490]),
     ("aida", "scdesign2/no_dp", [2, 5, 10, 20, 50, 100, 200]),
+    #("aida", "scdesign2/no_dp", [100, 200]),
+    #("ok",   "scdesign2/no_dp", [200]),
     ("cg",   "scdesign2/no_dp", [2, 5, 10, 11, 20]),
+    # 490d on OneK1K — synthetic data + copulas exist; baseline runs gated by
+    # --skip-nd-above (default 200) so they appear in --status without being
+    # auto-launched.
+    #("ok",   "scdesign2/no_dp", [490]),
 ]
 
 # ---------------------------------------------------------------------------

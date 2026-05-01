@@ -36,6 +36,7 @@ Examples
 from __future__ import annotations
 
 import argparse
+import functools
 import os
 import sys
 
@@ -354,7 +355,7 @@ def build_table(
         "non-member donors in the subgroup); "
         "$*$: fewer than the full "
         f"{N_TRIALS} trials available; \\texttt{{N/A}}: white-box not applicable to this SDG. "
-        f"Source: \\texttt{{{results_filename}}}."
+        f"Subgroup labels show cell-level prevalence in the full dataset in parentheses."
     )
     label_attack = "_classb" if "classb" in results_filename else ""
     label = (
@@ -401,8 +402,12 @@ def build_table(
     lines.append(r"\midrule")
 
     # ---------------------- body ----------------------
+    prevalence = _subgroup_prevalence(dataset, subgroup_col)
     for level in levels:
-        row = [_escape_latex(level)]
+        label = _escape_latex(level)
+        if level in prevalence:
+            label = f"{label} ({prevalence[level] * 100:.1f}\\%)"
+        row = [label]
         for sdg_key, *_rest in methods:
             wb_ok = next(m for m in methods if m[0] == sdg_key)[4]
             for nd in nd_list:
@@ -423,6 +428,37 @@ def build_table(
 
 def _escape_latex(s: str) -> str:
     return s.replace("&", r"\&").replace("_", r"\_").replace("%", r"\%")
+
+
+@functools.lru_cache(maxsize=8)
+def _subgroup_prevalence(dataset: str, subgroup_col: str) -> dict[str, float]:
+    """
+    Return {subgroup_value: fraction_of_total_cells} computed from the full
+    dataset h5ad's obs (cell-level). Read once per (dataset, subgroup_col) and
+    cached. Returns {} if the file or column is unavailable.
+    """
+    h5ad_path = os.path.join(DATA_DIR, dataset, "full_dataset_cleaned.h5ad")
+    if not os.path.exists(h5ad_path):
+        print(f"  [WARN] cannot compute subgroup prevalence — {h5ad_path} missing.",
+              file=sys.stderr)
+        return {}
+    try:
+        import anndata as ad
+    except ImportError:
+        print("  [WARN] anndata not installed; subgroup prevalence will be omitted.",
+              file=sys.stderr)
+        return {}
+    try:
+        a = ad.read_h5ad(h5ad_path, backed="r")
+    except Exception as e:
+        print(f"  [WARN] could not open {h5ad_path}: {e}", file=sys.stderr)
+        return {}
+    if subgroup_col not in a.obs.columns:
+        print(f"  [WARN] '{subgroup_col}' not in {h5ad_path}.obs", file=sys.stderr)
+        return {}
+    counts = a.obs[subgroup_col].value_counts(dropna=False)
+    total = float(counts.sum())
+    return {str(k): float(v) / total for k, v in counts.items()}
 
 
 # ---------------------------------------------------------------------------

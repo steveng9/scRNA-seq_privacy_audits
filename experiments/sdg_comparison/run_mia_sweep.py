@@ -89,19 +89,32 @@ TM_BB_QUAD = [
 
 SWEEP = [
     # --- scVI ---
-    ("scvi",   "ok/scvi/no_dp",         "ok", [5, 10, 20, 50, 100, 490], TM_BB_COMBINED, 4),
+    ("scvi",   "ok/scvi/no_dp",         "ok", [5, 10, 20, 50, 100], TM_BB_COMBINED, 4),
 
     # --- scDiffusion ---
-    ("scdiff", "ok/scdiffusion/no_dp",  "ok", [10, 20, 50, 490],         TM_BB_COMBINED, 4),
+    ("scdiff", "ok/scdiffusion/no_dp",  "ok", [10, 20, 50],         TM_BB_COMBINED, 4),
 
     # --- scDesign3-Vine ---
-    ("sd3v",   "ok/scdesign3/vine",     "ok", [10, 20, 50, 490],         TM_BB_COMBINED, 4),
+    ("sd3v",   "ok/scdesign3/vine",     "ok", [10, 20, 50],         TM_BB_COMBINED, 4),
 
     # --- scDesign3-Gauss ---
-    ("sd3g",   "ok/scdesign3/gaussian", "ok", [2, 5, 10, 20, 50, 100, 200, 490], TM_BB_COMBINED, 4),
+    ("sd3g",   "ok/scdesign3/gaussian", "ok", [2, 5, 10, 20, 50, 100, 200], TM_BB_COMBINED, 4),
 
     # --- ZINBWave (Risso et al. 2018) ---
     ("zinbwave", "ok/zinbwave/no_dp", "ok", [10, 20, 50], TM_BB_QUAD, 4),
+
+    # --- 490d quad attacks (Class B + standard, +/-aux all in one job) ---
+    ("scvi",     "ok/scvi/no_dp",         "ok", [490], TM_BB_QUAD, 4),
+    ("scdiff",   "ok/scdiffusion/no_dp",  "ok", [490], TM_BB_QUAD, 4),
+    ("sd3v",     "ok/scdesign3/vine",     "ok", [490], TM_BB_QUAD, 4),
+    ("sd3g",     "ok/scdesign3/gaussian", "ok", [490], TM_BB_QUAD, 4),
+    ("zinbwave", "ok/zinbwave/no_dp",     "ok", [490], TM_BB_QUAD, 4),
+    ("sd2_dp",   "ok/scdesign2/eps_1",         "ok", [490], TM_BB_QUAD, 4),
+    ("sd2_dp",   "ok/scdesign2/eps_10",        "ok", [490], TM_BB_QUAD, 4),
+    ("sd2_dp",   "ok/scdesign2/eps_100",       "ok", [490], TM_BB_QUAD, 4),
+    ("sd2_dp",   "ok/scdesign2/eps_10000",     "ok", [490], TM_BB_QUAD, 4),
+    ("sd2_dp",   "ok/scdesign2/eps_1000000",   "ok", [490], TM_BB_QUAD, 4),
+    ("sd2_dp",   "ok/scdesign2/eps_100000000", "ok", [490], TM_BB_QUAD, 4),
 
     # --- NMF (SingleCellNMFGenerator — CAMDA 2024 winner) ---
     ("nmf",    "ok/nmf/no_dp",    "ok",   [10, 20, 50, 100, 200, 490], TM_BB_QUAD, 4),

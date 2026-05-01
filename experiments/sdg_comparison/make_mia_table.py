@@ -122,6 +122,7 @@ SDG_METHODS = [
     ("sd3v",       "scDesign3-V",    "",                      "ok/scdesign3/vine",               False),
     ("scvi",       "scVI",           "",                      "ok/scvi/no_dp",                   False),
     ("scdiff",     "scDiffusion",    "",                      "ok/scdiffusion/no_dp",            False),
+    ("zinbwave",   "ZINBWave",       "",                      "ok/zinbwave/no_dp",                False),
     ("nmf",        "NMF",            "",                      "ok/nmf/no_dp",                    False),
     ("nmf_dp_1e8", "NMF+DP",        r"$\varepsilon=10^{8}$", "ok/nmf/eps_100000000",             False),
     ("nmf_dp_1e7", "NMF+DP",        r"$\varepsilon=10^{7}$", "ok/nmf/eps_10000000",              False),
