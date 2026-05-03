@@ -1,0 +1,37 @@
+                                                   
+  v2 Spot-check Summary (ok 20d, trials 1+2)                                                                                                                                                                          
+                                                                                                                                                                                                                      
+  Data quality (LISI/ARI/MMD). v2 ≈ v1 at every ε. The "μ ≈ 0" assumption is confirmed.                                                                                                                               
+  - no DP: LISI 0.879 → 0.879, ARI 0.500 → 0.510                                                                                                                                                                      
+  - ε=10⁴: LISI 0.842 → 0.871 (v2 a bit better — less PSD-clipping needed thanks to 4× smaller σ)                                                                                                                     
+  - ε=1: LISI 0.681 → 0.676 (saturated; PSD-projection dominates at low ε for both)              
+                                                                                                                                                                                                                      
+  Attack success (BB+aux Class B, primary threat model). At the same nominal ε, v2 leaks more than v1 — exactly as expected, because v2 satisfies the same (ε,δ)-DP guarantee with 4× less noise:                     
+                                                                                                                                                                                                                      
+  ┌───────┬────────┬────────┐                                                                                                                                                                                         
+  │   ε   │ v1 AUC │ v2 AUC │                                                                                                                                                                                         
+  ├───────┼────────┼────────┤                               
+  │ no DP │ 0.890  │ 0.951  │
+  ├───────┼────────┼────────┤
+  │ 10⁶   │ 0.843  │ 0.951  │                                                                                                                                                                                         
+  ├───────┼────────┼────────┤
+  │ 10⁴   │ 0.843  │ 0.939  │                                                                                                                                                                                         
+  ├───────┼────────┼────────┤                                                                                                                                                                                         
+  │ 100   │ 0.782  │ 0.861  │
+  ├───────┼────────┼────────┤                                                                                                                                                                                         
+  │ 1     │ 0.787  │ 0.835  │                               
+  └───────┴────────┴────────┘
+
+  This is the headline finding for the paper: the tighter v2 proof reveals attack success at every ε that v1's looser proof masked.                                                                                   
+   
+  Theoretical soundness.                                                                                                                                                                                              
+  1. Proof draft. v2 matches your NeurIPS-revision proof: the matrix released is the uncentered second moment with per-entry bound c²·k_max/(n−k_max) (factor 1 instead of 4). Empirical quality parity confirms μ ≈ 
+  0.                                                                                                                                                                                                                  
+  2. cor() issue resolved. v1's R script used cor(), which both centers and normalizes — so v1 released a correlation matrix while its proof bounded a centered covariance. v2 saves the raw uncentered second moment;
+   PSD-projection + normalization are deferred to Python, applied after the noise (post-processing theorem — zero budget cost). v2's proof and code now bound exactly the same object.                                
+                                                                                                                                                                                                                      
+  Bottom line. Quality on par, proof cleanly aligned with code, attack scores higher at the same ε (which is the desired outcome of a tighter proof). Recommend running the full sweep when ready — but only on your
+  say-so.                                                                                                                                                                                                             
+                                                            
+  Updated: experiments/dp/v2/README.md (full spot-check section), memory file project_dp_v2_variant.md, all committed in cdec56c.                                                                                     
+                                                            

@@ -1,0 +1,70 @@
+BibTeX citations for the subsampling approach                                                                                                                                                                       
+                                                                                                                                                                                                                      
+  Here's what I'd cite for the two distinct subsampling cases.                                                                                                                                                        
+                                                                                                                                                                                                                      
+  Subsampling for high-dimensional KDE (DOMIAS baseline):                                                                                                                                                             
+                                                                                                                                                                                                                      
+  @book{silverman1986density,                                                                                                                                                                                         
+    title     = {Density Estimation for Statistics and Data Analysis},                                                                                                                                                
+    author    = {Silverman, B. W.},                                                                                                                                                                                   
+    year      = {1986},                                                                                                                                                                                               
+    publisher = {Chapman \& Hall},                                                                                                                                                                                    
+    address   = {London},                                                                                                                                                                                             
+    series    = {Monographs on Statistics and Applied Probability}                                                                                                                                                    
+  }                                                                                                                                                                                                                   
+                                                                                                                                                                                                                      
+  @book{politis1999subsampling,                                                                                                                                                                                       
+    title     = {Subsampling},                                                                                                                                                                                        
+    author    = {Politis, Dimitris N. and Romano, Joseph P. and Wolf, Michael},                                                                                                                                       
+    year      = {1999},                                                                                                                                                                                               
+    publisher = {Springer},                                                                                                                                                                                           
+    address   = {New York},                                                                                                                                                                                           
+    series    = {Springer Series in Statistics}         
+  }                                                                                                                                                                                                                   
+                                                
+  @inproceedings{vanbreugel2023domias,                                                                                                                                                                                
+    title     = {Membership Inference Attacks against Synthetic Data through                                                                                                                                          
+                 Overfitting Detection},                                                                                                                                                                              
+    author    = {van Breugel, Boris and Sun, Hao and Qian, Zhaozhi and                                                                                                                                                
+                 van der Schaar, Mihaela},                                                                                                                                                                            
+    booktitle = {Proceedings of the 26th International Conference on Artificial
+                 Intelligence and Statistics (AISTATS)}, 
+    year      = {2023},                                                                                                                                                                                               
+    note      = {DOMIAS reference implementation subsamples the synthetic and
+                 reference sets prior to KDE fitting.}                                                                                                                                                                
+  }                                                                                                                                                                                                                   
+                                                                                                                                                                                                                      
+  The justification chain: Silverman (1986, §4) establishes that KDE in $d$ dimensions converges at rate $n^{-2/(d+4)}$, so above ~10k samples in PCA-150 the marginal MISE improvement from additional samples is    
+  negligible relative to PCA truncation error. Politis–Romano–Wolf (1999) provide the formal theory for inference based on subsamples. The DOMIAS reference implementation that we're already using                   
+  (domias.baselines_optimized) operates on subsampled inputs in their own experiments.                                                                                                                                
+                                                                                                                                                                                                                      
+  Subsampling / batching for pairwise-distance baselines (MC, GAN-Leaks):                                                                                                                                             
+                                                                                                                                                                                                                      
+  @inproceedings{hilprecht2019monte,                                                                                                                                                                                  
+    title     = {Monte {C}arlo and Reconstruction Membership Inference Attacks                                                                                                                                        
+                 Against Generative Models},             
+    author    = {Hilprecht, Benjamin and H{\"a}rterich, Martin and Bernau, Daniel},                                                                                                                                   
+    booktitle = {Proceedings on Privacy Enhancing Technologies (PoPETs)},
+    volume    = {2019},                                                                                                                                                                                               
+    number    = {4},                                    
+    pages     = {232--249},                                                                                                                                                                                           
+    year      = {2019}                                                                                                                                                                                                
+  }                                                                                                                                                                                                                   
+                                                                                                                                                                                                                      
+  @inproceedings{chen2020ganleaks,                                                                                                                                                                                    
+    title     = {{GAN-Leaks}: A Taxonomy of Membership Inference Attacks against
+                 Generative Models},                                                                                                                                                                                  
+    author    = {Chen, Dingfan and Yu, Ning and Zhang, Yang and Fritz, Mario},                                                                                                                                        
+    booktitle = {Proceedings of the 2020 ACM SIGSAC Conference on Computer and
+                 Communications Security (CCS '20)},                                                                                                                                                                  
+    year      = {2020},                                 
+    pages     = {343--362},                                                                                                                                                                                           
+    publisher = {ACM}                                   
+  }                                                                                                                                                                                                                   
+                                                
+  Important distinction: for the distance-based baselines (MC, GAN_leaks, GAN_leaks_cal), batching is not subsampling — batch_d_min computes the exact per-row minimum distance one chunk at a time, mathematically   
+  identical to the unbatched version. So those baselines remain identical to the original Hilprecht (2019) and Chen et al. (2020) formulations; we only avoid materializing the full $n_\text{test} \times
+  n_\text{synth}$ distance matrix. This is the same trick sc_baseline.py:batch_GAN_leaks already uses for gan_leaks_sc.                                                                                               
+                                                
+  Only the KDE step is genuinely lossy (subsamples synth/ref to ≤20k). I'll document both behaviors clearly in the script.                                                                                            
+                

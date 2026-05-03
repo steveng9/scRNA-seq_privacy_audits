@@ -86,13 +86,17 @@ DATASETS = [
     (f"{DATA}/aida/zinbwave/no_dp",     f"{DATA}/aida/full_dataset_cleaned.h5ad", "aida"),
 
     # --- New SDG methods: OK1K ---
-    (f"{DATA}/ok/scdesign3/gaussian",   f"{DATA}/ok/full_dataset_cleaned.h5ad", "ok"),
+    # scDesign3-Gaussian dropped 2026-05-01: 200d synth files are degenerate
+    # (shape (N, 1141) vs the (N, 25834) all other donor counts have, and only
+    # ~12 nonzero genes — same class of issue as the previously-flagged sd3v
+    # degenerate data). Re-add once regenerated with the smaller-HVG remedy.
+    # (f"{DATA}/ok/scdesign3/gaussian",   f"{DATA}/ok/full_dataset_cleaned.h5ad", "ok"),
     (f"{DATA}/ok/scdesign3/vine",       f"{DATA}/ok/full_dataset_cleaned.h5ad", "ok"),
     (f"{DATA}/ok/scvi/no_dp",           f"{DATA}/ok/full_dataset_cleaned.h5ad", "ok"),
     (f"{DATA}/ok/scdiffusion/no_dp",    f"{DATA}/ok/full_dataset_cleaned.h5ad", "ok"),
 
     # --- New SDG methods: AIDA ---
-    (f"{DATA}/aida/scdesign3/gaussian",  f"{DATA}/aida/full_dataset_cleaned.h5ad", "aida"),
+    # (f"{DATA}/aida/scdesign3/gaussian",  f"{DATA}/aida/full_dataset_cleaned.h5ad", "aida"),
     (f"{DATA}/aida/scdesign3/vine",      f"{DATA}/aida/full_dataset_cleaned.h5ad", "aida"),
     (f"{DATA}/aida/scvi/no_dp",          f"{DATA}/aida/full_dataset_cleaned.h5ad", "aida"),
     (f"{DATA}/aida/scdiffusion/no_dp",   f"{DATA}/aida/full_dataset_cleaned.h5ad", "aida"),

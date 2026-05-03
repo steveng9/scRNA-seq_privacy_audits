@@ -1,0 +1,16 @@
+\begin{table}[ht]
+\centering
+\small
+\caption{scMAMA-MIA disparate-impact breakdown by sex on the \textsc{aida} dataset. Cells report donor-level ROC AUC restricted to the subgroup, averaged over up to 5 trials. Subscript: $\pm$~std over trials. Attack: Class~B Mahalanobis$+$LLR attack. SDG methods: scDesign2, scDesign3-G, scDesign3-V, scVI, scDiffusion, NMF, ZINBWave. Donor counts (training-set size): 20. Threat models: BB+aux (WB: white-box copula access; BB: black-box; $\pm$aux: with/without auxiliary reference dataset). \texttt{---}: cell below \texttt{--min-trials=1} (or, for AUC, fewer than \texttt{--min-donors-per-class=1} member or non-member donors in the subgroup); $*$: fewer than the full 5 trials available; \texttt{N/A}: white-box not applicable to this SDG. Subgroup labels show cell-level prevalence in the full dataset in parentheses.}
+\label{tab:subgroup_aida_sex_classb_sd2-sd3g-sd3v-scvi-scdiff-nmf-zinbwave_20d_100_auc}
+\begin{tabular}{lccccccc}
+\toprule
+Subgroup & \multicolumn{1}{c|}{scDesign2} & \multicolumn{1}{c|}{scDesign3-G} & \multicolumn{1}{c|}{scDesign3-V} & \multicolumn{1}{c|}{scVI} & \multicolumn{1}{c|}{scDiffusion} & \multicolumn{1}{c|}{NMF} & \multicolumn{1}{c}{ZINBWave} \\
+ & BB+aux & BB+aux & BB+aux & BB+aux & BB+aux & BB+aux & BB+aux \\
+\midrule
+female (55.1\%) & 0.97{\scriptsize$\pm$0.05} & 0.98{\scriptsize$\pm$0.05} & 0.78{\scriptsize$\pm$0.23} & 0.84{\scriptsize$\pm$0.12} & 0.55{\scriptsize$\pm$0.21} & 0.81{\scriptsize$\pm$0.12} & 0.87{\scriptsize$\pm$0.08} \\
+male (44.9\%) & 0.93{\scriptsize$\pm$0.08} & 0.95{\scriptsize$\pm$0.08} & 0.69{\scriptsize$\pm$0.23} & 0.76{\scriptsize$\pm$0.13} & 0.53{\scriptsize$\pm$0.10} & 0.64{\scriptsize$\pm$0.18} & 0.81{\scriptsize$\pm$0.11} \\
+\bottomrule
+\end{tabular}
+\end{table}
+

@@ -108,6 +108,14 @@ def n_quality(data_dir, nd):
     return fresh, stale
 
 
+def n_umaps(data_dir, nd):
+    """Count trials that have a paper_umap.png in their umaps/ subdir."""
+    return sum(
+        1 for t in range(1, N_TRIALS + 1)
+        if os.path.exists(os.path.join(data_dir, f"{nd}d", str(t), "umaps", "paper_umap.png"))
+    )
+
+
 # ---------------------------------------------------------------------------
 # Disk walker
 # ---------------------------------------------------------------------------
@@ -204,21 +212,22 @@ def main():
         cb_wb  = count_quad(ddir, nd, "wb_quad", "mamamia_results_classb.csv") if is_sd2 else None
         nb     = n_baselines(ddir, nd)
         qf, qs = n_quality(ddir, nd)
+        nu     = n_umaps(ddir, nd)
 
         if args.hide_empty and not any([ns, mia_bb, mia_wb or 0, cb_bb,
-                                        cb_wb or 0, nb, qf, qs]):
+                                        cb_wb or 0, nb, qf, qs, nu]):
             continue
-        rows.append((f"{base}/{sdg_path}", nd, ns, mia_wb, cb_wb, mia_bb, cb_bb, nb, qf, qs))
+        rows.append((f"{base}/{sdg_path}", nd, ns, mia_wb, cb_wb, mia_bb, cb_bb, nb, qf, qs, nu))
 
     hdr = (
         f"  {'Dataset / SDG':<40} {'nd':>4}  {'synth':>5}  "
         f"{'MIA WB':>6} {'CB WB':>5}  {'MIA BB':>6} {'CB BB':>5}  "
-        f"{'Base':>4}  {'Quality':>9}"
+        f"{'Base':>4}  {'Quality':>9}  {'UMAPs':>5}"
     )
     sep = (
         f"  {'-'*40} {'-'*4}  {'-'*5}  "
         f"{'-'*6} {'-'*5}  {'-'*6} {'-'*5}  "
-        f"{'-'*4}  {'-'*9}"
+        f"{'-'*4}  {'-'*9}  {'-'*5}"
     )
     print()
     print("=" * len(hdr))
@@ -229,16 +238,17 @@ def main():
     print(sep)
 
     last_label = None
-    for label, nd, ns,  mia_wb, cb_wb, mia_bb, cb_bb, nb, qf, qs in rows:
+    for label, nd, ns, mia_wb, cb_wb, mia_bb, cb_bb, nb, qf, qs, nu in rows:
         if last_label is not None and label != last_label:
             print()
         last_label = label
         wb_str    = " " if mia_wb is None else fmt(mia_wb)
         cb_wb_str = " " if cb_wb is None else fmt(cb_wb)
+        umap_str  = "·" if nu == 0 else ("✓" if nu >= N_TRIALS else str(nu))
         print(
             f"  {label:<40} {nd:>3}d  {fmt(ns):>5}  "
             f"{wb_str:>6}  {cb_wb_str:>5} {fmt(mia_bb):>6}  {fmt(cb_bb):>5}  "
-            f"{fmt(nb):>4}  {fmt_quality(qf, qs, ns):>9}"
+            f"{fmt(nb):>4}  {fmt_quality(qf, qs, ns):>9}  {umap_str:>5}"
         )
 
     print()

@@ -1,0 +1,188 @@
+Great proof to work from — let me tackle your two questions and propose a concrete path to tighten it. I'll build this pedagogically so you can own it.
+                                                                           
+  ---
+  Part 1 — Symmetrization is post-processing (with a nice subtlety)                                                                                                                                                   
+                                                                                                                                                                                                                      
+  Short answer: yes. The symmetrization $\tilde{E} = (E + E^\top)/2$ depends only on $E$, not on $D$. Since post-processing cannot increase privacy loss, releasing $(C + E + (C+E)^\top)/2 = C + (E+E^\top)/2$ is    
+  still $(\varepsilon, \delta)$-DP by [Dwork & Roth, Prop. 2.1].                                                                                                                                                      
+                  
+  The subtle (and nice) part: you might worry that noising all $G^2$ entries is wasteful since $C$ is symmetric. It isn't — the symmetrization actually reduces the off-diagonal noise variance for free:             
+                  
+  - Original off-diagonal noise: $E_{j,k} \sim \mathcal{N}(0, \sigma^2)$                                                                                                                                              
+  - After symmetrization: $(E_{j,k} + E_{k,j})/2 \sim \mathcal{N}(0, \sigma^2/2)$
+                                                                                                                                                                                                                      
+  So post-processing didn't just preserve privacy — it gave you a √2 SNR gain on half the matrix. Worth adding one sentence in the proof.                                                                             
+                                                                                                                                                                                                                      
+  ---                                                                                                                                                                                                                 
+  Part 2 — Free tightening (no new theory needed)
+                                                                                                                                                                                                                      
+  Before we get to Rényi DP, there are two improvements you can pick up immediately:
+                                                                                                                                                                                                                      
+  (a) Drop $\mu(j)$; center at 0                                                                                                                                                                                      
+                                                                                                                                                                                                                      
+  The chain "$z \in [-c,c] \Rightarrow \mu \in [-c,c] \Rightarrow \tilde{z} \in [-2c, 2c] \Rightarrow$ product $\in [-4c^2, 4c^2]$" picks up a factor of 4 in per-entry sensitivity purely from the centering.        
+                  
+  But the normal scores $\Phi^{-1}(\hat{F}j(x{ij}))$ are already approximately standard normal. If you center at the public constant 0 instead of the data-dependent mean $\hat\mu(j)$:                               
+                  
+  - $\tilde{z}{i,j} = z{i,j} \in [-c, c]$                                                                                                                                                                             
+  - Products $\in [-c^2, c^2]$
+  - Per-entry sensitivity: $\dfrac{2 c^2 k_{\max}}{n - k_{\max}}$ (the 2 is because a term can swing from $+c^2$ to $-c^2$ when you swap donors)                                                                      
+                                                                                                                                                                                                                      
+  This halves the final $\sigma$ (or quarters it vs. the current $4c^2$; see the worked-out constant below).                                                                                                          
+                                                                                                                                                                                                                      
+  Caveat: if ZINB marginals are heavy-tailed or poorly fit, $z_{ij}$ may have non-zero empirical mean per gene. Since you already clip, centering at 0 just adds a small bias to $C$ — worth it for the sensitivity   
+  gain. You should note this in the proof as a modeling choice.
+                                                                                                                                                                                                                      
+  (b) Don't noise the diagonal
+
+  $C$ is eventually normalized to a correlation matrix (diagonal = 1, which is public). Noising the diagonal wastes budget. If you mechanism-release only off-diagonals and set diag = 1 post-hoc, the L2 sensitivity 
+  drops from $\sqrt{G^2 B^2} = GB$ to $\sqrt{G(G-1) B^2} \approx GB$ — negligible in $G$, but conceptually cleaner.
+                                                                                                                                                                                                                      
+  (c) Analytical Gaussian mechanism (Balle & Wang 2018)                                                                                                                                                               
+  
+  The bound $\sigma = \Delta\sqrt{2\ln(1.25/\delta)}/\varepsilon$ is a sufficient condition, not tight. Balle & Wang give the exact smallest $\sigma$ as the solution of a simple equation involving the Gaussian CDF.
+   In practice it saves 10–30% on $\sigma$ depending on the $(\varepsilon,\delta)$ regime. Drop-in replacement — I'd cite it as a one-liner.
+                                                                                                                                                                                                                      
+  ---             
+  Part 3 — Rényi DP: the big win for your $T$-cell-types composition
+                                                                                                                                                                                                                      
+  This is where you can make the biggest gain. Let me build up the idea carefully.
+                                                                                                                                                                                                                      
+  3.1 What Rényi divergence actually is                                                                                                                                                                               
+                                                                                                                                                                                                                      
+  For two distributions $P, Q$ on the same space, the Rényi divergence of order $\alpha > 1$ is:                                                                                                                      
+  $$              
+  D_\alpha(P | Q) = \frac{1}{\alpha - 1} \log \mathbb{E}_{x \sim Q}!\left[ \left(\frac{P(x)}{Q(x)}\right)^\alpha \right]                                                                                              
+  $$                                                                                                                                                                                                                  
+  
+  Interpret $P(x)/Q(x)$ as the privacy loss random variable (PLRV). Classical $(\varepsilon,\delta)$-DP controls the tail of this ratio ("except with probability $\delta$, it's at most $e^\varepsilon$"). Rényi DP  
+  instead controls a moment-generating-function-like quantity of the same loss. Moments are cleaner to compose than tails — that's the whole pitch.
+                                                                                                                                                                                                                      
+  RDP definition: $\mathcal{M}$ is $(\alpha, \varepsilon_\alpha)$-RDP if for every pair of neighboring datasets,                                                                                                      
+  $$
+  D_\alpha(\mathcal{M}(D) | \mathcal{M}(D')) \leq \varepsilon_\alpha.                                                                                                                                                 
+  $$                                                                                                                                                                                                                  
+  
+  3.2 Gaussian mechanism has a tight RDP bound                                                                                                                                                                        
+                  
+  For Gaussian mechanism with L2 sensitivity $\Delta$ and noise $\sigma$:                                                                                                                                             
+  $$              
+  \boxed{;\varepsilon_\alpha = \frac{\alpha \Delta^2}{2 \sigma^2}; \text{ for every } \alpha > 1.;}                                                                                                                   
+  $$                                                                                                                                                                                                                  
+  
+  This is the cleanest result in all of DP. Memorize it.                                                                                                                                                              
+                  
+  3.3 Composition is just addition                                                                                                                                                                                    
+  
+  If $\mathcal{M}1, \ldots, \mathcal{M}T$ are each $(\alpha, \varepsilon{\alpha,i})$-RDP, their composition is $(\alpha, \sum_i \varepsilon{\alpha,i})$-RDP. At the same $\alpha$, RDP is additive — no               
+  $\sqrt{\cdot}$, no $\log$. This is what makes it so powerful.
+                                                                                                                                                                                                                      
+  For your $T$ cell-type covariance matrices (same $\sigma$, same per-type sensitivity $\Delta$):                                                                                                                     
+  $$
+  \varepsilon^{\text{tot}}_\alpha = \frac{T \alpha \Delta^2}{2\sigma^2}.                                                                                                                                              
+  $$                                                                                                                                                                                                                  
+  
+  3.4 Converting RDP back to $(\varepsilon, \delta)$-DP                                                                                                                                                               
+                  
+  Mironov's conversion:                                                                                                                                                                                               
+  $$              
+  (\alpha, \varepsilon_\alpha)\text{-RDP} ;\Rightarrow; \left(\varepsilon_\alpha + \frac{\log(1/\delta)}{\alpha - 1},; \delta\right)\text{-DP}.
+  $$                                                                                                                                                                                                                  
+  
+  So for $T$ compositions:                                                                                                                                                                                            
+  $$              
+  \varepsilon^{\text{tot}}(\alpha) = \frac{T \alpha \Delta^2}{2 \sigma^2} + \frac{\log(1/\delta)}{\alpha - 1}.
+  $$                                                                                                                                                                                                                  
+  
+  You minimize over $\alpha$. Taking $\partial/\partial\alpha = 0$:                                                                                                                                                   
+  $$              
+  \alpha^\star - 1 = \frac{\sigma}{\Delta}\sqrt{\frac{2 \log(1/\delta)}{T}}.                                                                                                                                          
+  $$                                                                                                                                                                                                                  
+  
+  Plugging back (after algebra):                                                                                                                                                                                      
+  $$              
+  \boxed{;\varepsilon^{\text{tot}} ;=; \frac{\Delta \sqrt{2 T \log(1/\delta)}}{\sigma} ;+; \frac{T \Delta^2}{2\sigma^2}.;}                                                                                            
+  $$                                                                                                                                                                                                                  
+  
+  For $\sigma \gg \Delta$, the second term is negligible and $\varepsilon^{\text{tot}} \approx \Delta \sqrt{2T \log(1/\delta)}/\sigma$.                                                                               
+                  
+  3.5 The payoff                                                                                                                                                                                                      
+                  
+  Compare the two composition strategies for $T$ cell types:                                                                                                                                                          
+  
+  ┌────────────────────────────────────────────────────────┬───────────────────────────────────────────────────────────────────┐                                                                                      
+  │                        Strategy                        │                $\varepsilon^{\text{tot}}$ scaling                 │
+  ├────────────────────────────────────────────────────────┼───────────────────────────────────────────────────────────────────┤
+  │ Naive (your current Note 1): $(T\varepsilon, T\delta)$ │ $\propto T$                                                       │
+  ├────────────────────────────────────────────────────────┼───────────────────────────────────────────────────────────────────┤
+  │ Advanced composition (Dwork–Rothblum–Vadhan 2010)      │ $\propto \sqrt{T}$ but with $\varepsilon(e^\varepsilon - 1)$ slop │                                                                                      
+  ├────────────────────────────────────────────────────────┼───────────────────────────────────────────────────────────────────┤                                                                                      
+  │ Rényi / zCDP                                           │ $\propto \sqrt{T}$, tight                                         │                                                                                      
+  └────────────────────────────────────────────────────────┴───────────────────────────────────────────────────────────────────┘                                                                                      
+                  
+  Concrete: AIDA has $T = 33$ cell types.                                                                                                                                                                             
+  - Naive: multiplies $\varepsilon$ by 33
+  - RDP: multiplies by $\sqrt{33} \approx 5.7$                                                                                                                                                                        
+                                              
+  That's a ~6× reduction in $\varepsilon$ from this one change. If you're currently sitting at $\varepsilon = 10^8$, this drops you to $\approx 1.7 \times 10^7$.                                                     
+                                                                                                                                                                                                                      
+  3.6 zCDP is an easier-to-state alternative                                                                                                                                                                          
+                                                                                                                                                                                                                      
+  Zero-concentrated DP (zCDP) is a special case that handles Gaussian beautifully without choosing $\alpha$:                                                                                                          
+                  
+  $\mathcal{M}$ is $\rho$-zCDP if $(\alpha, \rho\alpha)$-RDP for all $\alpha > 1$.                                                                                                                                    
+                  
+  - Gaussian mechanism with sensitivity $\Delta$, noise $\sigma$ is $\dfrac{\Delta^2}{2\sigma^2}$-zCDP. ← Clean.                                                                                                      
+  - Composition: $\rho_1\text{-zCDP} + \rho_2\text{-zCDP} = (\rho_1 + \rho_2)\text{-zCDP}$.
+  - Conversion: $\rho$-zCDP $\Rightarrow (\rho + 2\sqrt{\rho \log(1/\delta)}, \delta)$-DP.                                                                                                                            
+                                                                                                                                                                                                                      
+  For $T$ cell types: $\rho^{\text{tot}} = T \Delta^2 / (2\sigma^2)$, then convert. Gives the same result as RDP after optimization. Many authors prefer zCDP for exposition because you don't carry $\alpha$ around. 
+                                                                                                                                                                                                                      
+  My recommendation: state your composition in zCDP, then convert at the end. One fewer parameter to track.                                                                                                           
+                  
+  ---                                                                                                                                                                                                                 
+  Part 4 — How much can you ultimately move $\varepsilon$?
+                                                                                                                                                                                                                      
+  Stacking everything above (rough back-of-envelope, AIDA $T=33$):
+                                                                                                                                                                                                                      
+  ┌──────────────────────────────────┬─────────────────────────────────────────────────┐                                                                                                                              
+  │              Change              │   Effect on $\varepsilon$ (at fixed $\sigma$)   │                                                                                                                              
+  ├──────────────────────────────────┼─────────────────────────────────────────────────┤                                                                                                                              
+  │ 0-centering instead of $\hat\mu$ │ ÷4 on $\Delta$, so ÷4 on $\varepsilon$          │
+  ├──────────────────────────────────┼─────────────────────────────────────────────────┤
+  │ Analytical Gaussian mechanism    │ ÷1.2 to ÷1.5                                    │                                                                                                                              
+  ├──────────────────────────────────┼─────────────────────────────────────────────────┤                                                                                                                              
+  │ zCDP composition for $T$ types   │ ÷ $(T/\sqrt T) = \sqrt T \approx 5.7$           │                                                                                                                              
+  ├──────────────────────────────────┼─────────────────────────────────────────────────┤                                                                                                                              
+  │ Combined                         │ ~30× smaller $\varepsilon$ for the same utility │
+  └──────────────────────────────────┴─────────────────────────────────────────────────┘                                                                                                                              
+                  
+  That is not enough to rescue you from $10^8$ to $O(1)$. The fundamental problem is structural and you should name it in the paper:                                                                                  
+                  
+  1. $k_{\max}/(n - k_{\max})$ is the brutal factor. Donor-level DP on a dataset where one donor contributes hundreds of cells means the sensitivity of any per-cell sufficient statistic is amplified by $k_{\max}$. 
+  2. $G^2$ entries in $C$ is intrinsic to releasing a full covariance matrix.
+                                                                                                                                                                                                                      
+  The honest framing is: donor-level DP on the full covariance matrix has a hard floor around $\varepsilon = 10^{O(\log G)}$ for realistic $k_{\max}$. RDP tightens constants; it doesn't change the asymptotic       
+  regime.                                                                                                                                                                                                             
+                                                                                                                                                                                                                      
+  If you want a genuinely small $\varepsilon$, the path is a different mechanism, not a different analysis. Candidates:                                                                                               
+  
+  - Low-rank / factor model release: release $R \approx U\Lambda U^\top$ with $U \in \mathbb{R}^{G \times r}$, $r \ll G$. Noise has $rG$ entries, not $G^2$. Analytic Gaussian + RDP on $UU^\top$. (See private PCA   
+  literature: Dwork–Talwar–Thakurta, Chaudhuri–Sarwate.)
+  - Graphical lasso under DP: release a sparse precision matrix — many fewer degrees of freedom.                                                                                                                      
+  - Privacy amplification by subsampling over cells (not donors) within each fit step — gets you a $\log(1/q)$-style factor per round, but only if you modify the fitter.                                             
+  - Group privacy with cell-level DP: fit with $\varepsilon_{\text{cell}}$-DP, then use group privacy. Donor-level guarantee is $(k_{\max}\varepsilon_{\text{cell}}, \cdot)$, which is usually worse — but for some   
+  mechanisms the per-cell $\varepsilon$ can be made tiny.                                                                                                                                                             
+                                                                                                                                                                                                                      
+  For the revision, I'd recommend:                                                                                                                                                                                    
+  1. Tighten the existing proof with (a) 0-centering, (b) zCDP composition, (c) analytical Gaussian. All rigorous, all well-cited.
+  2. Report an honest privacy-utility curve.                                                                                                                                                                          
+  3. Add a "Limits of donor-level DP on covariance" paragraph explaining the structural floor, and cite one or two of the alternative-mechanism directions as future work.
+                                                                                                                                                                                                                      
+  That's defensible, educational, and shows DP literacy without overclaiming.                                                                                                                                         
+                                                                                                                                                                                                                      
+  ---                                                                                                                                                                                                                 
+  Suggested next step                                                                                                                                                                                                 
+                                                                                                                                                                                                                      
+  Want me to rewrite the proof sketch so it uses zCDP end-to-end and incorporates the 0-centering tightening? I'd leave placeholders where you want to make modeling choices (e.g., "we center at 0 because…") so it
+  stays yours. Or if you'd rather chew on the RDP material first, I can write a short "Rényi DP primer with worked example on our mechanism" that you can use as an appendix or just as study notes. 
