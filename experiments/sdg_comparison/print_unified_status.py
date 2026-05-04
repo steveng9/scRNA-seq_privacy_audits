@@ -257,6 +257,8 @@ def main():
           f"' ' = N/A (WB only meaningful for scDesign2)")
     print("    Quality column: '~F' (fresh) plus '!S' (stale, pre-MMD-fix; "
           "mtime < 2026-03-25 19:51 UTC, commit d9ae732)")
+    print("    ⚠ scdiffusion/ (v1) data is INVALID — wrong hyperparams + missing "
+          "Stage 3. Use scdiffusion_v2/ for paper results (2026-05-04+).")
     print(f"    Total combos shown: {len(rows)}")
     print()
 

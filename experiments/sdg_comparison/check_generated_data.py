@@ -4,6 +4,9 @@ plus a live view of currently running SDG jobs and their progress.
 
 Usage:
     python experiments/sdg_comparison/check_generated_data.py
+    python experiments/sdg_comparison/check_generated_data.py --filter v2
+    python experiments/sdg_comparison/check_generated_data.py --filter NMF
+    python experiments/sdg_comparison/check_generated_data.py --sdg scDiffusion
 """
 
 import os
@@ -40,9 +43,14 @@ GENERATORS = [
     ("ok  / scVI",   f"{DATA}/ok/scvi/no_dp",   [5, 10, 20, 50, 100], False, None),
     ("aida/ scVI",   f"{DATA}/aida/scvi/no_dp", [10, 20, 50],          False, None),
 
-    # scDiffusion
-    ("ok  / scDiffusion",   f"{DATA}/ok/scdiffusion/no_dp",   [10, 20, 50], False, None),
-    ("aida/ scDiffusion",   f"{DATA}/aida/scdiffusion/no_dp", [20, 50],      False, None),
+    # scDiffusion v1 — LEGACY (missing Stage 3, wrong hyperparams; data invalid for paper)
+    ("ok  / scDiffusion-v1 [LEGACY]",   f"{DATA}/ok/scdiffusion/no_dp",   [10, 20, 50], False, None),
+    ("aida/ scDiffusion-v1 [LEGACY]",   f"{DATA}/aida/scdiffusion/no_dp", [20, 50],      False, None),
+
+    # scDiffusion v2 (Luo et al. 2024, correct 3-stage pipeline, 2026-05-04+)
+    ("ok  / scDiffusion-v2", f"{DATA}/ok/scdiffusion_v2/no_dp",   [10, 50],  False, None),
+    ("cg  / scDiffusion-v2", f"{DATA}/cg/scdiffusion_v2/no_dp",   [10],      False, None),
+    ("aida/ scDiffusion-v2", f"{DATA}/aida/scdiffusion_v2/no_dp", [20, 50],  False, None),
 
     # NMF (SingleCellNMFGenerator — CAMDA 2024 co-winner)
     ("ok  / NMF",    f"{DATA}/ok/nmf/no_dp",   [10, 20, 50, 100], False, None),
@@ -275,11 +283,20 @@ def _summarize_job(job):
 # ---------------------------------------------------------------------------
 
 def main():
+    import argparse
+    ap = argparse.ArgumentParser(description="Synthetic data inventory + running jobs")
+    ap.add_argument("--filter", "--sdg", dest="sdg_filter", default=None,
+                    help="Only show rows whose display name contains this substring "
+                         "(e.g. 'v2', 'scDiffusion', 'NMF', 'ok')")
+    args = ap.parse_args()
+
     print(f"\n{'=' * 72}")
     print(f"  Synthetic Data Inventory")
     print(f"{'=' * 72}\n")
 
     for display, root, donor_counts, is_dp, epsilons in GENERATORS:
+        if args.sdg_filter and args.sdg_filter.lower() not in display.lower():
+            continue
         if not os.path.isdir(root):
             print(f"  {display:<28}  [directory missing: {root}]")
             print()
