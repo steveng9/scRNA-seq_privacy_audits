@@ -1,0 +1,96 @@
+scDiffusion Implementation vs. Original — Key Gaps                                                 
+                                                                                                     
+  1. Missing classifier guidance stage (most impactful for quality)                                  
+                                                                                                     
+  The original scDiffusion is a 3-stage pipeline:                                                    
+  1. Train VAE ✅ (we do this)                                                                       
+  2. Train diffusion backbone ✅ (we do this)                                                        
+  3. Train classifier → use classifier-guided sampling ❌ (we skip entirely)                         
+                                                                                                     
+  The original uses classifier guidance during sampling (classifier_sample.py) to steer generated    
+  cells toward specific cell types. Our code skips this stage and instead does post-hoc 1-NN         
+  assignment in latent space to assign cell types after unconditional generation. This is likely the 
+  primary reason UMAPs look poor — the unconditional model generates blended latent codes that don't 
+  respect cell-type structure, and 1-NN label assignment can't fix that. ARI in particular will be   
+  badly hurt by this.                                                                                
+                                                                                                     
+  2. Diffusion training severely undertrained                                                        
+                                                                                                     
+  ┌───────────────────────────┬─────────┬──────────┐                                                 
+  │                           │  Ours   │ Original │                                                 
+  ├───────────────────────────┼─────────┼──────────┤                                                 
+  │ Diffusion lr_anneal_steps │ 300,000 │ 800,000  │                                                 
+  ├───────────────────────────┼─────────┼──────────┤                                                 
+  │ VAE max_steps             │ 150,000 │ 200,000  │                                                 
+  └───────────────────────────┴─────────┴──────────┘                                                 
+                                                                                                     
+  We run 37.5% of the original's diffusion training budget. LR annealing in the original is tuned for
+   800k steps, so at 300k the model is in a qualitatively different (earlier) phase of training.
+
+  3. Batch size 4× larger than original
+
+  ┌────────────┬──────┬──────────┐
+  │            │ Ours │ Original │
+  ├────────────┼──────┼──────────┤
+  │ Batch size │ 512  │ 128      │
+  └────────────┴──────┴──────────┘
+
+  Larger batch sizes reduce gradient noise and can hurt convergence for this style of diffusion
+  training, particularly for smaller 50d training splits (~50–80k cells).
+
+  4. Minor: VAE dropout in encoder (we match original)
+
+  Both set dropout=0.0 in encoder/decoder layers — this is correct. The original uses dropout=0.4
+  only on the input layer as a regularizer, but our implementation matches the upstream VAE code, so
+  this is fine.
+
+  ---
+  Recommended fixes (in order of impact)
+
+  Fix 1 — Add classifier training + guided sampling. This is the main architectural gap. The
+  classifier trains on noisy latents and during generation applies gradient guidance from timestep
+  500 onward. Without this, scDiffusion is just an unconditional VAE+diffusion model with no
+  cell-type awareness during generation.
+
+  Fix 2 — Increase diffusion steps to 800k. This matches the published setting.
+
+  Fix 3 — Reduce batch size to 128. Match the original.
+
+  ---
+  Bottom line: Our scDiffusion results are not a fair representation of the method's published
+  performance. The missing classifier guidance stage is the biggest gap — the original paper's
+  quality figures were almost certainly produced with classifier-guided sampling. Before concluding
+  scDiffusion performs poorly, we should either implement the full 3-stage pipeline or at minimum
+  note this limitation explicitly.
+
+
+
+
+
+
+
+
+re-implementation (scDiffusion-v2)
+
+
+ Changes made:
+                                                                                                     
+  File: run_scdiffusion_standalone.py                       
+  What changed: Full rewrite. Added train_classifier mode (Cell_classifier on noisy latents, AdamW
+    lr=3e-4 wd=0.0). Rewrote generate to use classifier-guided DDPM sampling (cond_fn,
+    clip_denoised=True, scale=2, guide_steps<500). Updated all defaults to paper values. Added
+    _preprocess returning LabelEncoder.
+  ────────────────────────────────────────                                                           
+  File: model.py                                                                                     
+  What changed: Updated all defaults (vae=200k, diff=800k, bs=128). Added classifier config keys.    
+    Added Stage 3 to train(). Updated generate() to pass classifier_ckpt.                            
+  ────────────────────────────────────────                  
+  File: generate_trial.py                                                                            
+  What changed: Added generate_scdiffusion_v2() (3-stage, all new params). Kept legacy
+    generate_scdiffusion() with deprecation note. Added scdiffusion_v2 as a valid generator choice.  
+    Added all new CLI args.                                 
+  ────────────────────────────────────────
+  File: run_all.py                                                                                   
+  What changed: Added _scdf_v2_jobs() writing to scdiffusion_v2/. Added scdfv2 generator flag. Legacy
+                                                                                                     
+    scdiff flag still works for old data.
