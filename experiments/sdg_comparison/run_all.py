@@ -186,7 +186,10 @@ def _scvi_jobs(src, donor_counts):
 
 
 def _scdf_jobs(src, donor_counts):
-    """Yield (label, cmd, log) for every scDiffusion trial."""
+    """
+    LEGACY v1 — yields jobs for scdiffusion/ dirs.
+    Do not use for new data generation.
+    """
     full_h5ad = f"{DATA}/{src}/full_dataset_cleaned.h5ad"
     hvg_path  = f"{DATA}/{src}/hvg_full.csv"
 
@@ -198,6 +201,35 @@ def _scdf_jobs(src, donor_counts):
             cmd = (
                 f"{PYTHON} {GEN_TRIAL_PY} "
                 f"--generator scdiffusion "
+                f"--dataset {full_h5ad} "
+                f"--splits-dir {splits_dir} "
+                f"--out-dir {out_dir} "
+                f"--hvg-path {hvg_path} "
+                f"--conda-env {SCDF_CONDA_ENV}"
+            )
+            log = os.path.join(LOG_DIR, f"{label}.log")
+            yield label, cmd, log   # env added by caller
+
+
+def _scdf_v2_jobs(src, donor_counts):
+    """
+    Yield (label, cmd, log) for scDiffusion v2 trials (2026-05-04+).
+
+    Uses the correct three-stage pipeline (VAE + diffusion + classifier-guided
+    sampling) with paper-matching hyperparameters. Data written to
+    {DATA}/{src}/scdiffusion_v2/no_dp/{nd}d/{trial}/.
+    """
+    full_h5ad = f"{DATA}/{src}/full_dataset_cleaned.h5ad"
+    hvg_path  = f"{DATA}/{src}/hvg_full.csv"
+
+    for nd in donor_counts:
+        for trial in range(1, N_TRIALS + 1):
+            splits_dir = f"{DATA}/{src}/splits/{nd}d/{trial}"
+            out_dir    = f"{DATA}/{src}/scdiffusion_v2/no_dp/{nd}d/{trial}"
+            label      = f"{src}_scdfv2_{nd}d_t{trial}"
+            cmd = (
+                f"{PYTHON} {GEN_TRIAL_PY} "
+                f"--generator scdiffusion_v2 "
                 f"--dataset {full_h5ad} "
                 f"--splits-dir {splits_dir} "
                 f"--out-dir {out_dir} "
@@ -288,10 +320,11 @@ def main():
     )
     parser.add_argument(
         "--generators", nargs="+",
-        choices=["sd3", "scvi", "scdiff", "nmf"],
+        choices=["sd3", "scvi", "scdiff", "scdfv2", "nmf"],
         default=None,
         help="Only run these generators (default: all). "
-             "sd3=scDesign3, scvi=scVI, scdiff=scDiffusion, nmf=NMF",
+             "sd3=scDesign3, scvi=scVI, scdiff=scDiffusion v1 LEGACY, "
+             "scdfv2=scDiffusion v2 (correct, use this), nmf=NMF",
     )
     parser.add_argument(
         "--skip-hvg", action="store_true",
@@ -299,10 +332,11 @@ def main():
     )
     args = parser.parse_args()
 
-    run_sd3  = args.generators is None or "sd3"    in args.generators
-    run_scvi = args.generators is None or "scvi"   in args.generators
-    run_scdf = args.generators is None or "scdiff" in args.generators
-    run_nmf  = args.generators is None or "nmf"    in args.generators
+    run_sd3    = args.generators is None or "sd3"    in args.generators
+    run_scvi   = args.generators is None or "scvi"   in args.generators
+    run_scdf   = args.generators is None or "scdiff" in args.generators   # LEGACY
+    run_scdfv2 = args.generators is None or "scdfv2" in args.generators   # v2 (correct)
+    run_nmf    = args.generators is None or "nmf"    in args.generators
 
     # ------------------------------------------------------------------
     # Step 0: Recompute HVGs (blocks everything else — must finish first)
@@ -341,24 +375,30 @@ def main():
         list(_nmf_jobs("aida", AIDA_NMF))
     ) if run_nmf else []
 
-    # GPU jobs: scVI (OneK1K → AIDA) then scDiffusion (OneK1K → AIDA)
+    # GPU jobs: scVI then scDiffusion variants (OneK1K first, then AIDA)
     gpu_scvi_jobs = (
         list(_scvi_jobs("ok",   OK_SCVI)) +
         list(_scvi_jobs("aida", AIDA_SCVI))
     ) if run_scvi else []
-    gpu_scdf_jobs = (
+    gpu_scdf_jobs = (                                   # LEGACY v1
         list(_scdf_jobs("ok",   OK_SCDF)) +
         list(_scdf_jobs("aida", AIDA_SCDF))
     ) if run_scdf else []
-    all_gpu_jobs  = gpu_scvi_jobs + gpu_scdf_jobs
+    gpu_scdfv2_jobs = (                                 # v2 (correct)
+        list(_scdf_v2_jobs("ok",   OK_SCDF)) +
+        list(_scdf_v2_jobs("aida", AIDA_SCDF))
+    ) if run_scdfv2 else []
+    all_gpu_jobs = gpu_scvi_jobs + gpu_scdf_jobs + gpu_scdfv2_jobs
 
     n_cpu = len(sd3_jobs)
     n_nmf = len(nmf_jobs)
     n_gpu = len(all_gpu_jobs)
-    print(f"  scDesign3 trials : {n_cpu}")
-    print(f"  NMF trials       : {n_nmf}")
-    print(f"  GPU trials       : {n_gpu}")
-    print(f"  Total            : {n_cpu + n_nmf + n_gpu}", flush=True)
+    print(f"  scDesign3 trials   : {n_cpu}")
+    print(f"  NMF trials         : {n_nmf}")
+    print(f"  GPU trials (total) : {n_gpu}  "
+          f"(scvi={len(gpu_scvi_jobs)}  scdfLEGACY={len(gpu_scdf_jobs)}  "
+          f"scdfv2={len(gpu_scdfv2_jobs)})")
+    print(f"  Total              : {n_cpu + n_nmf + n_gpu}", flush=True)
 
     # ------------------------------------------------------------------
     # Step 2: Launch with resource management

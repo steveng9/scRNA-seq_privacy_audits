@@ -4,20 +4,37 @@ scDiffusion generator wrapper (Luo et al. 2024, Bioinformatics).
 Dispatches all heavy work to run_scdiffusion_standalone.py via
   conda run -n scdiff_ python run_scdiffusion_standalone.py <mode> ...
 
-Training is two-stage:
-  1. train_vae  — VAE autoencoder (gene space → 128-dim latent)
-  2. train      — DDPM backbone in latent space
+IMPLEMENTATION VERSION HISTORY
+-------------------------------
+v1 (prior to 2026-05-04):
+    Two-stage pipeline: train_vae + train (diffusion backbone).
+    Cell types assigned post-hoc via 1-NN. Wrong hyperparameters.
+    Data stored in ~/data/scMAMAMIA/{dataset}/scdiffusion/.
+
+v2 (2026-05-04):
+    Three-stage pipeline matching Luo et al. 2024:
+      1. train_vae        -- VAE autoencoder
+      2. train            -- DDPM backbone in latent space
+      3. train_classifier -- Cell_classifier for guided sampling
+    Hyperparameters now match paper defaults (see defaults below).
+    Cell types generated via classifier guidance, not post-hoc 1-NN.
+    Data stored in ~/data/scMAMAMIA/{dataset}/scdiffusion_v2/.
 
 Config keys (under scdiffusion_config):
-  vae_dir        relative path for VAE checkpoint directory
-  diff_dir       relative path for diffusion checkpoint directory
-  hvg_path       shared HVG CSV path
-  conda_env      conda env name  (default: "scdiff_")
-  latent_dim     VAE latent dim  (default: 128)
-  vae_steps      VAE training iterations   (default: 150000)
-  diff_steps     diffusion iterations      (default: 300000)
-  batch_size     mini-batch size           (default: 512)
-  save_interval  checkpoint save frequency (default: 50000)
+  vae_dir            relative path for VAE checkpoint directory
+  diff_dir           relative path for diffusion checkpoint directory
+  classifier_dir     relative path for classifier checkpoint directory
+  hvg_path           shared HVG CSV path
+  conda_env          conda env name           (default: "scdiff_")
+  latent_dim         VAE latent dim           (default: 128)
+  vae_steps          VAE training iterations  (default: 200000)
+  diff_steps         diffusion iterations     (default: 800000)
+  batch_size         mini-batch size          (default: 128)
+  save_interval      checkpoint save freq     (default: 100000)
+  classifier_steps   classifier iterations    (default: 200000)
+  classifier_scale   guidance scale           (default: 2.0)
+  start_guide_steps  guidance threshold       (default: 500)
+  generation_batch_size  sampling batch size  (default: 3000)
 """
 
 import os
@@ -52,16 +69,22 @@ class ScDiffusion(BaseSingleCellDataGenerator):
         super().__init__(config)
         gc = self.generator_config
 
-        self.vae_dir       = os.path.join(self.home_dir, gc["vae_dir"])
-        self.diff_dir      = os.path.join(self.home_dir, gc["diff_dir"])
-        self.hvg_path      = gc.get("hvg_path", None)
-        self.conda_env     = gc.get("conda_env", "scdiff_")
-        self.latent_dim    = gc.get("latent_dim",    128)
-        self.vae_steps     = gc.get("vae_steps",   150000)
-        self.diff_steps    = gc.get("diff_steps",  300000)
-        self.batch_size    = gc.get("batch_size",     512)
-        self.save_interval = gc.get("save_interval", 50000)
-        self.cell_type_col = self.dataset_config["cell_type_col_name"]
+        self.vae_dir        = os.path.join(self.home_dir, gc["vae_dir"])
+        self.diff_dir       = os.path.join(self.home_dir, gc["diff_dir"])
+        self.classifier_dir = os.path.join(self.home_dir,
+                                           gc.get("classifier_dir", "models/classifier"))
+        self.hvg_path       = gc.get("hvg_path", None)
+        self.conda_env      = gc.get("conda_env", "scdiff_")
+        self.latent_dim     = gc.get("latent_dim",    128)
+        self.vae_steps      = gc.get("vae_steps",   200000)
+        self.diff_steps     = gc.get("diff_steps",  800000)
+        self.batch_size     = gc.get("batch_size",     128)
+        self.save_interval  = gc.get("save_interval", 100000)
+        self.classifier_steps       = gc.get("classifier_steps",       200000)
+        self.classifier_scale       = gc.get("classifier_scale",          2.0)
+        self.start_guide_steps      = gc.get("start_guide_steps",         500)
+        self.generation_batch_size  = gc.get("generation_batch_size",    3000)
+        self.cell_type_col          = self.dataset_config["cell_type_col_name"]
 
     def _base_cmd(self, *args):
         return [
@@ -77,21 +100,23 @@ class ScDiffusion(BaseSingleCellDataGenerator):
         return flags
 
     def _vae_ckpt(self):
-        """Return path to the latest VAE checkpoint in vae_dir."""
         pts = sorted(glob.glob(os.path.join(self.vae_dir, "model_seed=0_step=*.pt")))
         if not pts:
             raise FileNotFoundError(f"No VAE checkpoint in {self.vae_dir}")
         return pts[-1]
 
     def _diff_ckpt(self):
-        """Return path to the latest diffusion checkpoint.
-        TrainLoop saves to <diff_dir>/diffusion/model*.pt."""
-        # Try both direct and the model_name subdirectory
         pts = sorted(glob.glob(os.path.join(self.diff_dir, "diffusion", "model*.pt")))
         if not pts:
             pts = sorted(glob.glob(os.path.join(self.diff_dir, "model*.pt")))
         if not pts:
             raise FileNotFoundError(f"No diffusion checkpoint in {self.diff_dir}")
+        return pts[-1]
+
+    def _classifier_ckpt(self):
+        pts = sorted(glob.glob(os.path.join(self.classifier_dir, "model*.pt")))
+        if not pts:
+            raise FileNotFoundError(f"No classifier checkpoint in {self.classifier_dir}")
         return pts[-1]
 
     def _train_h5ad(self):
@@ -102,21 +127,31 @@ class ScDiffusion(BaseSingleCellDataGenerator):
 
     def train(self):
         train_h5ad = self._train_h5ad()
-        os.makedirs(self.vae_dir,  exist_ok=True)
-        os.makedirs(self.diff_dir, exist_ok=True)
+        os.makedirs(self.vae_dir,        exist_ok=True)
+        os.makedirs(self.diff_dir,       exist_ok=True)
+        os.makedirs(self.classifier_dir, exist_ok=True)
 
-        # Step 1: VAE
-        print("==> Training VAE ...", flush=True)
+        # Stage 1: VAE
+        print("==> Stage 1: Training VAE ...", flush=True)
         _run(self._base_cmd("train_vae", train_h5ad, self.vae_dir,
-                             "--vae-steps",  str(self.vae_steps),
-                             "--batch-size", str(self.batch_size)), "train_vae")
+                             "--vae-steps",     str(self.vae_steps),
+                             "--batch-size",    str(self.batch_size),
+                             "--save-interval", str(self.save_interval)), "train_vae")
 
-        # Step 2: Diffusion backbone
-        print("==> Training diffusion backbone ...", flush=True)
+        # Stage 2: Diffusion backbone
+        print("==> Stage 2: Training diffusion backbone ...", flush=True)
         _run(self._base_cmd("train", train_h5ad, self._vae_ckpt(), self.diff_dir,
                              "--diff-steps",    str(self.diff_steps),
                              "--batch-size",    str(self.batch_size),
                              "--save-interval", str(self.save_interval)), "train")
+
+        # Stage 3: Classifier
+        print("==> Stage 3: Training classifier ...", flush=True)
+        _run(self._base_cmd("train_classifier", train_h5ad, self._vae_ckpt(),
+                             self.classifier_dir,
+                             "--classifier-steps",  str(self.classifier_steps),
+                             "--batch-size",         str(self.batch_size),
+                             "--start-guide-steps",  str(self.start_guide_steps)), "train_classifier")
 
     def generate(self) -> ad.AnnData:
         import scanpy as sc
@@ -126,8 +161,15 @@ class ScDiffusion(BaseSingleCellDataGenerator):
         out_path  = os.path.join(self.home_dir, "tmp_scdiff_synth.h5ad")
 
         _run(self._base_cmd("generate",
-                             self._train_h5ad(), self._vae_ckpt(), self._diff_ckpt(),
-                             out_path, str(n_cells)), "generate")
+                             self._train_h5ad(),
+                             self._vae_ckpt(),
+                             self._diff_ckpt(),
+                             self._classifier_ckpt(),
+                             out_path, str(n_cells),
+                             "--classifier-scale",      str(self.classifier_scale),
+                             "--start-guide-steps",     str(self.start_guide_steps),
+                             "--generation-batch-size", str(self.generation_batch_size)),
+             "generate")
 
         synth = sc.read_h5ad(out_path)
         os.remove(out_path)
