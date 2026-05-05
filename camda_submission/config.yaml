@@ -1,0 +1,70 @@
+# =============================================================================
+# CAMDA Track II — PPML-Huskies Submission Blue Team Config
+# =============================================================================
+# Set generator_name to ONE of:
+#   scdesign2_dp  — scDesign2 with Gaussian-mechanism DP (ε=100, recommended)
+#   scvi          — scVI VAE  (requires environment_scvi.yaml; set conda_env below)
+#   zinbwave      — ZINBWave ZINB latent-factor model
+# =============================================================================
+
+generator_name: scdesign2_dp
+
+# Set to true to train the model; set to false to load from checkpoint
+train:    true
+generate: true
+load_from_checkpoint: false
+
+# ---------------------------------------------------------------------------
+# Dataset configuration
+# ---------------------------------------------------------------------------
+dataset_config:
+  name:                 onek1k
+  cell_type_col_name:   cell_type
+  train_count_file:     train.h5ad      # path relative to dir_list.data
+  test_count_file:      train.h5ad
+  synthetic_data_name:  onek1k_annotated_synthetic.h5ad
+  random_seed:          42
+
+# ---------------------------------------------------------------------------
+# Directory layout
+# ---------------------------------------------------------------------------
+dir_list:
+  home:        /path/to/output            # REPLACE with your output directory
+  data:        /path/to/data/splits       # REPLACE with the data/splits directory
+
+# ---------------------------------------------------------------------------
+# scDesign2 + DP configuration  (used when generator_name: scdesign2_dp)
+# ---------------------------------------------------------------------------
+scdesign2_dp_config:
+  epsilon:         100.0   # DP privacy budget ε (higher = more noise removed)
+  delta:           1.0e-5  # DP failure probability δ
+  dp_variant:      v2      # "v2" = uncentered 2nd moment (4× less noise than "v1")
+  clip_value:      3.0     # quantile-normal clipping bound c
+  out_model_path:  models/scdesign2_dp   # directory for per-cell-type .rds copulas
+  hvg_path:        hvg.csv               # HVG mask CSV; auto-computed if absent
+  donor_col:       individual            # obs column with donor IDs
+  n_workers:       4                     # parallel training processes
+
+# ---------------------------------------------------------------------------
+# scVI configuration  (used when generator_name: scvi)
+# ---------------------------------------------------------------------------
+scvi_config:
+  model_dir:    models/scvi
+  hvg_path:     hvg.csv
+  conda_env:    scvi_        # name of the conda env from environment_scvi.yaml
+  n_latent:     30
+  n_layers:     2
+  n_hidden:     128
+  max_epochs:   400
+  batch_size:   512
+
+# ---------------------------------------------------------------------------
+# ZINBWave configuration  (used when generator_name: zinbwave)
+# ---------------------------------------------------------------------------
+zinbwave_config:
+  out_model_path:      models/zinbwave
+  hvg_path:            hvg.csv
+  n_latent:            10
+  max_cells_per_type:  3000
+  n_workers:           4
+  seed:                42

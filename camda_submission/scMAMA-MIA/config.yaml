@@ -1,0 +1,45 @@
+# =============================================================================
+# scMAMA-MIA Attack Configuration
+# =============================================================================
+# This file configures the BB+aux Mahalanobis membership inference attack
+# with Class B secondary-gene focal points.
+#
+# Usage:
+#   cd scMAMA-MIA/
+#   python run_attack.py \
+#     --synth-h5ad  /path/to/synthetic.h5ad \
+#     --target-h5ad /path/to/target.h5ad \
+#     --train-donors /path/to/train_donors.npy \
+#     --aux-h5ad    /path/to/auxiliary.h5ad \     # omit for BB-aux (weaker)
+#     --hvg-csv     /path/to/hvg.csv \
+#     --out-csv     results/predictions.csv
+# =============================================================================
+
+# ---------------------------------------------------------------------------
+# Input paths (pass on the command line; listed here for documentation)
+# ---------------------------------------------------------------------------
+
+# synth_h5ad    : path to synthetic data (used to fit shadow copulas)
+# target_h5ad   : cells to score; obs must have 'individual' and 'cell_type'
+# train_donors  : .npy array of training donor IDs (labeled as members)
+# aux_h5ad      : (optional) auxiliary reference AnnData
+#                 If not provided, the attack falls back to BB-aux mode.
+# hvg_csv       : (optional) HVG mask CSV; auto-computed from synth data if absent
+
+# ---------------------------------------------------------------------------
+# Attack hyperparameters
+# ---------------------------------------------------------------------------
+
+class_b_gamma:        auto      # weight for Class B LLR; "auto" = 1/sqrt(n_secondary_genes)
+class_b_gamma_noaux:  0         # Class B weight for BB-aux mode; 0 = disabled (recommended)
+class_b_gene_set:     secondary # "secondary" = non-copula genes; "all" = all shared genes
+
+epsilon_floor:        1.0e-10   # numerical stability floor for log(distance)
+
+# ---------------------------------------------------------------------------
+# Computational settings
+# ---------------------------------------------------------------------------
+
+n_workers:    4     # parallel processes for shadow model fitting
+cell_type_col: cell_type
+individual_col: individual

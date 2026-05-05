@@ -1,0 +1,28 @@
+# Secondary conda environment for the scVI generator.
+# Only needed when generator_name: scvi in config.yaml.
+#
+# Create this environment:
+#   conda env create -f environment_scvi.yaml
+#   conda activate ppml-camda-scvi
+#
+# Set conda_env: ppml-camda-scvi in the scvi_config section of config.yaml.
+
+name: ppml-camda-scvi
+channels:
+  - conda-forge
+  - defaults
+
+dependencies:
+  - python=3.10
+  - pip>=24.0
+
+  - pip:
+      - scvi-tools==1.2.1
+      - torch==2.4.0
+      - pytorch-lightning==2.6.1
+      - anndata==0.10.9
+      - scanpy==1.11.5
+      - numpy==1.26.4
+      - pandas>=2.0
+      - tqdm>=4.66
+      - PyYAML>=6.0
