@@ -159,7 +159,7 @@ If ground-truth labels are available, the script also prints **ROC AUC** to stdo
 
 ---
 
-## Attack Method: scMAMA-MIA (BB+aux with Class B)
+## Attack Method: scMAMA-MIA (Black Box + auxiliary data "BB+aux" variant)
 
 scMAMA-MIA adapts the MAMA-MIA framework (Golob et al.) to scRNA-seq data.
 
