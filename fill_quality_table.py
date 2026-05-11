@@ -1,140 +1,129 @@
 #!/usr/bin/env python3
-"""Read quality eval CSVs, compute mean±std, and reprint the LaTeX quality table with missing values filled in."""
+"""
+Generate the scDesign2 quality table (LISI, ARI, MMD×10²) across datasets and donor counts.
 
+Reads statistics_evals.csv produced by run_quality_evals.py.
+Rows: donor counts. Columns: OneK1K, AIDA, HFRA × {LISI, ARI, MMD×10²}.
+
+Usage:
+    python fill_quality_table.py
+"""
+
+import math
+import glob
 import os
-import csv
+import sys
 import numpy as np
+import pandas as pd
 
-DATA_ROOT = os.path.expanduser("~/data")
+DATA     = os.path.expanduser("~/data/scMAMAMIA")
+N_TRIALS = 5
 
-def read_metrics(dataset, donors, trials=range(1, 6)):
-    """Read statistics_evals.csv for each trial, return list of (mmd, lisi, ari) tuples."""
-    results = []
-    for trial in trials:
-        path = os.path.join(DATA_ROOT, dataset, f"{donors}d", str(trial),
-                            "results", "quality_eval_results", "results", "statistics_evals.csv")
-        if not os.path.exists(path):
+# (display name, data key, valid donor counts)
+DATASETS = [
+    ("OneK1K", "ok",   [2, 5, 10, 20, 50, 100, 200, 490]),
+    ("AIDA",   "aida", [2, 5, 10, 20, 50, 100, 200]),
+    ("HFRA",   "cg",   [2, 5, 10, 20]),
+]
+
+ALL_DONORS = [2, 5, 10, 20, 50, 100, 200, 490]
+
+
+def collect(dataset_key, nd):
+    lisi_v, ari_v, mmd_v = [], [], []
+    pattern = os.path.join(
+        DATA, dataset_key, "scdesign2", "no_dp", f"{nd}d", "*",
+        "results", "quality_eval_results", "results", "statistics_evals.csv",
+    )
+    for csv_path in glob.glob(pattern):
+        try:
+            row = pd.read_csv(csv_path).iloc[0]
+            lisi_v.append(float(row["lisi"]))
+            ari_val = row.get("ari_real_vs_syn")
+            if pd.notna(ari_val):
+                ari_v.append(float(ari_val))
+            mmd_v.append(float(row["mmd"]))
+        except Exception:
             continue
-        with open(path) as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                mmd  = float(row["mmd"])
-                lisi = float(row["lisi"])
-                ari  = float(row["ari_real_vs_syn"])
-                results.append((mmd, lisi, ari))
-    return results
+    return lisi_v, ari_v, mmd_v
 
-def fmt(vals, scale=1.0, decimals=2):
-    """Return 'mean ± std' formatted string."""
-    arr = np.array(vals) * scale
-    mean, std = arr.mean(), arr.std()
-    fmt_str = f"{{:.{decimals}f}}"
-    # drop leading zero on std if < 1
-    std_str = f"{std:.{decimals}f}".lstrip("0") or "0"
-    return f"{fmt_str.format(mean)} $\\pm$ {std_str}"
 
-# ── Collect the new data points ───────────────────────────────────────────────
-
-hfra_20  = read_metrics("cg",   20)
-aida_50  = read_metrics("aida", 50)
-aida_ari = {d: read_metrics("aida", d) for d in [2, 5, 10, 20, 50]}
-
-print(f"HFRA 20d:  {len(hfra_20)} trials found")
-print(f"AIDA 50d:  {len(aida_50)} trials found")
-for d, vals in aida_ari.items():
-    print(f"AIDA {d:>2}d:  {len(vals)} trials found")
-print()
-
-# ── Existing values from the paper ────────────────────────────────────────────
-# Format: (lisi, ari, mmd_x100)  -- already formatted strings
-
-existing = {
-    # dataset: {donors: (lisi_str, ari_str, mmd_str)}
-    "OneK1K": {
-        2:   ("0.91 $\\pm$ .01", "0.52 $\\pm$ .19", "0.08 $\\pm$ .01"),
-        5:   ("0.90 $\\pm$ .01", "0.48 $\\pm$ .04", "0.04 $\\pm$ .00"),
-        10:  ("0.88 $\\pm$ .01", "0.41 $\\pm$ .09", "0.02 $\\pm$ .00"),
-        20:  ("0.88 $\\pm$ .00", "0.47 $\\pm$ .04", "0.01 $\\pm$ .00"),
-        50:  ("0.87 $\\pm$ .00", "0.43 $\\pm$ .03", "0.01 $\\pm$ .00"),
-        100: ("0.86 $\\pm$ .00", "0.43 $\\pm$ .04", "0.01 $\\pm$ .00"),
-        200: ("0.86 $\\pm$ .00", "0.42 $\\pm$ .05", "0.01 $\\pm$ .00"),
-    },
-    "AIDA": {
-        2:   ("0.87 $\\pm$ .01", None,               "0.06 $\\pm$ .01"),
-        5:   ("0.83 $\\pm$ .02", None,               "0.02 $\\pm$ .01"),
-        10:  ("0.81 $\\pm$ .01", None,               "0.01 $\\pm$ .00"),
-        20:  ("0.78 $\\pm$ .02", None,               "0.01 $\\pm$ .00"),
-        50:  (None,              None,               None             ),
-        100: (None,              None,               None             ),
-        200: (None,              None,               None             ),
-    },
-    "HFRA": {
-        2:   ("0.56 $\\pm$ .03", "0.29 $\\pm$ .12", "0.02 $\\pm$ .00"),
-        5:   ("0.39 $\\pm$ .08", "0.32 $\\pm$ .06", "0.01 $\\pm$ .00"),
-        10:  ("0.28 $\\pm$ .04", "0.26 $\\pm$ .02", "0.01 $\\pm$ .00"),
-        20:  (None,              None,               None             ),
-    },
-}
-
-# ── Fill in new values ────────────────────────────────────────────────────────
-
-def cell(vals, metric_idx, scale=1.0):
-    """Return formatted cell or '--' if no data."""
-    if not vals:
+def fmt(vals, scale=1.0):
+    clean = [v * scale for v in vals if not math.isnan(float(v))]
+    if not clean:
         return "--"
-    return fmt([v[metric_idx] for v in vals], scale=scale)
+    mean = np.mean(clean)
+    std  = np.std(clean, ddof=1) if len(clean) > 1 else 0.0
+    n    = len(clean)
 
-# AIDA ARI for existing rows
-for d in [2, 5, 10, 20]:
-    lisi_s, _, mmd_s = existing["AIDA"][d]
-    existing["AIDA"][d] = (lisi_s, cell(aida_ari[d], metric_idx=2), mmd_s)
+    mean_str = f"{mean:.2f}"
+    std_str  = f"{std:.2f}"
 
-# AIDA 50d full row
-existing["AIDA"][50] = (
-    cell(aida_50, metric_idx=1),
-    cell(aida_50, metric_idx=2),
-    cell(aida_50, metric_idx=0, scale=100),
-)
+    cell = mean_str + r" {\tiny$\,\pm\,$" + std_str + "}"
+    if n < N_TRIALS:
+        cell += rf"$^{{{n}}}$"
+    return cell
 
-# HFRA 20d full row
-existing["HFRA"][20] = (
-    cell(hfra_20, metric_idx=1),
-    cell(hfra_20, metric_idx=2),
-    cell(hfra_20, metric_idx=0, scale=100),
-)
 
-# ── Render the LaTeX table ────────────────────────────────────────────────────
+def main():
+    valid_nds = {dk: set(nds) for _, dk, nds in DATASETS}
 
-all_donors = [2, 5, 10, 20, 50, 100, 200]
+    data = {}
+    for _, dk, nds in DATASETS:
+        for nd in nds:
+            data[(dk, nd)] = collect(dk, nd)
 
-def get(dataset, donors, idx):
-    row = existing[dataset].get(donors)
-    if row is None or row[idx] is None:
-        return "--"
-    return row[idx]
+    lines = []
+    lines.append(r"\begin{table*}[t]")
+    lines.append(r"\centering")
+    lines.append(r"\small")
+    lines.append(r"\setlength{\tabcolsep}{4pt}")
+    lines.append(r"\begin{tabular}{cccccccccc}")
+    lines.append(r"\toprule")
+    lines.append(
+        r"    & \multicolumn{3}{c}{\textbf{OneK1K}} & \multicolumn{3}{c}{\textbf{AIDA}}"
+        r" & \multicolumn{3}{c}{\textbf{HFRA}} \\"
+    )
+    lines.append(r"    \cmidrule(lr){2-4} \cmidrule(lr){5-7} \cmidrule(lr){8-10}")
+    lines.append(
+        r"    \textbf{Donors}"
+        r" & \textbf{LISI ($\uparrow$)} & \textbf{ARI ($\uparrow$)} & \textbf{MMD ($\times 10^2$ $\downarrow$)}"
+        r" & \textbf{LISI ($\uparrow$)} & \textbf{ARI ($\uparrow$)} & \textbf{MMD ($\times 10^2$ $\downarrow$)}"
+        r" & \textbf{LISI ($\uparrow$)} & \textbf{ARI ($\uparrow$)} & \textbf{MMD ($\times 10^2$ $\downarrow$)} \\"
+    )
+    lines.append(r"\midrule")
 
-print(r"""\begin{table*}[t]
-\centering
-\small
-\setlength{\tabcolsep}{4pt}
-\begin{tabular}{cccccccccc}
-\toprule
-& \multicolumn{3}{c}{\textbf{OneK1K}} & \multicolumn{3}{c}{\textbf{AIDA}} & \multicolumn{3}{c}{\textbf{HFRA}} \\
-\cmidrule(lr){2-4} \cmidrule(lr){5-7} \cmidrule(lr){8-10}
-\textbf{Donors} & \textbf{LISI ($\uparrow$)} & \textbf{ARI ($\uparrow$)} & \textbf{MMD ($\times$10$^2$ $\downarrow$)} & \textbf{LISI ($\uparrow$)} & \textbf{ARI ($\uparrow$)} & \textbf{MMD ($\times$10$^2$ $\downarrow$)} & \textbf{LISI ($\uparrow$)} & \textbf{ARI ($\uparrow$)} & \textbf{MMD ($\times$10$^2$ $\downarrow$)} \\
-\midrule""")
+    for d in ALL_DONORS:
+        cols = []
+        for _, dk, nds in DATASETS:
+            if d not in nds:
+                cols += ["--", "--", "--"]
+            else:
+                lisi_v, ari_v, mmd_v = data[(dk, d)]
+                cols += [fmt(lisi_v), fmt(ari_v), fmt(mmd_v, scale=100)]
+        lines.append(f"{d} & " + " & ".join(cols) + r" \\")
 
-for d in all_donors:
-    cols = []
-    for ds in ["OneK1K", "AIDA", "HFRA"]:
-        if d not in existing[ds]:
-            cols += ["--", "--", "--"]
-        else:
-            cols += [get(ds, d, 0), get(ds, d, 1), get(ds, d, 2)]
-    print(f"{d} & " + " & ".join(cols) + r" \\")
+    lines.append(r"\bottomrule")
+    lines.append(r"\end{tabular}")
+    lines.append(
+        r"\caption{Quality metrics (LISI, ARI, and MMD) for scDesign2 across datasets and donor counts. "
+        r"Values are mean $\pm$ std over 5 trials. $\uparrow$ = higher is better; "
+        r"$\downarrow$ = lower is better. MMD values scaled by $10^2$. "
+        r"HFRA (CG) donor pool is limited to 22 donors.}"
+    )
+    lines.append(r"\label{tab:qualities}")
+    lines.append(r"\end{table*}")
 
-print(r"""\bottomrule
-\end{tabular}
-\caption{Quality metrics (LISI, ARI, and MMD) across datasets and donor sizes. Values shown as mean $\pm$ standard deviation. $\uparrow$ indicates higher is better, $\downarrow$ indicates lower is better. MMD values are scaled by 100 for readability. Implementations taken from CAMDA2025 could not execute over larger settings on the AIDA and HFRA data.}
-\label{tab:qualities}
-\end{table*}""")
+    tex = "\n".join(lines)
+    print(tex)
+
+    out_dir = os.path.join(os.path.dirname(__file__), "figures")
+    os.makedirs(out_dir, exist_ok=True)
+    out_path = os.path.join(out_dir, "quality_table_all_datasets.tex")
+    with open(out_path, "w") as f:
+        f.write(tex + "\n")
+    print(f"\nSaved to {out_path}", file=sys.stderr)
+
+
+if __name__ == "__main__":
+    main()

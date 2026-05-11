@@ -32,7 +32,7 @@ TM_CODE = {
 # Baselines (display name -> CSV method name)
 BASELINES = [
     ("LOGAN", "LOGAN_D1"),
-    ("GAN-Leaks", "gan_leaks_cal"),
+    ("GAN-Leaks (Cal.)", "gan_leaks_cal"),
     ("GAN-Leaks (SC)", "gan_leaks_sc"),
     ("DOMIAS+KDE", "domias_kde"),
     ("MC", "MC"),
