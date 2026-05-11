@@ -195,7 +195,7 @@ farther.
 ## References
 
 - Golob et al. (2026). "Privacy Vulnerabilities in Synthetic Single-Cell RNA-Sequence Data."
-  Submitted to RECOMB-Privacy 2026.
+  Under review. https://www.biorxiv.org/content/10.64898/2026.01.22.701160v1
 - Li et al. (2019). scDesign2. *Nature Computational Science*.
 - Risso et al. (2018). ZINBWave. *Nature Communications*.
 - Lopez et al. (2018). scVI. *Nature Methods*.

@@ -1,3 +1,8 @@
+*.tex
+*.png
+*.zip
+
+
 # Byte-compiled / optimized / DLL files
 *.swp
 __pycache__/
