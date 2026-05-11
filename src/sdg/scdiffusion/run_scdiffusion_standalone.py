@@ -8,52 +8,51 @@ Repo root: /home/golobs/scDiffusion  (Luo et al. 2024, Bioinformatics)
 IMPLEMENTATION VERSION HISTORY
 -------------------------------
 v1 (prior to 2026-05-04):
-    Two-stage pipeline (VAE + diffusion backbone only). Cell types were
-    assigned post-hoc via 1-NN in VAE latent space. Hyperparameters did NOT
-    match the original paper: vae_steps=150k (paper: 200k), diff_steps=300k
-    (paper: 800k), batch_size=512 (paper: 128). All data in
-    ~/data/scMAMAMIA/{dataset}/scdiffusion/ was generated with this version
-    and should be considered invalid for paper comparisons.
+    Two-stage pipeline (VAE + diffusion backbone only). Cell types assigned
+    post-hoc via 1-NN in VAE latent space. Wrong hyperparameters. INVALID.
 
-v2 (2026-05-04, this file):
-    Three-stage pipeline matching Luo et al. 2024 exactly:
-      1. train_vae        — VAE autoencoder (unchanged architecture)
-      2. train            — DDPM backbone in latent space
-      3. train_classifier — Cell_classifier trained on noisy latents;
-                            used for classifier-guided sampling at generation time
-    Hyperparameters now match the paper defaults:
-      vae_steps=200k, diff_steps=800k, batch_size=128 for all training stages.
-    Cell types are generated via classifier guidance (cond_fn with
-    classifier_scale=2, start_guide_steps=500), NOT post-hoc 1-NN.
-    clip_denoised=True during guided sampling (per classifier_sample.py).
-    All new data must be stored in ~/data/scMAMAMIA/{dataset}/scdiffusion_v2/.
+v2 (2026-05-04, LEGACY):
+    Three-stage pipeline. Classifier-guided sampling for generation.
+    Correct hyperparameters (vae=200k, diff=800k, batch=128).
+    Wrong generation mode: paper's main results use unconditional, not guided.
+
+v3 (2026-05-04+, PAPER-FAITHFUL — use this):
+    Two-stage training (VAE + DDPM backbone, same hyperparams as v2).
+    Generation: unconditional p_sample_loop (no classifier, no cond_fn,
+    clip_denoised=False), matching cell_sample.py from Luo et al.
+    Cell type labels assigned post-hoc via CellTypist trained on D_train,
+    matching the paper's main evaluation pipeline exactly.
+    Data stored under ~/data/scMAMAMIA/{dataset}/scdiffusion_v3/.
 
 Pipeline
 --------
   train_vae   <train_h5ad> <vae_out> [options]
-      Train the VAE autoencoder from scratch.
+      Train the VAE autoencoder from scratch. Supports resume.
       Output: <vae_out>/model_seed=0_step=<N>.pt
 
   train       <train_h5ad> <vae_ckpt> <diff_out> [options]
-      Train the diffusion backbone in VAE latent space.
-      Output: <diff_out>/diffusion/model<N>.pt
+      Train the diffusion backbone in VAE latent space. Supports resume
+      from the latest checkpoint found in <diff_out>/diffusion/.
+      Output: <diff_out>/diffusion/model<N>.pt + ema_0.9999_<N>.pt
 
-  train_classifier  <train_h5ad> <vae_ckpt> <classifier_out> [options]
-      Train a Cell_classifier on noisy latents for guided sampling.
-      Architecture: input_dim=128, hidden=[512,512,256,128], dropout=0.1.
-      Trained on q_sample(latent, t) for t ~ Uniform[0, start_guide_steps].
-      Output: <classifier_out>/model<N>.pt
+  train_celltypist  <train_h5ad> <celltypist_out> [options]  [v3]
+      Train a CellTypist logistic-regression model on D_train for post-hoc
+      annotation of unconditionally generated cells. Fast (CPU, minutes).
+      Mirrors celltypist_train.py from Luo et al.
+      Output: <celltypist_out>  (a .pkl file)
+
+  generate_unconditional  <vae_ckpt> <diff_ckpt> <celltypist_ckpt>
+                          <out_h5ad> <n_cells> [options]  [v3]
+      Unconditional DDPM sampling + CellTypist annotation. Paper-faithful.
+      clip_denoised=False (matches cell_sample.py).
+      Uses EMA model weights for best generation quality.
 
   generate    <train_h5ad> <vae_ckpt> <diff_ckpt> <classifier_ckpt>
-              <out_h5ad> <n_cells> [options]
-      Classifier-guided sampling: for each cell type, generates cells using
-      the classifier gradient (cond_fn) to steer diffusion toward that type.
-      Cell type counts match training data proportions.
+              <out_h5ad> <n_cells> [options]  [v2 LEGACY]
+      Classifier-guided sampling. Kept for reference; not used for v3.
 
   score       <target_h5ad> <vae_ckpt> <diff_ckpt> <scores_npy>
       Compute per-cell diffusion denoising loss as the MIA membership score.
-      Higher score (lower loss) = more likely a training member.
-      Output: float32 numpy array of shape (n_cells,) saved to scores_npy.
 
 Key options (see --help for each subcommand)
 --------------------------------------------
@@ -63,14 +62,12 @@ Key options (see --help for each subcommand)
   --vae-steps            VAE training iterations          (default: 200000)
   --diff-steps           diffusion training iterations    (default: 800000)
   --batch-size           mini-batch size for all training (default: 128)
-  --classifier-steps     classifier training iterations   (default: 200000)
-  --classifier-scale     guidance scale at sampling time  (default: 2.0)
-  --start-guide-steps    guidance active for t < this     (default: 500)
   --generation-batch-size  sampling batch size            (default: 3000)
   --n-score-times        noise levels sampled for MIA     (default: 50)
 """
 
 import argparse
+import glob
 import os
 import sys
 
@@ -272,6 +269,14 @@ def cmd_train(args):
     latents = _encode_latents(cell_data, vae, device)
     print(f"  Encoded {len(latents)} cells to latent space")
 
+    # Resume from latest checkpoint in save_dir if one exists
+    diff_subdir = os.path.join(args.diff_out, "diffusion")
+    resume_ckpt = ""
+    existing = sorted(glob.glob(os.path.join(diff_subdir, "model*.pt")))
+    if existing:
+        resume_ckpt = existing[-1]
+        print(f"  Resuming from checkpoint: {resume_ckpt}", flush=True)
+
     from guided_diffusion.cell_datasets_loader import CellDataset
     from torch.utils.data import DataLoader
 
@@ -292,7 +297,7 @@ def cmd_train(args):
         ema_rate="0.9999",
         log_interval=500,
         save_interval=args.save_interval,
-        resume_checkpoint="",
+        resume_checkpoint=resume_ckpt,
         use_fp16=False,
         fp16_scale_growth=1e-3,
         schedule_sampler=schedule_sampler,
@@ -405,7 +410,137 @@ def cmd_train_classifier(args):
 
 
 # ---------------------------------------------------------------------------
-# Mode: generate  (classifier-guided)
+# Mode: train_celltypist  [v3 — paper-faithful]
+# ---------------------------------------------------------------------------
+
+def cmd_train_celltypist(args):
+    """
+    Train a CellTypist logistic-regression model on D_train for post-hoc
+    annotation of unconditionally generated cells.
+
+    Mirrors celltypist_train.py from Luo et al. 2024 (fast, CPU-only).
+    Input must be log1p-normalized (CellTypist requirement).
+    """
+    import celltypist
+
+    adata = sc.read_h5ad(args.train_h5ad)
+    sc.pp.filter_genes(adata, min_cells=3)
+    sc.pp.filter_cells(adata, min_genes=10)
+    adata.var_names_make_unique()
+
+    if args.hvg_path and os.path.exists(args.hvg_path):
+        hvg_df    = pd.read_csv(args.hvg_path, index_col=0)
+        hvg_genes = [g for g in hvg_df.index[hvg_df["highly_variable"]]
+                     if g in adata.var_names]
+        adata = adata[:, hvg_genes].copy()
+
+    sc.pp.normalize_total(adata, target_sum=1e4)
+    sc.pp.log1p(adata)
+
+    labels = sorted(adata.obs[args.cell_type_col].unique().tolist())
+    print(f"Training CellTypist: {adata.n_obs} cells x {adata.n_vars} genes  "
+          f"{len(labels)} cell types")
+    print(f"  Labels: {labels}")
+
+    new_model = celltypist.train(
+        adata, labels=args.cell_type_col, n_jobs=8, feature_selection=False,
+    )
+    os.makedirs(os.path.dirname(os.path.abspath(args.celltypist_out)), exist_ok=True)
+    new_model.write(args.celltypist_out)
+    print(f"CellTypist model saved: {args.celltypist_out}")
+
+
+# ---------------------------------------------------------------------------
+# Mode: generate_unconditional  [v3 — paper-faithful]
+# ---------------------------------------------------------------------------
+
+def cmd_generate_unconditional(args):
+    """
+    Generate cells unconditionally (paper-faithful, matching cell_sample.py),
+    then assign cell types via a pre-trained CellTypist model.
+
+    Matches the paper's main evaluation pipeline:
+      - Unconditional DDPM reverse process (no classifier, no cond_fn)
+      - clip_denoised=False  (cell_sample.py default)
+      - CellTypist for post-hoc cell type assignment (applied before expm1)
+    Uses EMA model weights (ema_0.9999_*.pt) if diff_ckpt is an EMA file,
+    otherwise uses the raw model checkpoint as given.
+    """
+    import celltypist
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    vae_dir         = os.path.dirname(args.vae_ckpt)
+    gene_names_path = os.path.join(vae_dir, "gene_names.txt")
+    with open(gene_names_path) as f:
+        gene_names = [ln.strip() for ln in f if ln.strip()]
+    n_genes = len(gene_names)
+    n_total = int(args.n_cells)
+
+    print(f"Generating {n_total} cells unconditionally  ({n_genes} genes)")
+
+    vae              = _load_vae(args.vae_ckpt, n_genes, args.latent_dim, device)
+    model, diffusion = _load_diffusion_model(args.diff_ckpt, args.latent_dim, device)
+
+    gen_bs      = args.generation_batch_size
+    all_latents = []
+    generated   = 0
+
+    while generated < n_total:
+        this_bs = min(gen_bs, n_total - generated)
+        with torch.no_grad():
+            sample, _ = diffusion.p_sample_loop(
+                model,
+                (this_bs, args.latent_dim),
+                clip_denoised=False,   # matches cell_sample.py
+                model_kwargs={},
+                cond_fn=None,
+                device=device,
+            )
+        all_latents.append(sample.cpu())
+        generated += this_bs
+        print(f"  Generated {generated}/{n_total}", flush=True)
+
+    latents = torch.cat(all_latents, dim=0)
+    print(f"Decoding {latents.shape[0]} latents -> gene expression ...")
+
+    with torch.no_grad():
+        gene_expr_log1p = vae(latents.to(device), return_decoded=True).cpu().numpy()
+
+    # CellTypist requires log1p-normalized to exactly 10000 counts/cell.
+    # Re-normalize from VAE output to satisfy its format check.
+    print("Annotating cell types with CellTypist ...")
+    ct_model     = celltypist.models.Model.load(args.celltypist_ckpt)
+    synth_for_ct = ad.AnnData(
+        X=np.expm1(gene_expr_log1p).clip(0).astype(np.float32),
+        var=pd.DataFrame(index=gene_names),
+    )
+    sc.pp.normalize_total(synth_for_ct, target_sum=1e4)
+    sc.pp.log1p(synth_for_ct)
+    predictions      = celltypist.annotate(synth_for_ct, model=ct_model,
+                                           majority_voting=False)
+    cell_type_labels = predictions.predicted_labels["predicted_labels"].values
+
+    print(f"CellTypist distribution: "
+          f"{pd.Series(cell_type_labels).value_counts().to_dict()}")
+
+    # Reverse log1p: output in normalize_total space (downstream evals re-apply log1p)
+    gene_expr = np.expm1(gene_expr_log1p)
+
+    synth = ad.AnnData(
+        X=gene_expr.astype(np.float32),
+        var=pd.DataFrame(index=gene_names),
+    )
+    synth.obs[args.cell_type_col] = cell_type_labels
+
+    os.makedirs(os.path.dirname(os.path.abspath(args.out_h5ad)), exist_ok=True)
+    synth.write_h5ad(args.out_h5ad, compression="gzip")
+    print(f"Synthetic data saved: {args.out_h5ad}  "
+          f"({synth.n_obs} cells x {synth.n_vars} genes)")
+
+
+# ---------------------------------------------------------------------------
+# Mode: generate  (classifier-guided)  [v2 LEGACY]
 # ---------------------------------------------------------------------------
 
 def cmd_generate(args):
@@ -629,28 +764,47 @@ def main():
                     help="Checkpoint save frequency")
 
     # ------------------------------------------------------------------
-    # train_classifier
+    # train_classifier  [v2 LEGACY]
     # ------------------------------------------------------------------
     sc_p = sub.add_parser("train_classifier",
-                           help="Stage 3: train Cell_classifier on noisy latents")
+                           help="[v2 LEGACY] Stage 3: train Cell_classifier on noisy latents")
     sc_p.add_argument("train_h5ad")
     sc_p.add_argument("vae_ckpt",       help="Path to trained VAE .pt file")
     sc_p.add_argument("classifier_out", help="Directory to save classifier checkpoints")
     _shared(sc_p)
-    sc_p.add_argument("--classifier-steps",  type=int, default=200000,
-                      help="Training iterations (paper uses 400k-500k; "
-                           "200k is reasonable for smaller datasets)")
-    sc_p.add_argument("--batch-size",        type=int, default=128,
-                      help="Mini-batch size (paper: 128)")
-    sc_p.add_argument("--start-guide-steps", type=int, default=500,
-                      help="Classifier trained on t ~ Uniform[0, start_guide_steps]")
+    sc_p.add_argument("--classifier-steps",  type=int, default=200000)
+    sc_p.add_argument("--batch-size",        type=int, default=128)
+    sc_p.add_argument("--start-guide-steps", type=int, default=500)
     sc_p.add_argument("--save-interval",     type=int, default=50000)
 
     # ------------------------------------------------------------------
-    # generate  (classifier-guided)
+    # train_celltypist  [v3 — paper-faithful]
+    # ------------------------------------------------------------------
+    sct = sub.add_parser("train_celltypist",
+                          help="[v3] Train CellTypist on D_train for post-hoc annotation")
+    sct.add_argument("train_h5ad")
+    sct.add_argument("celltypist_out", help="Output path for CellTypist model (.pkl)")
+    _shared(sct)
+
+    # ------------------------------------------------------------------
+    # generate_unconditional  [v3 — paper-faithful]
+    # ------------------------------------------------------------------
+    sgu = sub.add_parser("generate_unconditional",
+                          help="[v3] Unconditional DDPM sampling + CellTypist annotation")
+    sgu.add_argument("vae_ckpt")
+    sgu.add_argument("diff_ckpt",        help="Path to trained diffusion .pt file (raw or EMA)")
+    sgu.add_argument("celltypist_ckpt",  help="Path to trained CellTypist model (.pkl)")
+    sgu.add_argument("out_h5ad")
+    sgu.add_argument("n_cells", type=int)
+    _shared(sgu)
+    sgu.add_argument("--generation-batch-size", type=int, default=3000,
+                     help="Sampling batch size (default: 3000)")
+
+    # ------------------------------------------------------------------
+    # generate  (classifier-guided)  [v2 LEGACY]
     # ------------------------------------------------------------------
     sg = sub.add_parser("generate",
-                         help="Classifier-guided generation (all 3 trained models required)")
+                         help="[v2 LEGACY] Classifier-guided generation")
     sg.add_argument("train_h5ad")
     sg.add_argument("vae_ckpt")
     sg.add_argument("diff_ckpt",       help="Path to trained diffusion .pt file")
@@ -658,12 +812,9 @@ def main():
     sg.add_argument("out_h5ad")
     sg.add_argument("n_cells", type=int)
     _shared(sg)
-    sg.add_argument("--classifier-scale",      type=float, default=2.0,
-                    help="Guidance gradient scale (paper: 2.0)")
-    sg.add_argument("--start-guide-steps",     type=int,   default=500,
-                    help="Guidance active for t < start_guide_steps (paper: 500)")
-    sg.add_argument("--generation-batch-size", type=int,   default=3000,
-                    help="Sampling batch size (paper: 3000)")
+    sg.add_argument("--classifier-scale",      type=float, default=2.0)
+    sg.add_argument("--start-guide-steps",     type=int,   default=500)
+    sg.add_argument("--generation-batch-size", type=int,   default=3000)
 
     # ------------------------------------------------------------------
     # score  (MIA)
@@ -679,11 +830,13 @@ def main():
 
     args = p.parse_args()
     dispatch = {
-        "train_vae":        cmd_train_vae,
-        "train":            cmd_train,
-        "train_classifier": cmd_train_classifier,
-        "generate":         cmd_generate,
-        "score":            cmd_score,
+        "train_vae":              cmd_train_vae,
+        "train":                  cmd_train,
+        "train_celltypist":       cmd_train_celltypist,
+        "generate_unconditional": cmd_generate_unconditional,
+        "train_classifier":       cmd_train_classifier,
+        "generate":               cmd_generate,
+        "score":                  cmd_score,
     }
     dispatch[args.mode](args)
 

@@ -14,11 +14,14 @@ Supported generators
                  Two-stage pipeline (VAE + diffusion only), post-hoc 1-NN
                  cell-type assignment, wrong hyperparameters. Data stored
                  under scdiffusion/. Kept only for reproducibility.
-  scdiffusion_v2 scDiffusion v2 (2026-05-04+) — correct implementation
-                 matching Luo et al. 2024: three-stage pipeline with VAE,
-                 diffusion backbone, and classifier-guided sampling.
-                 Hyperparameters match paper: vae=200k, diff=800k,
-                 batch=128. Data stored under scdiffusion_v2/.
+  scdiffusion_v2 scDiffusion v2 (2026-05-04, LEGACY) — classifier-guided
+                 sampling. Correct hyperparameters but wrong generation mode.
+                 Data stored under scdiffusion_v2/. Do not use for new runs.
+  scdiffusion_v3 scDiffusion v3 (2026-05-04+) — PAPER-FAITHFUL. Unconditional
+                 DDPM generation + CellTypist post-hoc annotation. Matches the
+                 main evaluation pipeline in Luo et al. 2024. Correct
+                 hyperparameters (vae=200k, diff=800k, batch=128). Data stored
+                 under scdiffusion_v3/. Use this for all new experiments.
   nmf            SingleCellNMFGenerator (NMF + KMeans + ZINB sampling)
   zinbwave       ZINBWave (ZINB latent-factor model, Risso et al. 2018)
 
@@ -534,6 +537,123 @@ def generate_scdiffusion_v2(out_dir, dataset_path, splits_dir, hvg_path,
             os.remove(train_h5ad)
 
 
+def generate_scdiffusion_v3(out_dir, dataset_path, splits_dir, hvg_path,
+                             individual_col, cell_type_col, conda_env,
+                             vae_steps=200000, diff_steps=800000, batch_size=128,
+                             generation_batch_size=3000, save_interval=100000,
+                             model_source_dir=None):
+    """
+    Paper-faithful scDiffusion pipeline (v3, 2026-05-04+).
+
+    Two-stage training:
+      1. VAE autoencoder       (vae_steps=200k, batch=128)
+      2. DDPM backbone         (diff_steps=800k, batch=128)
+    Generation: unconditional p_sample_loop (no classifier, no cond_fn,
+                clip_denoised=False), matching cell_sample.py from Luo et al.
+    Cell type labels: CellTypist trained on D_train, applied to decoded output.
+
+    If model_source_dir is given, VAE and diffusion checkpoints are looked up
+    there instead of out_dir (allows reusing completed v2 model weights).
+    Output always goes to out_dir/datasets/synthetic.h5ad.
+    """
+    ds_dir       = os.path.join(out_dir, "datasets")
+    synth_out    = os.path.join(ds_dir, "synthetic.h5ad")
+
+    if os.path.exists(synth_out):
+        print(f"  [SKIP] synthetic.h5ad already exists: {synth_out}")
+        return
+
+    # Model dirs: search model_source_dir first, fall back to out_dir
+    model_root      = model_source_dir if model_source_dir else out_dir
+    vae_dir         = os.path.join(model_root, "models", "vae")
+    diff_dir        = os.path.join(model_root, "models", "diff")
+    celltypist_dir  = os.path.join(out_dir,    "models", "celltypist")
+
+    train_donors, _ = _load_splits(splits_dir)
+    train_h5ad      = os.path.join(ds_dir, "train_hvg.h5ad")
+    n_cells         = _write_train_h5ad(dataset_path, train_donors, individual_col,
+                                        train_h5ad, hvg_path=hvg_path)
+
+    os.makedirs(vae_dir,        exist_ok=True)
+    os.makedirs(diff_dir,       exist_ok=True)
+    os.makedirs(celltypist_dir, exist_ok=True)
+
+    scd_script   = os.path.join(_SRC, "sdg", "scdiffusion", "run_scdiffusion_standalone.py")
+    conda_prefix = f"conda run --no-capture-output -n {conda_env}"
+
+    try:
+        # ------------------------------------------------------------------
+        # Stage 1: VAE
+        # ------------------------------------------------------------------
+        try:
+            vae_ckpt = _latest_checkpoint(vae_dir)
+            print(f"  [SKIP] VAE checkpoint: {vae_ckpt}", flush=True)
+        except FileNotFoundError:
+            _run(f"{conda_prefix} python {scd_script} train_vae "
+                 f"{train_h5ad} {vae_dir} "
+                 f"--hvg-path {hvg_path} "
+                 f"--vae-steps {vae_steps} --batch-size {batch_size} "
+                 f"--save-interval {save_interval}")
+            vae_ckpt = _latest_checkpoint(vae_dir)
+        print(f"  VAE checkpoint: {vae_ckpt}", flush=True)
+
+        # ------------------------------------------------------------------
+        # Stage 2: Diffusion backbone (resumes automatically from latest ckpt)
+        # ------------------------------------------------------------------
+        diff_subdir = os.path.join(diff_dir, "diffusion")
+        diff_ckpt   = None
+        ema_ckpt    = None
+        try:
+            candidate = _latest_checkpoint(diff_subdir, pattern="model*.pt")
+            step = int(re.findall(r"\d+", os.path.basename(candidate))[-1])
+            if step >= diff_steps:
+                diff_ckpt = candidate
+                print(f"  [SKIP] Diffusion checkpoint at step {step}: {diff_ckpt}",
+                      flush=True)
+        except (FileNotFoundError, IndexError):
+            pass
+        if diff_ckpt is None:
+            _run(f"{conda_prefix} python {scd_script} train "
+                 f"{train_h5ad} {vae_ckpt} {diff_dir} "
+                 f"--hvg-path {hvg_path} "
+                 f"--diff-steps {diff_steps} --batch-size {batch_size} "
+                 f"--save-interval {save_interval}")
+            diff_ckpt = _latest_checkpoint(diff_subdir, pattern="model*.pt")
+
+        # Prefer EMA weights for generation (better quality)
+        step     = int(re.findall(r"\d+", os.path.basename(diff_ckpt))[-1])
+        ema_path = os.path.join(diff_subdir, f"ema_0.9999_{step:06d}.pt")
+        ema_ckpt = ema_path if os.path.exists(ema_path) else diff_ckpt
+        print(f"  Diff checkpoint for generation: {ema_ckpt}", flush=True)
+
+        # ------------------------------------------------------------------
+        # Stage 3: CellTypist (fast CPU logistic regression)
+        # ------------------------------------------------------------------
+        celltypist_ckpt = os.path.join(celltypist_dir, "model.pkl")
+        if os.path.exists(celltypist_ckpt):
+            print(f"  [SKIP] CellTypist model: {celltypist_ckpt}", flush=True)
+        else:
+            _run(f"{conda_prefix} python {scd_script} train_celltypist "
+                 f"{train_h5ad} {celltypist_ckpt} "
+                 f"--hvg-path {hvg_path} "
+                 f"--cell-type-col {cell_type_col}")
+        print(f"  CellTypist model: {celltypist_ckpt}", flush=True)
+
+        # ------------------------------------------------------------------
+        # Generate: unconditional + CellTypist annotation
+        # ------------------------------------------------------------------
+        _run(f"{conda_prefix} python {scd_script} generate_unconditional "
+             f"{vae_ckpt} {ema_ckpt} {celltypist_ckpt} {synth_out} {n_cells} "
+             f"--hvg-path {hvg_path} "
+             f"--cell-type-col {cell_type_col} "
+             f"--generation-batch-size {generation_batch_size}")
+
+        print(f"  Saved -> {synth_out}", flush=True)
+    finally:
+        if os.path.exists(train_h5ad):
+            os.remove(train_h5ad)
+
+
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
@@ -543,7 +663,8 @@ def main():
     ap.add_argument("--generator",      required=True,
                     choices=["sd3_gaussian", "sd3_vine", "scvi",
                              "scdiffusion",     # LEGACY v1 — do not use for new data
-                             "scdiffusion_v2",  # correct implementation (2026-05-04+)
+                             "scdiffusion_v2",  # LEGACY v2 — classifier-guided (wrong mode)
+                             "scdiffusion_v3",  # paper-faithful: unconditional + CellTypist
                              "nmf", "zinbwave"])
     ap.add_argument("--dataset",        required=True,
                     help="Path to full_dataset_cleaned.h5ad")
@@ -559,7 +680,8 @@ def main():
                     help="Conda env for scVI or scDiffusion")
     # scVI options
     ap.add_argument("--max-epochs",  type=int, default=400)
-    ap.add_argument("--batch-size",  type=int, default=512)
+    ap.add_argument("--batch-size",  type=int, default=512,
+                    help="scVI batch size (default: 512)")
     # scDiffusion v2 options (paper-matching defaults)
     ap.add_argument("--vae-steps",              type=int,   default=200000,
                     help="VAE training steps (paper: 200000)")
@@ -573,8 +695,14 @@ def main():
                     help="Guidance active for t < this (paper: 500)")
     ap.add_argument("--generation-batch-size",  type=int,   default=3000,
                     help="Sampling batch size (paper: 3000)")
+    ap.add_argument("--scd-batch-size",          type=int,   default=128,
+                    help="scDiffusion v2 batch size (paper: 128; default: 128)")
     ap.add_argument("--scd-save-interval",      type=int,   default=100000,
                     help="Checkpoint save frequency for scDiffusion")
+    ap.add_argument("--model-source-dir",       default=None,
+                    help="scdiffusion_v3 only: reuse VAE+diff checkpoints from this "
+                         "directory (e.g. a completed scdiffusion_v2 trial dir) "
+                         "instead of training from scratch")
     # NMF options
     ap.add_argument("--n-components", type=int, default=20,
                     help="NMF latent components (default: 20)")
@@ -649,7 +777,7 @@ def main():
         )
 
     elif args.generator == "scdiffusion_v2":
-        # v2 (2026-05-04+): full 3-stage pipeline, paper-matching hyperparameters
+        # v2 LEGACY: classifier-guided generation (kept for reference)
         if not args.conda_env:
             ap.error("--conda-env is required for scdiffusion_v2")
         generate_scdiffusion_v2(
@@ -662,12 +790,32 @@ def main():
             conda_env=args.conda_env,
             vae_steps=args.vae_steps,
             diff_steps=args.diff_steps,
-            batch_size=args.batch_size,
+            batch_size=args.scd_batch_size,
             classifier_steps=args.classifier_steps,
             classifier_scale=args.classifier_scale,
             start_guide_steps=args.start_guide_steps,
             generation_batch_size=args.generation_batch_size,
             save_interval=args.scd_save_interval,
+        )
+
+    elif args.generator == "scdiffusion_v3":
+        # v3: paper-faithful unconditional generation + CellTypist annotation
+        if not args.conda_env:
+            ap.error("--conda-env is required for scdiffusion_v3")
+        generate_scdiffusion_v3(
+            out_dir=args.out_dir,
+            dataset_path=args.dataset,
+            splits_dir=args.splits_dir,
+            hvg_path=args.hvg_path,
+            individual_col=args.individual_col,
+            cell_type_col=args.cell_type_col,
+            conda_env=args.conda_env,
+            vae_steps=args.vae_steps,
+            diff_steps=args.diff_steps,
+            batch_size=args.scd_batch_size,
+            generation_batch_size=args.generation_batch_size,
+            save_interval=args.scd_save_interval,
+            model_source_dir=args.model_source_dir,
         )
 
     elif args.generator == "nmf":
