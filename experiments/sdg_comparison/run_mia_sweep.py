@@ -116,6 +116,10 @@ SWEEP = [
     ("sd2_dp",   "ok/scdesign2/eps_1000000",   "ok", [490], TM_BB_QUAD, 4),
     ("sd2_dp",   "ok/scdesign2/eps_100000000", "ok", [490], TM_BB_QUAD, 4),
 
+    # --- scDiffusion-v3 (faithful + v1_celltypist compromise) ---
+    ("scdiff_v3_faithful", "ok/scdiffusion_v3/faithful",      "ok", [10, 50], TM_BB_QUAD, 2),
+    ("scdiff_v3_comp",     "ok/scdiffusion_v3/v1_celltypist", "ok", [50],     TM_BB_QUAD, 2),
+
     # --- NMF (SingleCellNMFGenerator — CAMDA 2024 winner) ---
     ("nmf",    "ok/nmf/no_dp",    "ok",   [10, 20, 50, 100, 200, 490], TM_BB_QUAD, 4),
     ("nmf",    "aida/nmf/no_dp",  "aida", [10, 20, 50, 100, 200],      TM_BB_QUAD, 4),

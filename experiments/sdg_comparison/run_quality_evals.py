@@ -94,6 +94,8 @@ DATASETS = [
     (f"{DATA}/ok/scdesign3/vine",       f"{DATA}/ok/full_dataset_cleaned.h5ad", "ok"),
     (f"{DATA}/ok/scvi/no_dp",           f"{DATA}/ok/full_dataset_cleaned.h5ad", "ok"),
     (f"{DATA}/ok/scdiffusion/no_dp",    f"{DATA}/ok/full_dataset_cleaned.h5ad", "ok"),
+    (f"{DATA}/ok/scdiffusion_v3/faithful",      f"{DATA}/ok/full_dataset_cleaned.h5ad", "ok"),
+    (f"{DATA}/ok/scdiffusion_v3/v1_celltypist", f"{DATA}/ok/full_dataset_cleaned.h5ad", "ok"),
 
     # --- New SDG methods: AIDA ---
     # (f"{DATA}/aida/scdesign3/gaussian",  f"{DATA}/aida/full_dataset_cleaned.h5ad", "aida"),
