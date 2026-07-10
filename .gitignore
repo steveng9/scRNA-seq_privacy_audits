@@ -257,3 +257,6 @@ outfiles/
 /scores.csv
 /yscores.npy
 /ytrue.npy
+
+# Manim render output (regenerate locally with `manim` CLI, don't commit)
+media/
