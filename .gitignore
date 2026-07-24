@@ -258,5 +258,12 @@ outfiles/
 /yscores.npy
 /ytrue.npy
 
-# Manim render output (regenerate locally with `manim` CLI, don't commit)
-media/
+# Manim render output (regenerate locally with `presentation/manim/render.sh`, don't commit)
+presentation/manim/media/
+presentation/manim/exports/
+
+# PyCharm / IntelliJ IDE config
+.idea/
+
+# Unpacked overleaf project (committed as the zip in docs/ instead)
+/docs/_NeurIPS_26__scMAMA_MIA/

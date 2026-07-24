@@ -32,11 +32,14 @@ from manim import (
     RIGHT,
     ORIGIN,
     WHITE,
+    BLACK,
     YELLOW,
     ORANGE,
     RED,
     BLUE,
     BLUE_E,
+    PURPLE,
+    PINK,
     GREY_C,
     GREY_D,
 )
@@ -45,7 +48,7 @@ config.background_color = "#1e1e1e"
 
 N_CELLS = 6
 N_GENES = 5
-CELL = 0.62
+CELL = 0.75
 
 
 def expression_color(val, vmin, vmax):
@@ -54,9 +57,16 @@ def expression_color(val, vmin, vmax):
 
 
 def cov_color(val, vmax_abs):
+    """Returns (fill_color, text_color). Alpha is sqrt-boosted so mid/low
+    covariances still get a visibly saturated fill instead of near-white,
+    and text color is switched to black once the fill is light enough that
+    white text would wash out."""
     alpha = 0.0 if vmax_abs == 0 else min(abs(val) / vmax_abs, 1.0)
+    alpha = alpha ** 0.5
     base = RED if val >= 0 else BLUE
-    return interpolate_color(WHITE, base, alpha)
+    fill = interpolate_color(WHITE, base, alpha)
+    text_color = BLACK if alpha < 0.55 else WHITE
+    return fill, text_color
 
 
 def pos(row, col, origin):
@@ -78,12 +88,20 @@ class CovarianceFill(Scene):
         gene_labels = [f"g{g + 1}" for g in range(N_GENES)]
         cell_labels = [f"c{c + 1}" for c in range(N_CELLS)]
 
+        # matrices sit left-of-center (data) and right-of-center (covariance);
+        # shift the title horizontally so it's centered over the pair, and
+        # drop the whole matrix block down a bit for a more pronounced gap
+        # below the title (the title itself stays put)
+        MATRIX_CENTER_X = 0.675
+        MATRIX_DOWN_SHIFT = DOWN * 0.5
+
         title = Text("From expression matrix to gene-gene covariance", font_size=30)
-        title.to_edge(UP)
+        title.to_edge(UP, buff=0.3)
+        title.set_x(MATRIX_CENTER_X)
         self.play(Write(title))
 
         # ================= dataset matrix (N x G) =================
-        data_origin = LEFT * 3.6 + UP * (N_CELLS * CELL) / 2
+        data_origin = LEFT * 3.6 + UP * (N_CELLS * CELL) / 2 + MATRIX_DOWN_SHIFT
         vmin, vmax = data.min(), data.max()
 
         data_group = VGroup()
@@ -93,7 +111,7 @@ class CovarianceFill(Scene):
                 rect = Rectangle(width=CELL, height=CELL)
                 rect.set_fill(expression_color(data[r, c], vmin, vmax), opacity=1)
                 rect.set_stroke(WHITE, 1)
-                txt = Text(f"{data[r, c]:.0f}", font_size=16).move_to(rect)
+                txt = Text(f"{data[r, c]:.0f}", font_size=18).move_to(rect)
                 cell = VGroup(rect, txt)
                 cell.move_to(pos(r, c, data_origin))
                 data_group.add(cell)
@@ -101,25 +119,27 @@ class CovarianceFill(Scene):
 
         data_gene_text = []
         for c in range(N_GENES):
-            lbl = Text(gene_labels[c], font_size=20)
+            lbl = Text(gene_labels[c], font_size=22)
             lbl.move_to(pos(-1, c, data_origin))
             data_group.add(lbl)
             data_gene_text.append(lbl)
 
         for r in range(N_CELLS):
-            lbl = Text(cell_labels[r], font_size=18)
+            lbl = Text(cell_labels[r], font_size=20)
             lbl.move_to(pos(r, -1, data_origin))
             data_group.add(lbl)
 
-        data_title = Text("dataset  (cells x genes)", font_size=22)
-        data_title.move_to(pos(-1.65, (N_GENES - 1) / 2, data_origin))
+        data_title = Text("dataset  (cells x genes)", font_size=24)
+        data_title.move_to(pos(-1.5, (N_GENES - 1) / 2, data_origin))
         data_group.add(data_title)
 
         self.play(FadeIn(data_group))
         self.wait(0.3)
 
         # ================= covariance matrix (G x G) =================
-        cov_origin = RIGHT * 2.7 + UP * (N_GENES * CELL) / 2
+        # use N_CELLS (not N_GENES) here so the top (label) row of both grids
+        # lines up, even though the covariance grid has fewer rows
+        cov_origin = RIGHT * 2.7 + UP * (N_CELLS * CELL) / 2 + MATRIX_DOWN_SHIFT
 
         cov_rects = {}
         cov_group = VGroup()
@@ -133,12 +153,12 @@ class CovarianceFill(Scene):
                 cov_group.add(rect)
 
         for i in range(N_GENES):
-            lbl_top = Text(gene_labels[i], font_size=20).move_to(pos(-1, i, cov_origin))
-            lbl_left = Text(gene_labels[i], font_size=20).move_to(pos(i, -1, cov_origin))
+            lbl_top = Text(gene_labels[i], font_size=22).move_to(pos(-1, i, cov_origin))
+            lbl_left = Text(gene_labels[i], font_size=22).move_to(pos(i, -1, cov_origin))
             cov_group.add(lbl_top, lbl_left)
 
-        cov_title = Text("covariance  (genes x genes)", font_size=22)
-        cov_title.move_to(pos(-1.65, (N_GENES - 1) / 2, cov_origin))
+        cov_title = Text("covariance  (genes x genes)", font_size=24)
+        cov_title.move_to(pos(-1.5, (N_GENES - 1) / 2, cov_origin))
         cov_group.add(cov_title)
 
         self.play(FadeIn(cov_group))
@@ -146,8 +166,8 @@ class CovarianceFill(Scene):
 
         # fixed anchor in the empty gap between the two matrices, vertically
         # centered on both grids
-        status_pos = RIGHT * 0.79 + UP * 0.31
-        status = Text("", font_size=22)
+        status_pos = RIGHT * 0.79 + UP * 0.31 + MATRIX_DOWN_SHIFT
+        status = Text("", font_size=24)
         status.move_to(status_pos)
         self.play(FadeIn(status))
 
@@ -161,14 +181,18 @@ class CovarianceFill(Scene):
                 val = cov_matrix[i, j]
 
                 new_status = Text(
-                    f"Cov({gene_labels[i]}, {gene_labels[j]})", font_size=22
+                    f"Cov({gene_labels[i]}, {gene_labels[j]})", font_size=24
                 )
                 new_status.move_to(status_pos)
 
-                box_i = SurroundingRectangle(col_groups[i], color=YELLOW, buff=0.05)
+                box_i = SurroundingRectangle(
+                    col_groups[i], color=PURPLE, buff=0.05, stroke_width=6
+                )
                 highlights = [Create(box_i)]
                 if j != i:
-                    box_j = SurroundingRectangle(col_groups[j], color=ORANGE, buff=0.05)
+                    box_j = SurroundingRectangle(
+                        col_groups[j], color=PINK, buff=0.05, stroke_width=6
+                    )
                     highlights.append(Create(box_j))
 
                 self.play(
@@ -177,20 +201,20 @@ class CovarianceFill(Scene):
                     run_time=0.5,
                 )
 
-                color = cov_color(val, vmax_abs)
+                color, text_color = cov_color(val, vmax_abs)
                 fill_anims = [cov_rects[(i, j)].animate.set_fill(color, opacity=1)]
                 if j != i:
                     fill_anims.append(cov_rects[(j, i)].animate.set_fill(color, opacity=1))
 
-                val_text_ij = Text(f"{val:.1f}", font_size=15).move_to(
-                    pos(i, j, cov_origin)
-                )
+                val_text_ij = Text(
+                    f"{val:.1f}", font_size=17, color=text_color
+                ).move_to(pos(i, j, cov_origin))
                 text_anims = [FadeIn(val_text_ij)]
                 cov_texts[(i, j)] = val_text_ij
                 if j != i:
-                    val_text_ji = Text(f"{val:.1f}", font_size=15).move_to(
-                        pos(j, i, cov_origin)
-                    )
+                    val_text_ji = Text(
+                        f"{val:.1f}", font_size=17, color=text_color
+                    ).move_to(pos(j, i, cov_origin))
                     text_anims.append(FadeIn(val_text_ji))
                     cov_texts[(j, i)] = val_text_ji
 
@@ -203,7 +227,4 @@ class CovarianceFill(Scene):
                 self.wait(0.1)
 
         self.play(FadeOut(status))
-        done = Text("Covariance matrix complete", font_size=22)
-        done.move_to(status_pos)
-        self.play(FadeIn(done))
         self.wait(2)

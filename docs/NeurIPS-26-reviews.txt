@@ -1,0 +1,224 @@
+NeurIPS 2026 Reviews for:
+
+Membership Inference on Synthetic Single-Cell Genomic Data
+Download PDF
+Steven Golob, Patrick McKeever, Sikha Pentyala, Martine De Cock, Jonathan Peck 
+
+
+
+========================================================================================
+========================================================================================
+
+Meta Review of Submission8322 by Area Chair V5sK
+
+Meta Review by Area Chair V5sK18 Jul 2026, 10:05 (modified: 23 Jul 2026, 10:35)Senior Area Chairs, Area Chairs, Authors, Reviewers Submitted, Program Chairs, Area Chair V5sKRevisions
+Metareview:
+The paper presents a membership inference attack (MIA) against synthetic single-cell RNA-seq (scRNA-seq) data generation, demonstrating for the first time that the data are vulnerable to MIA.
+
+Key strengths:
+- First demonstration of MIA vulnerability of an important practical application
+- Comprehensive evaluation of different threat models
+- Simple method
+
+Key weaknesses:
+- Concerns of cross-contamination in aux-data settings
+- Other standard MIA evaluation metrics beyond AUC are not reported
+- Claims on attack transferability to different generators may be optimistic
+- Partially unclear description of the attack
+- Evaluation assumes attacker has access to all cells from target individual
+- Evaluation of attack mitigation by adding noise could be stronger
+
+Overall, I like the paper's basic contribution in demonstrating the MIA vulnerability of synthetic scRNA-seq, but agree with the reviewers that the paper is not there yet. I believe the clarifications requested by the reviewers, especially on potential data cross-contamination, additional metrics, clarifying the attack description and ideally adding results assuming the attacker only knows some of the cells of the target individual as well as other suggested ablations would strengthen the paper, possibly making it a valid contender.
+
+The reviewers' request on additional results on attack mitigation is in my opinion not necessary, as doing this properly would be another paper on DP synthetic scRNA-seq generation, and it is not relevant for the vulnerability of current methods that are already being actively used.
+
+
+
+
+
+========================================================================================
+========================================================================================
+
+
+Official Review of Submission8322 by Reviewer kPMB
+
+Official Reviewby Reviewer kPMB14 Jul 2026, 21:02 (modified: 23 Jul 2026, 07:00)Program Chairs, Senior Area Chairs, Area Chairs, Reviewers Submitted, Authors, Reviewer kPMBRevisions
+Summary:
+This paper introduces scMAMA-MIA, a donor-level membership inference attack against synthetic single-cell RNA-sequencing (scRNA-seq) data. The method adapts the MAMA-MIA framework to the generative structure of scDesign2. Its main idea is to fit a scDesign2 Gaussian-copula model to the released synthetic data, transform candidate cells through the fitted marginals into the Gaussian copula space, and use the inverse Mahalanobis distance under the fitted covariance as a membership score. Cell-level scores are then averaged across all cells belonging to a donor to obtain a donor-level score. An auxiliary-data variant additionally compares how well the target fits the synthetic and auxiliary copulas.
+
+The attack is evaluated under four threat models—white-box or black-box, with or without auxiliary data—on OneK1K, AIDA, and HFRA, across several synthetic-data generators and four baseline attacks. It substantially outperforms generic synthetic-data MIA baselines against scDesign2, especially for small donor cohorts, and achieves more modest above-chance AUCs against scDesign3, scVI, and ZINB-WaVE. The paper also studies adding noise to the scDesign2 covariance matrices as an empirical defence and examines the resulting privacy–utility trade-off.
+
+The contribution is mainly empirical rather than a fundamentally new attack paradigm. The paper claims to present the first membership inference attack that performs meaningfully above chance on synthetic scRNA-seq data. It also highlights an important evaluation point: a low attack AUC is meaningful evidence of privacy only when the generated data retains sufficiently high fidelity.
+
+Contribution Type: Use-inspired: The main contribution is in framing or designing approaches to meet the needs of a specific real-world application. (This often involves, e.g., engaging with domain experts.)
+Strengths And Weaknesses:
+Strengths
+The problem is important. Donor membership can leak sensitive information, and privacy risks of synthetic scRNA-seq data are poorly understood. No prior attack worked on this topic.
+
+The attack is simple and interpretable. It reuses the statistics scDesign2 preserves and scores cells by Mahalanobis distance in the fitted Gaussian space. Refitting the copula from synthetic data enables a black-box attack without the original generator.
+
+The evaluation is broad enough i.e. three datasets, several cohort sizes, four threat models, multiple generators, MIA baselines, and fidelity metrics.
+
+The small-cohort results are striking. Even black-box, the attack is very effective with few training donors, which is a real warning for rare-disease cohorts.
+
+Weaknesses
+1. The auxiliary-data results may be contaminated. D_aux is allowed to overlap train/holdout. An overlapping non-member target gets a small auxiliary distance, leaking its label. The +aux experiments should be rerun with D_aux disjoint from the target set; until then those numbers are unreliable.
+
+2. The strongest results use the donor's exact training cells. Averaging thousands of in-sample cells can inflate a weak effect into near-perfect AUC, which likely explains the drop from ~1.0 at 2–20 donors to ~0.57–0.66 at 100–200. This should be controlled with equal cell budgets and a train/attack cell split within each donor.
+
+3. Some attack details are unclear. Algorithm 1 applies the plain CDF then Φ⁻¹, but discrete zero-inflated counts make F(X) non-uniform and can hit 1 (infinite transform), with no correction described. Inverse distances are averaged across cell types of different dimension without normalization, and covariance inversion when genes outnumber cells is unexplained.
+
+4. The evaluation is incomplete. Only AUC is reported; the ~0.55–0.66 values need TPR at low FPR and precision under realistic priors, and the outputs are not "probabilities" (λ = 1/d_s > 0, so the sigmoid always exceeds 0.5). Only five trials are used, too few for the small-cohort and subgroup results. Baselines could not run at larger cohorts, there is no DP-generator comparison, and the method is largely a domain adaptation of MAMA-MIA.
+
+5. The defense is not convincingly evaluated. Noise injection is tested only against the basic attack, not the enhanced or adaptive one, and does not touch the marginals. η ≈ 10⁻¹ as a "privacy crossover" is too strong.
+
+Quality: 2: not good
+Clarity: 3: good
+Significance: 3: good
+Originality: 2: not good
+
+Questions:
+What are the attack results when the auxiliary donors are strictly disjoint from every target donor?
+
+How does AUC change when the attacker receives 1, 10, or 100 cells per donor, and does the attack still work using cells from a member donor that were not used to train the generator?
+
+How are discrete CDF values (U = 0 or 1), singular covariance matrices, and different copula dimensions handled in the implementation?
+
+Does the covariance-noise defense stay effective against the enhanced marginal attack and against an attacker that refits or adapts after seeing the defense?
+
+Can you report TPR at low FPR, precision under a realistic membership prior, and confidence intervals across donor splits?
+
+Limitations:
+Partly. The paper notes that the attack is built for covariance-based generators and is not characterized for other model types. It should also mention a few more: the attacker sees all of a donor's exact cells, results depend on how many cells per donor are available, the auxiliary and target donors may overlap, the scores are not calibrated, and the noise defense is neither differentially private nor tested against an adaptive attacker.
+
+The work is offensive privacy research on sensitive genomic data and does propose a defense. A short responsible-disclosure note would help, but there is no reject-level ethics concern.
+
+Rating: 3: Borderline reject: Technically solid paper where reasons to reject, e.g., limited evaluation, outweigh reasons to accept, e.g., good evaluation. Please use sparingly.
+Confidence: 3: You are fairly confident in your assessment. It is possible that you did not understand some parts of the submission or that you are unfamiliar with some pieces of related work. Math/other details were not carefully checked.
+Ethical Concerns: NO or VERY MINOR ethics concerns only
+Paper Formatting Concerns:
+None
+
+Code Of Conduct Acknowledgement: Yes
+Responsible Reviewing Acknowledgement: Yes
+
+
+
+
+
+
+========================================================================================
+========================================================================================
+
+
+Official Review of Submission8322 by Reviewer oT6m
+Official Reviewby Reviewer oT6m22 Jun 2026, 13:23 (modified: 23 Jul 2026, 07:00)Program Chairs, Senior Area Chairs, Area Chairs, Reviewers Submitted, Authors, Reviewer oT6mRevisions
+Summary:
+The paper introduces scMAMA-MIA, the first MIA attack against synthetic single-cell RNA-seq data. The work targets real-world synthetic data generated by methods such as scDesign2.com, which compromise the donor privacy of the algorithms. The proposed scMAMA-MIA exploits the structure of scDesign2's generative model by leveraging the per-cell-type Gaussian copulas and measures the Mahalanobis distance of the target data point to the generated distribution. The method is evaluated on four different threat models, including blackbox and whitebox, with auxiliary data and without auxiliary data. The evaluation shows that scMAMA-MIA outperforms generic generative model MIA attacks.
+
+Contribution Type: General: Most submissions will fall into this type.
+Strengths And Weaknesses:
+Strengths
+
+Novel setting. This is the first MIA work on synthetic scRNA-seq models. Privacy research on real-world bio data and model privacy is critical in MIA research.
+Systematic threat models. The WB/BB and aux design provide a systematic and comprehensive view of the MIA threats against scRNA-seq generative models.
+Weakness:
+
+In the black box setting, the author claims the adversary needs no access to the training procedure, model parameters, or the generation algorithm. However, according to Table 2 and Table 4, when the generation method is NMF and scDiffusion, the AUC is near 0.5, indicating the attack fails because of the low fidelity. However, as reported in the original paper scDiffusion [25], "The mean MMD and LISI of scDiffusion are 0.3217 and 0.4488", which is an unreasonable lower score than the reported "MMD 45.69" in Table 2.
+
+It is unclear why scDesign2 is selected as a part of the scMAMA-MIA attack; more theoretical and empirical justification may be needed here. For instance, adding some ablation studies on the algorithm selection.
+
+Reporting only the average case MIA might not be enough for MIA. According to [1], the reported AUC may swing sharply across datasets, cohort sizes, and subgroups. The paper cannot separate a genuinely strong attack from a dataset that simply leaks more. This is also reflected in Table 4, where different types of samples has different MIA leakage. Therefore, the author should additionally report TPR at low FPR.
+
+[1] Carlini, Nicholas, et al. "Membership inference attacks from first principles." 2022 IEEE symposium on security and privacy (SP). IEEE, 2022.
+
+More justification of auxiliary data selection is needed. Section 4 states that D_aux "need not be disjoint from train or holdout." This might lead to test-set contamination that inflates +aux AUC. Further justification is needed here.
+
+The best attack AUC is when the number of donors is 2, which is very low; by simply adding the number of donors, the attack performance drops sharply. Also In Table 4 BB-aux, and WB-aux Class B is very low (even lower than 0.5), which indicates the wrong direction of the MIA scores.
+
+Quality: 3: good
+Clarity: 2: not good
+Significance: 2: not good
+Originality: 3: good
+Questions:
+Please justify the MMD of the scDiffusion model.
+Adding an ablation study on which algorithm is selected for algorithm 3, such as scDesign2 or scDesign3.
+Adding experiment of TPR at low FPR.
+Limitations:
+yes
+
+Rating: 3: Borderline reject: Technically solid paper where reasons to reject, e.g., limited evaluation, outweigh reasons to accept, e.g., good evaluation. Please use sparingly.
+Confidence: 5: You are absolutely certain about your assessment. You are very familiar with the related work and checked the math/other details carefully.
+Ethical Concerns: NO or VERY MINOR ethics concerns only
+Paper Formatting Concerns:
+NA
+
+Code Of Conduct Acknowledgement: Yes
+Responsible Reviewing Acknowledgement: Yes
+
+
+
+
+
+
+========================================================================================
+========================================================================================
+
+
+Official Review of Submission8322 by Reviewer JvKY
+Official Reviewby Reviewer JvKY02 Jun 2026, 00:33 (modified: 23 Jul 2026, 07:00)Program Chairs, Senior Area Chairs, Area Chairs, Reviewers Submitted, Authors, Reviewer JvKYRevisions
+Summary:
+This paper studies privacy risks in synthetic single-cell RNA-seq (scRNA-seq) data and proposes scMAMA-MIA, a donor-level membership inference attack tailored to this setting. The attack exploits statistical structure preserved by modern scRNA-seq data generators and achieves substantially better-than-chance inference across multiple datasets and generation methods.
+
+Contribution Type: General: Most submissions will fall into this type.
+Strengths And Weaknesses:
+Strengths：
+
+The paper addresses an timely problem in privacy-preserving biomedical data sharing. Its main strength is that the proposed attack is well tailored to the structure of single-cell data and is supported by a broad empirical evaluation across datasets, threat models, donor scales, and generation methods.
+
+Weaknesses
+
+W1. The defense evaluation is currently narrow.
+
+The paper mainly evaluates a heuristic noise-perturbation defense for the copula covariance, but does not compare against stronger or more principled privacy-preserving baselines where applicable.
+
+W2. The attack is not sufficiently disentangled empirically.
+
+The paper does not give a systematic ablation study for the core design choices of the proposed attack. While the paper does compare some variants (e.g., the enhanced variant in Table 2), it remains unclear which ingredients are most responsible for the gains. This is especially relevant because: (a) the paper presents scMAMA-MIA as an adaptation of MAMA-MIA, but does not compare against the original MAMA-MIA, or explain clearly why such a comparison is not feasible; (b) the paper provides limited attacks methods under the white-box setting.
+
+W3. Some figures are difficult to read and hide information.
+
+The text size in several figures is too small. In particular, Figure 3 appears to use a narrow y-axis range, which clips low-AUC regions and may hide shadow area and portions of some curves. This makes the visual comparison less clear than it should be.
+
+W4. The evidence for cross-model generalization is still limited.
+
+The current empirical evidence does not seem strong enough to fully support the broader claim that the observed vulnerability reflects a general property of synthetic scRNA-seq data across model families. At present, the cross-model evidence feels suggestive rather than conclusive.
+
+Quality: 2: not good
+Clarity: 2: not good
+Significance: 3: good
+Originality: 3: good
+Questions:
+Q1. Can the authors include stronger or more principled defense baselines where applicable?
+
+Q2. Can the authors provide a more systematic ablation study for the proposed attack?
+
+Q3. Since the attack strength seems to rely in part on donor-level aggregation and many cells per donor, how does the method behave when each donor has only a small number of cells, or when only a subset of a donor’s cells appears in the training data?
+
+Q4. The discussion of the privacy-utility tradeoff in Table 3 emphasizes a relatively well-behaved trend, but Appendix Table 7 seems hard to reconcile with that narrative. For example, for scDesign2 at 490 donors, the fidelity metrics change from LISI = 0.85 ± 0.00 and MMD × 10^3 = 0.64 ± 0.42 in the no-DP setting to LISI = 0.00 ± 0.00 and MMD × 10^3 = 312.56 ± 4.61 already at η = 10^-4. Could the authors explain this discrepancy? Is it due to a different operating regime, the scaling in Eq. (3), or possibly a reporting/implementation issue?
+
+Limitations:
+The paper discusses some key limitations, but it would be stronger if it also addressed the dependence on donor-level aggregation, the sensitivity to auxiliary-data construction, and the limited evidence for broad cross-model generalization. The limitations of the proposed defense should also be stated more clearly given the appendix results showing severe degradation in some regimes.
+
+Rating: 3: Borderline reject: Technically solid paper where reasons to reject, e.g., limited evaluation, outweigh reasons to accept, e.g., good evaluation. Please use sparingly.
+Confidence: 2: You are willing to defend your assessment, but it is quite likely that you did not understand the central parts of the submission or that you are unfamiliar with some pieces of related work. Math/other details were not carefully checked.
+Ethical Concerns: NO or VERY MINOR ethics concerns only
+Paper Formatting Concerns:
+None.
+
+Code Of Conduct Acknowledgement: Yes
+Responsible Reviewing Acknowledgement: Yes
+
+
+
+
