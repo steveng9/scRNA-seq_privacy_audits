@@ -267,3 +267,6 @@ presentation/manim/exports/
 
 # Unpacked overleaf project (committed as the zip in docs/ instead)
 /docs/_NeurIPS_26__scMAMA_MIA/
+
+# bulk RNA-seq MVN/MahalaMIA smoke-test output (matches source repo's own convention)
+experiments/bulk_rna_seq/artifacts/

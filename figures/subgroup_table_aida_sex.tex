@@ -1,15 +1,15 @@
 \begin{table}[ht]
 \centering
 \small
-\caption{scMAMA-MIA disparate-impact breakdown by sex on the \textsc{aida} dataset. Cells report donor-level ROC AUC restricted to the subgroup, averaged over up to 5 trials. Subscript: $\pm$~std over trials. Attack: standard Mahalanobis attack. SDG methods: scDesign2, scDesign3-G, scDesign3-V, scVI, scDiffusion, NMF, ZINBWave. Donor counts (training-set size): 20. Threat models: BB+aux (WB: white-box copula access; BB: black-box; $\pm$aux: with/without auxiliary reference dataset). \texttt{---}: cell below \texttt{--min-trials=1} (or, for AUC, fewer than \texttt{--min-donors-per-class=1} member or non-member donors in the subgroup); $*$: fewer than the full 5 trials available; \texttt{N/A}: white-box not applicable to this SDG. Source: \texttt{mamamia_all_scores.csv}.}
+\caption{scMAMA-MIA disparate-impact breakdown by sex on the \textsc{aida} dataset. Cells report donor-level ROC AUC restricted to the subgroup, averaged over up to 5 trials. Subscript: $\pm$~std over trials. Attack: standard Mahalanobis attack. SDG methods: scDesign2, scDesign3-G, scDesign3-V, scVI, scDiffusion, NMF, ZINBWave. Donor counts (training-set size): 20. Threat models: BB+aux (WB: white-box copula access; BB: black-box; $\pm$aux: with/without auxiliary reference dataset). \texttt{---}: cell below \texttt{--min-trials=1} (or, for AUC, fewer than \texttt{--min-donors-per-class=1} member or non-member donors in the subgroup); $*$: fewer than the full 5 trials available; \texttt{N/A}: white-box not applicable to this SDG. Subgroup labels show cell-level prevalence in the full dataset in parentheses.}
 \label{tab:subgroup_aida_sex_sd2-sd3g-sd3v-scvi-scdiff-nmf-zinbwave_20d_100_auc}
 \begin{tabular}{lccccccc}
 \toprule
 Subgroup & \multicolumn{1}{c|}{scDesign2} & \multicolumn{1}{c|}{scDesign3-G} & \multicolumn{1}{c|}{scDesign3-V} & \multicolumn{1}{c|}{scVI} & \multicolumn{1}{c|}{scDiffusion} & \multicolumn{1}{c|}{NMF} & \multicolumn{1}{c}{ZINBWave} \\
  & BB+aux & BB+aux & BB+aux & BB+aux & BB+aux & BB+aux & BB+aux \\
 \midrule
-female & 1.00{\scriptsize$\pm$0.00} & 1.00{\scriptsize$\pm$0.00} & 0.66{\scriptsize$\pm$0.32} & 0.74{\scriptsize$\pm$0.13} & 0.55{\scriptsize$\pm$0.24} & 0.68{\scriptsize$\pm$0.20} & 0.84{\scriptsize$\pm$0.10} \\
-male & 1.00{\scriptsize$\pm$0.00} & 1.00{\scriptsize$\pm$0.00} & 0.63{\scriptsize$\pm$0.29} & 0.59{\scriptsize$\pm$0.12} & 0.48{\scriptsize$\pm$0.14} & 0.54{\scriptsize$\pm$0.12} & 0.68{\scriptsize$\pm$0.07} \\
+female (55.1\%) & 1.00{\scriptsize$\pm$0.00} & 1.00{\scriptsize$\pm$0.00} & 0.66{\scriptsize$\pm$0.32} & 0.74{\scriptsize$\pm$0.13} & 0.55{\scriptsize$\pm$0.24} & 0.68{\scriptsize$\pm$0.20} & 0.84{\scriptsize$\pm$0.10} \\
+male (44.9\%) & 1.00{\scriptsize$\pm$0.00} & 1.00{\scriptsize$\pm$0.00} & 0.63{\scriptsize$\pm$0.29} & 0.59{\scriptsize$\pm$0.12} & 0.48{\scriptsize$\pm$0.14} & 0.54{\scriptsize$\pm$0.12} & 0.68{\scriptsize$\pm$0.07} \\
 \bottomrule
 \end{tabular}
 \end{table}

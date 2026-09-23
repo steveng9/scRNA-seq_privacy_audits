@@ -68,6 +68,30 @@ import math
 
 
 # ---------------------------------------------------------------------------
+# TRUE_CLIP_VALUE
+# ---------------------------------------------------------------------------
+# Neither scdesign2.r nor scdesign2_v2.r/scdesign2_lowrank.r clips
+# z = qnorm(u) directly to a configurable bound. What they actually enforce
+# (the DT branch of fit_marginals) is clamping the quantile u to
+# [epsilon, 1-epsilon] with epsilon=1e-5, which implicitly bounds
+# |z| <= qnorm(1 - 1e-5) = 4.264890793923841.
+#
+# The existing v1/v2 Python pipeline (src/generators/gen_dp_quality_data.py,
+# experiments/dp/v2/generate.py) has been passing clip_value=3.0 to
+# gaussian_noise_scale/frobenius_sensitivity -- a bound TIGHTER than what the
+# R code actually enforces. Since sensitivity (and therefore sigma) scales
+# with clip_value^2, this has under-calibrated sigma by roughly
+# (4.264890793923841 / 3.0)^2 ~= 2.02x in every v1/v2 DP result generated
+# with clip_value=3.0 -- the released (epsilon, delta)-DP guarantee is looser
+# than reported. See notes/DP_clip_value_bug.txt for the full writeup and
+# which result directories are affected.
+#
+# New code should pass TRUE_CLIP_VALUE (or a bound independently verified
+# against whatever fitting script is in use) rather than hardcoding 3.0.
+TRUE_CLIP_VALUE = 4.264890793923841  # scipy.stats.norm.ppf(1 - 1e-5)
+
+
+# ---------------------------------------------------------------------------
 # Primary bound: Frobenius sensitivity for the Gaussian mechanism
 # ---------------------------------------------------------------------------
 

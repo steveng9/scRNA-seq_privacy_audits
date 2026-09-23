@@ -220,5 +220,36 @@ Code Of Conduct Acknowledgement: Yes
 Responsible Reviewing Acknowledgement: Yes
 
 
+========================================================================
+POST-REBUTTAL REVIEWER REPLIES (to our final rebuttal in docs/rebuttal_drafts_7.md)
+========================================================================
 
+--- Reviewer JvKY — reply to our rebuttal (recorded 2026-07-31) ---
+
+"Dear authors, thank you for the detailed and clearly written response, as well
+as for the additional experiments. I have carefully reviewed the rebuttal and
+appreciate the effort made to address my comments. The response has clarified
+several of the issues raised in my original review.
+
+After careful consideration, two concerns from my original review remain. First,
+while I agree that developing a new donor-specific defense is not necessary, I
+would have liked to see evaluations of standard and relatively easy-to-implement
+defenses, such as early stopping and dropout, where applicable. Second, the
+additional cross-model experiments are helpful, but the broader generalization
+claim is still supported by a relatively limited number of datasets.
+
+Nevertheless, these remaining concerns do not detract from the paper's
+interesting contributions to attack methodology and problem formulation. I will
+take the subsequent discussion with the AC and the other reviewers into account
+before finalizing my evaluation and score."
+
+Two remaining concerns:
+  1. (maps to original W1/Q1) Standard, easy-to-implement defenses — early
+     stopping, dropout — "where applicable". NOTE: these are NN-regularization
+     defenses; they do NOT apply to scDesign2 (copula fit, no epochs/dropout).
+     Applicable only to the neural generators in our suite (scVI, scDiffusion).
+  2. (maps to original W4) Cross-model generalization still rests on a limited
+     number of DATASETS (we have 3: OneK1K, AIDA, HFRA).
+Reviewer signals these do not block acceptance; score not yet finalized (awaits
+AC/reviewer discussion).
 

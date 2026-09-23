@@ -1,0 +1,197 @@
+DP_proof_bulk_mvn.txt — formal donor-level DP for the bulk RNA-seq MVN generator
+==================================================================================
+Status: PROOF ONLY. No code has been written for this. Per your instruction,
+this is a check-in point -- implementation starts after you've reviewed this
+and we've resolved the open questions at the bottom.
+
+Scope: experiments/bulk_rna_seq/mia/mia/generators/mvn.py (copied from
+MIA_on_bulkRNAseq_CAMDA2026, see experiments/bulk_rna_seq/mia/README.md for
+provenance). MVNGenerator.fit() computes, per class c (tumor subtype):
+  mu_c  = mean(X_c, axis=0)          -- G-dim mean vector, G=978 landmark genes
+  Sig_c = nearest_psd(cov(X_c))      -- G x G covariance matrix
+and .sample() draws from N(mu_c, (1+noise_level)*Sig_c). noise_level=0.7 is
+an ad hoc fidelity/privacy dial (not sensitivity-calibrated) -- there is
+currently NO formal DP guarantee here, confirmed by exploring the source
+repo (mia/generators/pgm.py has real zCDP-based DP; mvn.py does not).
+
+---------------------------------------------------------------------------
+0. Why this is structurally EASIER than scRNA, and one thing that's HARDER
+---------------------------------------------------------------------------
+
+Easier: in bulk RNA-seq, each donor (patient) contributes exactly ONE sample
+to X_c (confirmed: mia/targets.py's D.training_subset returns one row per
+member; mia/datasets.py's expression TSV is one column per sample ID). This
+means k_max = 1 always -- the k_max/(N-k_max) blowup that dominates the
+scRNA sensitivity bound (a single donor can contribute hundreds of cells
+there) collapses to the classical single-sample-swap bound here. This is the
+headline reason bulk might reach a genuinely small, defensible epsilon where
+scRNA structurally can't (see src/sdg/dp/sensitivity.py's module docstring
+for the scRNA floor argument).
+
+  OPEN QUESTION (verify before relying on this): confirm no patient
+  contributes more than one sample to a single class's training slice for
+  the datasets actually used (BRCA, COMBINED). TCGA is known to sometimes
+  include a tumor AND a matched-normal sample from the same patient -- if
+  both ever land in the same class/split, k_max=1 is violated. Check via
+  TCGA barcode patient-ID prefix matching on whatever sample ID scheme
+  mia/datasets.py uses, before finalizing.
+
+Harder: scDesign2's z = Phi^-1(F_hat(x)) has an ANALYTIC clip bound baked
+into the existing R code (the epsilon=1e-5 quantile clamp -- see
+notes/DP_clip_value_bug.txt), so clip_value was a fact about the code, not a
+free choice. MVN operates directly on VST-normalized expression values,
+which have no such built-in bound and are not zero-mean per gene (unlike the
+copula's z, VST values for a highly-expressed gene sit at a very different
+level than a lowly-expressed one). A clip_value here is a genuine new design
+choice -- see open question 3 below.
+
+---------------------------------------------------------------------------
+1. Mean vector mu_c
+---------------------------------------------------------------------------
+
+Given per-gene clip x_i,g in [-c, c] (entrywise, same convention as
+scDesign2's clip_value -- see open question 3 for what c should be for this
+domain), removing/swapping one donor's sample changes
+  mu_c = (1/n_c) * sum_i x_i
+by at most (x_i' - x_i)/n_c per entry, i.e. each entry of Delta(mu_c) is
+bounded by 2c/n_c. L2 sensitivity:
+  Delta_2(mu_c) <= 2c * sqrt(G) / n_c
+(G=978). Gaussian mechanism: sigma_mu = Delta_2(mu_c) * sqrt(2 ln(1.25/delta)) / epsilon_mu,
+added independently to each of the G entries of mu_c (this is the ordinary,
+already-standard DP mean-release recipe -- nothing new here, included for
+completeness and to fix the constant).
+
+  ALTERNATIVE (tighter, worth considering): clip each sample's WHOLE vector
+  to L2 norm <= C (rather than entrywise to [-c,c]) -- the standard
+  DP-SGD-style gradient-clipping convention. This gives Delta_2(mu_c) <= 2C/n_c
+  directly, dropping the sqrt(G) factor. Recommend this over entrywise
+  clipping for the mean (unlike the covariance step below, where entrywise
+  clipping is what licenses the per-entry Frobenius argument) -- open
+  question 3 asks which to use.
+
+---------------------------------------------------------------------------
+2. Covariance Sig_c -- carrying the "v2 lesson" over correctly
+---------------------------------------------------------------------------
+
+This session's scDesign2 work established (src/sdg/dp/sensitivity.py,
+dp_variant="v2") that releasing the UNCENTERED second moment
+M_hat = X^T X / (n-1) instead of the centered covariance
+Sig_hat = (X-mu)^T(X-mu) / (n-1) saves a factor of 4 in sensitivity, because
+entries of X (clipped to [-c,c]) don't pick up the extra +/-2c swing that
+column-centering introduces.
+
+IMPORTANT CORRECTION vs. naively copying that argument here: for scDesign2,
+the write-up also said "M_hat ~= Sig_hat because z is already ~N(0,1)" --
+that "mu ~= 0" statement was ONLY used to argue M_hat is a good ESTIMATE of
+the true covariance, never to argue the DP mechanism is valid. The DP
+sensitivity bound on M_hat holds regardless of whether the data is
+mean-zero. This matters here because bulk gene expression is emphatically
+NOT mean-zero per gene -- so releasing M_hat and calling it "the covariance"
+would be a bad estimate (dominated by mu_c mu_c^T, not the actual spread).
+
+The correct generalization: release BOTH mu_c (section 1) and the UNCENTERED
+M_hat_c = X^T X / (n_c - 1) (this section), each independently
+sensitivity-bounded and noised, and recover a debiased covariance as
+POST-PROCESSING (free, since it's a deterministic function of two already-
+released DP outputs):
+  Sig_hat_c = M_hat_c(noised) - mu_hat_c(noised) @ mu_hat_c(noised)^T
+This is, as far as I can tell, a genuine (if small) extension of the v2
+argument -- it lets bulk MVN keep the factor-of-4 sensitivity saving even
+though (unlike scDesign2's z) the underlying data isn't zero-mean.
+
+Sensitivity of M_hat_c: identical structure to sensitivity.py's existing
+v2 bound, with k_max=1 (section 0):
+  Delta_F(M_hat_c) <= c^2 / (n_c - 1)        [entrywise: c^2, G^2 entries,
+                                                Frobenius = G * per_entry]
+                     = G * c^2 / (n_c - 1)
+Gaussian mechanism noise: sigma_Sig = Delta_F(M_hat_c) * sqrt(2 ln(1.25/delta)) / epsilon_Sig,
+added symmetrically to the G x G matrix, then PSD-projected (dp_copula.py's
+_project_to_psd -- free post-processing, reusable as-is).
+
+---------------------------------------------------------------------------
+3. Low-rank tie-in -- more load-bearing here than for scRNA
+---------------------------------------------------------------------------
+
+For scRNA, low-rank release (src/sdg/dp/lowrank.py, this session's Track A)
+is motivated PURELY by privacy (smaller sensitivity for the same epsilon).
+For bulk MVN it's close to a statistical necessity independent of privacy:
+G=978 genes but n_c is typically only ~100-300 samples per class (BRCA has
+1089 samples total across 5 classes) -- the RAW, non-private sample
+covariance is already rank-deficient (rank <= n_c - 1 < G). This is exactly
+why mvn.py already has a nearest_psd() hack (mia/generators/mvn.py:26-35) --
+it's patching a pre-existing numerical singularity, not something DP
+introduces.
+
+Recommendation: carry the EXACT SAME construction from Track A
+(src/sdg/dp/lowrank.py) over unchanged in spirit -- fixed public orthonormal
+projection P in R^{G x r}, project each sample x_i to y_i = P^T x_i, re-clip,
+compute the r x r uncentered moment, noise via the existing
+gaussian_noise_scale(..., n_genes=r), reconstruct
+Sig_full = P @ Sig_r @ P^T + residual_floor * I_G. The same rejected
+alternatives (noise-then-reorthonormalize eigenvectors; project the
+already-fitted aggregate without re-clipping) fail for the identical reasons
+documented in src/sdg/dp/lowrank.py's module docstring -- nothing bulk-
+specific changes that analysis. The mean vector doesn't need this treatment
+(it's already only G-dimensional, not G^2).
+
+---------------------------------------------------------------------------
+4. Composition across (mean + covariance) x classes
+---------------------------------------------------------------------------
+
+Recommend zCDP composition, reusing the EXACT formalism already used
+elsewhere in the bulk repo (mia/generators/pgm.py's PrivatePGMFitter,
+mia/attacks/mamamia.py's _family_sigma) for citation/notation consistency
+across the two papers:
+  - Gaussian mechanism with L2 sensitivity Delta, noise sigma is
+    Delta^2 / (2 sigma^2) - zCDP.
+  - Composition: rho_1-zCDP + rho_2-zCDP = (rho_1+rho_2)-zCDP (plain
+    addition -- this is the whole appeal of zCDP for a many-mechanism
+    composition like this one: 5 classes x 2 released objects = 10
+    mechanisms for BRCA).
+  - Convert a target (epsilon, delta) budget to rho via mia/attacks/mamamia.py's
+    own pattern: `from snsynth.utils import cdp_rho; rho = cdp_rho(epsilon, delta)`
+    (falls back to `rho = (-sqrt(L) + sqrt(L+epsilon))^2`, L=ln(1/delta), if
+    snsynth isn't available -- this is the algebraic inverse of the standard
+    Bun-Steinke zCDP-to-(epsilon,delta) conversion).
+  - Allocate rho across the 10 mechanisms (e.g. evenly, or weighted by
+    "importance" the way mamamia.py's dp_budget_weights does) and calibrate
+    each mechanism's sigma from its share via sigma = Delta / sqrt(2 * rho_i)
+    (same formula mamamia.py's _family_sigma uses, generalized from "count
+    query, Delta=1" to our Delta_2(mu_c)/Delta_F(M_hat_c)).
+
+---------------------------------------------------------------------------
+5. Open questions for you
+---------------------------------------------------------------------------
+
+1. k_max=1 verification (section 0) -- confirm no patient contributes
+   samples to both halves of a tumor/matched-normal pair that could land in
+   the same class+split. Quick barcode check, not done yet.
+
+2. Which datasets/classes to target first -- BRCA only (5 classes, simpler)
+   or also COMBINED (has_reference=True, i.e. an auxiliary non-member
+   reference set exists -- directly usable as D_aux, matching the WB+aux/
+   BB+aux threat-model split already used throughout the scRNA paper)?
+
+3. Clip_value for bulk (section 1/2) -- unlike scRNA, there's no code-given
+   bound. Options: (a) entrywise clip derived from a public reference VST
+   distribution (needs a source), (b) L2-norm-per-sample clip (the DP-SGD
+   convention, recommended for the mean per section 1), (c) something
+   data-adaptive but computed non-privately from a held-out PUBLIC dataset
+   disjoint from the private training set. Need your call on which is most
+   defensible for this data domain -- this is the one piece of the proof
+   that doesn't have a "correct by construction" answer yet.
+
+4. Epsilon/rho budget allocation across the 10 (5 class x {mean, cov})
+   mechanisms per dataset (section 4) -- even split, or weighted (e.g. give
+   covariance more budget than mean, since it's the higher-dimensional,
+   MahalaMIA-relevant object)?
+
+5. Rank r for the low-rank tie-in (section 3) -- given n_c ~ 100-300 and
+   G=978, what's a sensible sweep? (Track A's scRNA spot check uses
+   {5,10,20,50}; bulk's much larger G-to-N ratio may want to go higher.)
+
+Once these are resolved, implementation should be a small, mostly-reused set
+of changes: a `dp_mvn.py` alongside `mvn.py` (mirroring the
+apply_gaussian_dp / apply_gaussian_dp_lowrank split already established in
+src/sdg/dp/), reusing dp_copula.py's PSD-projection post-processing and
+lowrank.py's projection machinery near-verbatim.

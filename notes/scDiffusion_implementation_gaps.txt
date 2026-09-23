@@ -94,3 +94,50 @@ re-implementation (scDiffusion-v2)
   What changed: Added _scdf_v2_jobs() writing to scdiffusion_v2/. Added scdfv2 generator flag. Legacy
                                                                                                      
     scdiff flag still works for old data.
+
+
+
+
+
+
+
+
+
+                                                                                                      
+  The paper's actual evaluation pipeline:                                                                      
+  1. Train VAE (Stage 1) ✓                                                                                     
+  2. Train diffusion backbone (Stage 2) ✓                                                                      
+  3. Train classifier (Stage 3) ✓ — train.sh includes this                                                     
+  4. Generate: cell_sample.py — unconditional, no cell type conditioning — saves raw latent embeddings         
+  5. Assign cell types: CellTypist (a separate trained classifier applied post-hoc to the generated data)      
+                                                                                                               
+  So the paper's main UMAP and statistical eval results used unconditional generation + CellTypist, not        
+  classifier-guided sampling. The classifier_sample.py is presented as an additional capability ("Conditional  
+  generation") for when you want to generate a specific cell type on demand.                                   
+                                                                                                               
+  Where that leaves our two versions:                                                                          
+  
+  ┌─────────┬────────────────────────────┬───────────────────┬────────────────────────────────────────────┐    
+  │         │          Approach          │    Cell type      │              Paper faithful?               │ 
+  │         │                            │    assignment     │                                            │    
+  ├─────────┼────────────────────────────┼───────────────────┼────────────────────────────────────────────┤ 
+  │ v1      │ Unconditional (Stage 1+2)  │ 1-NN in latent    │ Partially — right method, wrong cell-type  │ 
+  │         │                            │ space             │ assigner                                   │    
+  ├─────────┼────────────────────────────┼───────────────────┼────────────────────────────────────────────┤ 
+  │ v2      │ Classifier-guided (Stage   │ Built-in via      │ Valid scDiffusion feature, but NOT what    │    
+  │ (ours)  │ 1+2+3)                     │ guidance          │ the paper evaluated                        │    
+  └─────────┴────────────────────────────┴───────────────────┴────────────────────────────────────────────┘
+                                                                                                               
+  The real v1 bug was the 1-NN — not the missing classifier. The paper used CellTypist, not 1-NN. The          
+  classifier is for a different use case (on-demand generation of specific cell types).
+                                                                                                               
+  What should we do?                                                                                           
+  
+  Option A: Go back to unconditional + use CellTypist (matches paper exactly)                                  
+  Option B: Keep v2 classifier-guided (cleaner, inherently labeled, trains longer but the train.sh does include
+   it)                                                                                                         
+                                                            
+  For our MIA paper specifically: Option B is defensible because we're testing scDiffusion in its "full" form  
+  (all 3 stages, as train.sh documents), and it produces better structured synthetic data. A reviewer could
+  argue either way. Option A is safer if we want to claim "we evaluated scDiffusion as described in the paper's
+   main results."             

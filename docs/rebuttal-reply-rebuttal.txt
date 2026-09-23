@@ -1,0 +1,88 @@
+NeurIPS'26 Sub 8322 — Reply to JvKY's post-rebuttal reply (DRAFT, unfinished)
+==============================================================================
+Scope: this drafts ONLY the response to the one remaining defense criticism
+(early stopping / dropout). Opening/closing remarks (thanks, etc.) to be added
+later. The second remaining concern (limited number of datasets) is handled
+separately.
+
+------------------------------------------------------------------------------
+DEFENSE BASELINES: EARLY STOPPING / DROPOUT
+------------------------------------------------------------------------------
+
+We apologize for the misunderstanding: from the original review's phrasing
+("stronger or more principled privacy-preserving baselines where applicable") we
+did not realize that early stopping and dropout were the specific baselines
+intended, and we are grateful for the clarification. We are aware of this line of
+work — that membership leakage is driven largely by overfitting, and that
+early stopping, dropout, and related regularization are the standard,
+low-cost mitigations (Shokri et al., IEEE S&P 2017; Nasr et al., CCS 2018;
+Salem et al. "ML-Leaks", NDSS 2019, which evaluates dropout and model stacking
+directly as membership-inference defenses).
+
+Applicability. Early stopping and dropout are defenses of an iterative,
+gradient-trained model: they require training epochs, a validation signal, and/or
+dropout layers. They therefore do not apply to the statistical generators that
+are the focus of this work — scDesign2 (our primary target), scDesign3 (both the
+Gaussian- and vine-copula variants we study), ZINB-WaVE, and NMF. These fit
+closed-form / EM marginal and copula parameters; there are no epochs to stop, no
+minibatch SGD, and no dropout layers, so there is no such knob to set. In short,
+the defenses named apply to exactly two of our six generators, and not to the
+primary target.
+
+A brief clarification of our previous reply, to be sure it was not lost: the
+covariance-noise defense is the one from the original submission; the
+marginal-noise defense we reported alongside it in our rebuttal is new for this
+review and is a substantially stronger line of defense than the covariance noise
+we had previously studied. So we have in fact taken more extreme measures to
+defend scDesign2 against our attack since the original submission, and the
+covariance-vs-marginal comparison is a real extension, not a restatement.
+
+The two neural generators (scVI, scDiffusion). Here early stopping and dropout do
+apply, and we already use them:
+  - scVI is trained with dropout (rate 0.1) and early stopping (validation-based,
+    patience 20) enabled — i.e. the exact regularizers suggested are already
+    active in every scVI result we report, and the attack still transfers well
+    (enhanced BB+aux around 0.8-0.85 at small cohorts, e.g. 0.81 on OneK1K-10d,
+    0.85 on AIDA-10d).
+  - scDiffusion is trained with the original implementation's default
+    hyperparameters and schedule (including dropout in its guidance classifier).
+    Its synthetic fidelity is already low (Section/Table [X]; MMD far above the
+    copula and VAE methods), so its attack AUC already sits near chance not
+    because it resists membership inference but because it is not modeling the
+    data closely enough to memorize it — the same "resistance tracks low fidelity,
+    not privacy protection" principle we emphasize throughout. Further
+    regularization here would only lower fidelity further, moving down the same
+    privacy-utility frontier rather than providing privacy for free.
+
+For both neural models we use the original implementations' default
+(hyper)parameters; a broader hyperparameter search to tune these NN-specific
+defenses further is out of scope for this work, whose contribution and primary
+targets are the copula-based generators to which these defenses do not apply.
+
+
+==============================================================================
+SHORT VERSION (preferred — concise + graceful)
+==============================================================================
+
+We apologize for the misunderstanding — we did not realize the original review's
+"more principled baselines where applicable" referred to early stopping and
+dropout — and we are aware of this line of work, in which overfitting drives
+membership leakage and these regularizers are the standard mitigations (Shokri
+et al. 2017; Nasr et al. 2018; Salem et al., "ML-Leaks", 2019). Both are defenses
+of a gradient-trained model, so they do not apply to our primary target or to
+four of our six generators (scDesign2, scDesign3 [both variants], ZINB-WaVE, NMF),
+which fit closed-form marginal/copula parameters with no epochs or dropout layers.
+
+They apply only to the two neural generators, where we already use them: scVI is
+trained with dropout (0.1) and early stopping (patience 20) enabled, and the
+attack still succeeds (enhanced BB+aux ~0.81 on OneK1K-10d, ~0.85 on AIDA-10d);
+scDiffusion uses its original default hyperparameters (including dropout) and is
+already low-fidelity, so its near-chance AUC reflects that it is not modeling the
+data closely enough to memorize it, not a privacy mechanism — further
+regularization would only reduce fidelity along the same privacy-utility frontier.
+A wider search to tune these NN-specific defenses is out of scope.
+
+(One brief clarification of our earlier reply: the marginal-noise defense we added
+is new for this review and a substantially stronger line of defense than the
+covariance noise from the original submission — so we have taken more extreme
+measures to defend scDesign2 since the original reviews.)

@@ -42,8 +42,14 @@ DATA_ROOT     = "/home/golobs/data/scMAMAMIA"
 R_SCRIPT_V1   = os.path.join(REPO_ROOT, "src", "sdg", "scdesign2", "scdesign2.r")
 R_SCRIPT_V2   = os.path.join(REPO_ROOT, "src", "sdg", "scdesign2", "scdesign2_v2.r")
 
+from sdg.dp.sensitivity import TRUE_CLIP_VALUE
+
 DELTA       = 1e-5
-CLIP_VALUE  = 3.0
+# Was hardcoded to 3.0 -- see notes/DP_clip_value_bug.txt: the R fitting
+# code's actual bound (from its epsilon=1e-5 quantile clamp) is ~4.265, not
+# 3.0, so 3.0 under-calibrated sigma by ~2x. Regenerating with the corrected
+# value.
+CLIP_VALUE  = TRUE_CLIP_VALUE
 DONOR_COL     = "individual"
 CELL_TYPE_COL = "cell_type"
 

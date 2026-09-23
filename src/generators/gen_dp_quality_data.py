@@ -47,7 +47,6 @@ N_DONORS_LIST  = [10, 20, 50]
 TRIALS         = [1, 2, 3, 4, 5, 6]
 EPSILONS       = [1, 10, 100, 1000, 10_000]
 DELTA          = 1e-5
-CLIP_VALUE     = 3.0
 CELL_TYPE_COL  = "cell_type"
 DONOR_COL      = "individual"
 
@@ -56,6 +55,13 @@ DONOR_COL      = "individual"
 # ---------------------------------------------------------------------------
 from sdg.scdesign2.copula import parse_copula
 from sdg.dp.dp_copula import apply_gaussian_dp
+from sdg.dp.sensitivity import TRUE_CLIP_VALUE
+
+# NOTE: this script targets /home/golobs/data/ok_dp, which was deleted in the
+# 2026-04-19 data-layout reorg (see CLAUDE.md) -- it is no longer a live
+# pipeline entry point. CLIP_VALUE fixed here anyway for correctness in case
+# it's ever resurrected; see notes/DP_clip_value_bug.txt.
+CLIP_VALUE     = TRUE_CLIP_VALUE
 
 
 # ---------------------------------------------------------------------------

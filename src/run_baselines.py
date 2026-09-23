@@ -32,18 +32,20 @@ def main():
     create_datasets_for_baseline_experiment(cfg)
     baselines_cfg = create_config_for_baselines_code(cfg)
 
-    mia_model = DOMIASSingleCellBaselineModels(baselines_cfg, cfg.synth_path, cfg.targets_path, cfg.labels_path, "", cfg.aux_path)
+    try:
+        mia_model = DOMIASSingleCellBaselineModels(baselines_cfg, cfg.synth_path, cfg.targets_path, cfg.labels_path, "", cfg.aux_path)
 
-    predictions, y_test, runtimes = mia_model.run_attack()
-    mia_model.results_save_dir = cfg.results_path
-    mia_model.save_predictions(predictions)
+        predictions, y_test, runtimes = mia_model.run_attack()
+        mia_model.results_save_dir = cfg.results_path
+        mia_model.save_predictions(predictions)
 
-    if y_test is not None:
-        grp_preds, grp_y = mia_model.perform_donor_level_avg(predictions, y_test)
-        mia_model.evaluate_attack(grp_preds, runtimes, grp_y, "baselines_evaluation_results.csv")
+        if y_test is not None:
+            grp_preds, grp_y = mia_model.perform_donor_level_avg(predictions, y_test)
+            mia_model.evaluate_attack(grp_preds, runtimes, grp_y, "baselines_evaluation_results.csv")
 
-    register_baseline_experiment(cfg)
-    delete_h5ad_datasets_for_baselines(cfg)
+        register_baseline_experiment(cfg)
+    finally:
+        delete_h5ad_datasets_for_baselines(cfg)
 
 
 

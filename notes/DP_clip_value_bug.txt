@@ -1,0 +1,90 @@
+DP_clip_value_bug.txt — clip_value mismatch in the v1/v2 scDesign2 DP mechanism
+================================================================================
+Found: 2026 (low-rank DP session, while deriving the sensitivity proof for a
+new mechanism from scratch and re-checking the existing v1/v2 proof's
+premises against what the code actually does).
+
+THE BUG
+-------
+sdg.dp.sensitivity's proof assumes the per-cell normal-quantile vector
+z = Phi^-1(F_hat(x)) is clipped entrywise to [-clip_value, clip_value] before
+the covariance/second-moment matrix is computed. The Python-side DP pipeline
+(src/generators/gen_dp_quality_data.py, experiments/dp/v2/generate.py) has
+been passing clip_value = 3.0 into gaussian_noise_scale/frobenius_sensitivity.
+
+But neither src/sdg/scdesign2/scdesign2.r nor scdesign2_v2.r actually clips z
+directly. What they enforce (scdesign2_v2.r:150-158, in the DT branch of
+fit_marginals) is:
+
+    idx_adjust <- which(1-r < epsilon)
+    r[idx_adjust] <- r[idx_adjust] - epsilon
+    idx_adjust <- which(r < epsilon)
+    r[idx_adjust] <- r[idx_adjust] + epsilon
+
+with epsilon = 1e-5 (fit_marginals' default) -- i.e. it clamps the QUANTILE u
+to [1e-5, 1 - 1e-5], not z directly. This implicitly bounds
+
+    |z| = |qnorm(u)| <= qnorm(1 - 1e-5) = 4.264890793923841
+
+not 3.0.
+
+IMPACT
+------
+Sensitivity (and therefore sigma) scales with clip_value^2. Using 3.0 instead
+of the true ~4.265 under-calibrates sigma by a factor of
+
+    (4.264890793923841 / 3.0)^2 = 2.0223...
+
+i.e. roughly 2x too little noise was added in every existing v1/v2 DP result
+that used clip_value=3.0. The released mechanism still satisfies SOME
+(epsilon, delta)-DP guarantee, but at a LARGER epsilon than what was reported
+-- the privacy claim attached to existing eps_* / v2_eps_* result directories
+is optimistic by roughly this factor.
+
+FIX APPLIED THIS SESSION
+-------------------------
+- Added `TRUE_CLIP_VALUE = 4.264890793923841` as a documented, canonical
+  constant in src/sdg/dp/sensitivity.py (scipy.stats.norm.ppf(1 - 1e-5)).
+- experiments/dp/v2/generate.py now imports and uses TRUE_CLIP_VALUE instead
+  of hardcoding 3.0.
+- src/generators/gen_dp_quality_data.py updated too, for consistency, though
+  this script is DEAD CODE as of the 2026-04-19 data reorg (its target dir
+  /home/golobs/data/ok_dp no longer exists) -- fixed in case it's ever
+  resurrected, not because it currently runs.
+- The new low-rank mechanism (src/sdg/dp/lowrank.py) uses TRUE_CLIP_VALUE as
+  its default from the start.
+- Regenerated the specific v2_eps_*/{ok}/20d/{1,2} directories (the ones this
+  session's low-rank spot-check compares against) with the corrected value,
+  so the lowrank-vs-v2 comparison table is apples-to-apples on a correct
+  sigma. See experiments/dp/lowrank/results/ for that comparison.
+
+WHAT IS STILL STALE (not touched this session)
+-------------------------------------------------
+Every OTHER existing v1 (eps_*) and v2 (v2_eps_*) DP result directory under
+~/data/scMAMAMIA/{ok,aida,cg}/scdesign2/ across the full donor-count sweep
+(not just ok/20d) was generated with clip_value=3.0 and has the same ~2x
+sigma under-calibration. This was NOT regenerated in this session -- doing so
+is a full re-sweep (all datasets x all donor counts x 5 trials x all
+epsilons), a much bigger compute undertaking than this session's scope
+(low-rank mechanism validation on ok/20d). v1_no_dp / v2_no_dp are UNAFFECTED
+(no noise, so clip_value is not used in that path).
+
+camda_submission/ppml_generators/{sensitivity.py,dp_copula.py} is a separate,
+duplicated copy of this code for the CAMDA competition submission bundle --
+NOT touched here (out of scope, don't want to disturb a submitted entry).
+camda_submission/config.yaml pins dp_variant: v2 but does not appear to set
+clip_value explicitly in what was checked this session; worth checking
+separately if that submission's DP claims need the same correction.
+
+RECOMMENDATION
+--------------
+Before the paper cites any v1/v2 DP result at a specific epsilon: either (a)
+regenerate the full sweep with TRUE_CLIP_VALUE, or (b) report the corrected
+effective epsilon for existing results (multiply reported epsilon by ~2.02,
+since epsilon and clip_value^2 -- hence sigma -- move inversely for fixed
+sigma... more precisely: at FIXED sigma, doubling the sensitivity bound
+roughly doubles the epsilon actually needed for the same guarantee, so
+existing "epsilon=E" results should be read as "epsilon~=2.02*E" under the
+corrected, honest sensitivity bound). Recommend (a) for the camera-ready
+sweep once the low-rank mechanism's viability is settled, to avoid
+regenerating v1/v2 results twice.

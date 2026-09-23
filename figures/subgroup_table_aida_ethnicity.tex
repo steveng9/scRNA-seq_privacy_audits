@@ -1,18 +1,18 @@
 \begin{table}[ht]
 \centering
 \small
-\caption{scMAMA-MIA disparate-impact breakdown by ethnicity on the \textsc{aida} dataset. Cells report donor-level ROC AUC restricted to the subgroup, averaged over up to 5 trials. Subscript: $\pm$~std over trials. Attack: standard Mahalanobis attack. SDG methods: scDesign2, scDesign3-G, scDesign3-V, scVI, scDiffusion, NMF, ZINBWave. Donor counts (training-set size): 20. Threat models: BB+aux (WB: white-box copula access; BB: black-box; $\pm$aux: with/without auxiliary reference dataset). \texttt{---}: cell below \texttt{--min-trials=1} (or, for AUC, fewer than \texttt{--min-donors-per-class=1} member or non-member donors in the subgroup); $*$: fewer than the full 5 trials available; \texttt{N/A}: white-box not applicable to this SDG. Source: \texttt{mamamia_all_scores.csv}.}
+\caption{scMAMA-MIA disparate-impact breakdown by ethnicity on the \textsc{aida} dataset. Cells report donor-level ROC AUC restricted to the subgroup, averaged over up to 5 trials. Subscript: $\pm$~std over trials. Attack: standard Mahalanobis attack. SDG methods: scDesign2, scDesign3-G, scDesign3-V, scVI, scDiffusion, NMF, ZINBWave. Donor counts (training-set size): 20. Threat models: BB+aux (WB: white-box copula access; BB: black-box; $\pm$aux: with/without auxiliary reference dataset). \texttt{---}: cell below \texttt{--min-trials=1} (or, for AUC, fewer than \texttt{--min-donors-per-class=1} member or non-member donors in the subgroup); $*$: fewer than the full 5 trials available; \texttt{N/A}: white-box not applicable to this SDG. Subgroup labels show cell-level prevalence in the full dataset in parentheses.}
 \label{tab:subgroup_aida_ethnicity_sd2-sd3g-sd3v-scvi-scdiff-nmf-zinbwave_20d_100_auc}
 \begin{tabular}{lccccccc}
 \toprule
 Subgroup & \multicolumn{1}{c|}{scDesign2} & \multicolumn{1}{c|}{scDesign3-G} & \multicolumn{1}{c|}{scDesign3-V} & \multicolumn{1}{c|}{scVI} & \multicolumn{1}{c|}{scDiffusion} & \multicolumn{1}{c|}{NMF} & \multicolumn{1}{c}{ZINBWave} \\
  & BB+aux & BB+aux & BB+aux & BB+aux & BB+aux & BB+aux & BB+aux \\
 \midrule
-Japanese & 1.00{\scriptsize$\pm$0.00} & 0.99{\scriptsize$\pm$0.01} & 0.57{\scriptsize$\pm$0.34} & 0.65{\scriptsize$\pm$0.18} & 0.63{\scriptsize$\pm$0.20} & 0.64{\scriptsize$\pm$0.19} & 0.73{\scriptsize$\pm$0.16} \\
-Korean & 1.00{\scriptsize$\pm$0.00} & 1.00{\scriptsize$\pm$0.00} & 0.70{\scriptsize$\pm$0.32} & 0.69{\scriptsize$\pm$0.15} & 0.35{\scriptsize$\pm$0.15} & 0.62{\scriptsize$\pm$0.19} & 0.84{\scriptsize$\pm$0.09} \\
-Singaporean Chinese & 1.00{\scriptsize$\pm$0.00} & 1.00{\scriptsize$\pm$0.00} & 0.85{\scriptsize$\pm$0.20} & 0.69{\scriptsize$\pm$0.11} & 0.80{\scriptsize$\pm$0.19} & 0.60{\scriptsize$\pm$0.24} & 0.85{\scriptsize$\pm$0.18} \\
-Singaporean Indian & 1.00{\scriptsize$\pm$0.00}* & 1.00{\scriptsize$\pm$0.00}* & 0.50{\scriptsize$\pm$0.41}* & 0.67{\scriptsize$\pm$0.24}* & 0.17{\scriptsize$\pm$0.24}* & 0.71{\scriptsize$\pm$0.16}* & 0.71{\scriptsize$\pm$0.26}* \\
-Singaporean Malay & 1.00{\scriptsize$\pm$0.00} & 1.00{\scriptsize$\pm$0.00} & 0.58{\scriptsize$\pm$0.43}* & 0.80{\scriptsize$\pm$0.40} & 0.32{\scriptsize$\pm$0.19} & 0.53{\scriptsize$\pm$0.45} & 1.00{\scriptsize$\pm$0.00} \\
+Japanese (27.1\%) & 1.00{\scriptsize$\pm$0.00} & 0.99{\scriptsize$\pm$0.01} & 0.57{\scriptsize$\pm$0.34} & 0.65{\scriptsize$\pm$0.18} & 0.63{\scriptsize$\pm$0.20} & 0.64{\scriptsize$\pm$0.19} & 0.73{\scriptsize$\pm$0.16} \\
+Korean (34.6\%) & 1.00{\scriptsize$\pm$0.00} & 1.00{\scriptsize$\pm$0.00} & 0.70{\scriptsize$\pm$0.32} & 0.69{\scriptsize$\pm$0.15} & 0.35{\scriptsize$\pm$0.15} & 0.62{\scriptsize$\pm$0.19} & 0.84{\scriptsize$\pm$0.09} \\
+Singaporean Chinese (11.7\%) & 1.00{\scriptsize$\pm$0.00} & 1.00{\scriptsize$\pm$0.00} & 0.85{\scriptsize$\pm$0.20} & 0.69{\scriptsize$\pm$0.11} & 0.80{\scriptsize$\pm$0.19} & 0.60{\scriptsize$\pm$0.24} & 0.85{\scriptsize$\pm$0.18} \\
+Singaporean Indian (10.1\%) & 1.00{\scriptsize$\pm$0.00}* & 1.00{\scriptsize$\pm$0.00}* & 0.50{\scriptsize$\pm$0.41}* & 0.67{\scriptsize$\pm$0.24}* & 0.17{\scriptsize$\pm$0.24}* & 0.71{\scriptsize$\pm$0.16}* & 0.71{\scriptsize$\pm$0.26}* \\
+Singaporean Malay (9.5\%) & 1.00{\scriptsize$\pm$0.00} & 1.00{\scriptsize$\pm$0.00} & 0.58{\scriptsize$\pm$0.43}* & 0.80{\scriptsize$\pm$0.40} & 0.32{\scriptsize$\pm$0.19} & 0.53{\scriptsize$\pm$0.45} & 1.00{\scriptsize$\pm$0.00} \\
 \bottomrule
 \end{tabular}
 \end{table}

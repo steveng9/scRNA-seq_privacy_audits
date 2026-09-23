@@ -1,0 +1,84 @@
+
+1. experiments:
+
+	a) MIA where we only have 1, 10, 100 (or some other subset amount of) target cells (a subset of those used to train, if donor is a member), rather than all of the target cells for a target donor. I think both some reviewers, as well as the meta-reviewer asked about this. Then also, do the same where the target cells are disjoint from the training cells fro ma given donor. I expect this will do poorly, but still will be a very interesting finding. Then, perhaps a setting where half the member donors' cells are training and half are targets (which might be in the range 500+ or so), or could be variable between donors, as we have it right now. And then do the opposite of the former, where only 100 from a donor are used to train, and then remaining disjoint are used as targets. We will need to be careful and methodical and thoughtful about how we set up the non-members / non-member targets so that it makes most scientific experimental sense. (Some of these could get computationally strenuous because they may entail training new synthetic datasets to assure the disjointness. But there are also experiments here (like the first one mentioned) where we can totally re-use existing synth sets.) Or at least some sort of focus on "equal cell budget", which is not what is currently done since donors contribute different cell amounts in all 3 datasets I believe.
+	b) Reveiwer kPMB says "Noise injection is tested only against the basic attack, not the enhanced or adaptive one, and does not touch the marginals. η ≈ 10⁻¹ as a "privacy crossover" is too strong." which  I agree is a weakness. What results do we currently have with the various "enhanced" attack against our noised-scdesign2? I thought we had those results. are they in the appendix of the manuscript, or not even? How difficult would it be to add noise to the marginals of the already-trained copula, and then generate from those (i.e. reducing compute), and running the attack. I'm not sure if this is high priority, since we reason in the manuscript that injecting noise in marginals was ~somewhat~ unnecessary since solely noising the covariance was effective enough on privacy and damaging enough on quality. However, results of susceptability against marginals-enhanced attacks might be cause for proceeding with this experiments. 
+
+2. other points that we can address / answer without building or running new experiments?:
+	- reviewer and metareviewer had concerns about aux data as not disjoint from target / training / holdout data... but I thought (except the 490 donor setting for Onek1k) that we mostly prevent this and assure that aux is disjoint... that is, if there are enough donors. I also vaguely remember another exception where aux is always at least 10 donors. Can you please check on this so I know how to rebutt those concerns. Do we need to re-run experiments with assuredly disjoint aux, if we don't have this? Reviewer kPMB said " until then those numbers are unreliable." I want to strongly refute this, if possible.
+	- do we have target predictions saved, so that we can add more evaluation metrics without mounting new attacks? I.e. accuracy, or especially TPR@0.1FPR, 0.05FPR, 0.2FPR, or anything else reviewers asked for, etc.
+	- reviewer kPMB also said "there is no DP-generator comparison". So can we please do a very thorough literature survey so that we can be sure that it was not possible to do this comparison, since there are none in existence, right? Am I wrong about this?
+	- I think reviewer oT6m's weakness comment "In the black box setting, the author claims the adversary needs no access to the training procedure, model parameters, or the generation algorithm. However, according to Table 2 and Table 4, when the generation method is NMF and scDiffusion, the AUC is near 0.5, indicating the attack fails because of the low fidelity. However, as reported in the original paper scDiffusion [25], "The mean MMD and LISI of scDiffusion are 0.3217 and 0.4488", which is an unreasonable lower score than the reported "MMD 45.69" in Table 2." is potentially spurious. I did not understand, and I think they may be wrong about the MMD figures / and what they mean / what they show, across the different datasets from different papers. Also note our reported MMD is scaled by a factor of 10^x, which he might have overlooked.
+	- I don't know what oT6m's comment "he best attack AUC is when the number of donors is 2, which is very low; by simply adding the number of donors, the attack performance drops sharply. Also In Table 4 BB-aux, and WB-aux Class B is very low (even lower than 0.5), which indicates the wrong direction of the MIA scores." is about...
+	- similarly, what is reviewer JvKY's comment  "The paper mainly evaluates a heuristic noise-perturbation defense for the copula covariance, but does not compare against stronger or more principled privacy-preserving baselines where applicable." referring too? What 'more-principled' methods other than DP? DP isn't done as far as I know in this domain yet.
+	- that reviewer commented "While the paper does compare some variants (e.g., the enhanced variant in Table 2), it remains unclear which ingredients are most responsible for the gains. " ... I believe at one point, when designing / adding the 'class B' FPs to the 'enhanced' attack, we did some sytematic ablation of parameters to tune how exactly to add those FPs. Can we report this in the rebuttal? Do you have it saved in results files / out files / your memory / git history / anywhere?
+
+3. A big important one: reviewer JvKY says "The evidence for cross-model generalization is still limited." But I believe we did extensive investigation on other models (ironically, in response to reviews / a rejection from the ISMB conference several month ago). We didn't necessarily report much in this manuscript, since there was very limited space. How can we detail these additional, non-manuscript results in the rebuttal to convince of the cross-model attack strength (i.e. the cross-model privacy vulnerability) conclusively rather than suggestively? Should we run more target experiments to fill gaps, convince more?
+
+4. *** CONSTRAINT ADDED 2026-07-25 — NO DIRECT AC / META-REVIEWER REPLY ***
+   We CANNOT post a reply/rebuttal to the AC (meta-reviewer). Only 3 reviewer replies are
+   available: kPMB, oT6m, JvKY. Therefore:
+   (a) Every one of the AC meta-review's 6 points (1 aux cross-contamination, 2 metrics beyond
+       AUC, 3 transferability optimistic, 4 attack description unclear, 5 attacker has ALL cells,
+       6 noise mitigation weak) MUST be addressed *within* the 3 reviewer replies — none may rely
+       on an AC-only channel.
+   (b) DELETE the "AC — Author–AC Confidential Comment" section in docs/rebuttal_drafts.md — there
+       is no AC channel, so its content must migrate into the 3 reviewer replies.
+   (c) FORMAT GOAL (do later, all at once, after user reviews current drafts): keep the 3 replies
+       reviewer-facing, but make them visibly prioritize/cover the meta-spine — e.g. a short
+       framing line and/or ensure the 6 meta-points are each explicitly answered somewhere across
+       the three, so the AC (who reads all replies) sees their concerns handled without a dedicated
+       reply. Cross-reference between replies where a point spans reviewers (aux disjointness,
+       all-cells/disjoint-cells, noise-vs-enhanced) so nothing looks dropped.
+
+5. *** ADVISOR GUIDANCE 2026-07-25 (apply on the next draft update) ***
+   (a) MENTION THE ISMB CAMDA WIN OPENLY in the reviewer replies. Constraint: NO names, NO
+       affiliation. Advisor's test: "if a reviewer were in a room with no internet and only our
+       paper + rebuttal, could they derive who we are?" — mentioning the ISMB CAMDA win alone
+       cannot (same exposure as our already-public arXiv preprint). Use it as independent, blinded,
+       third-party validation of the attack's effectiveness — strongest in a transferability /
+       significance framing. (This resolves 4(b): the win goes in the replies directly, not an AC
+       channel.)
+   (b) DO NOT put future-work / our own ideas for further experiments in the rebuttal. Reviewers
+       already want more done; adding our own suggestions invites the reaction "do that first, then
+       resubmit an updated paper." Only report what we actually COMPLETE (e.g. finished scVI
+       disjoint-cells, finished fine-marg frontier). Keep unfinished ideas here / in memory
+       (PCA-before-Mahalanobis; vine-NMF, C2S, scGFT, scLDM -- now formalized in section 6 below)
+       and pull them in only if completed.
+   STATUS: DONE 2026-07-25 (evening). Drafts fully restructured in docs/rebuttal_drafts.md:
+   - AC-confidential section DELETED; all 6 meta-points folded into the 3 reviewer replies with an
+     explicit meta-coverage map in the co-author preamble + inline "(meta-review point N)" tags and
+     cross-references between replies.
+   - ISMB CAMDA 2026 (single-cell track) win stated OPENLY in JvKY W4 (independent blinded validation)
+     and referenced in kPMB W4 (originality). No names/affiliation anywhere.
+   - No future-work / own-idea experiments in the replies (only completed results reported).
+   - Markdown tables used throughout. Per-reply char counts: kPMB 8920 / oT6m 3704 / JvKY 5958 (all <10k).
+   - [PENDING ...] markers (co-author-facing scaffolding, removed before posting) flag the two spots
+     still finalizing: B2 intermediate-s AIDA frontier points, and scVI-100d 3rd trial.
+   NEXT: await co-author comments; replace [PENDING] markers with final numbers when the two running
+   sweeps finish (B2 fine 103/174; scVI B1 22/24).
+
+6. *** FUTURE WORK / POST-CAMDA-2026 DIRECTIONS (added 2026-07-27) ***
+   Do NOT put these in the rebuttal (see 5(b)); track here until completed. Ordered by priority.
+
+   (1) RENAME scMAMA-MIA -> "MahalaMIA" and generalize it to a MIA against ANY multivariate SDG
+       method, not just single-cell. Rationale: the core statistic is the Mahalanobis distance to a
+       fitted covariance, which is not single-cell-specific. In particular, adapt/apply it to BULK
+       RNA-seq generators: bulk is a single multivariate distribution per sample (no per-cell-type
+       copula stratification needed), so the Mahalanobis attack applies DIRECTLY. Validation: the
+       Mahalanobis attack was applied directly to bulk RNA-seq and WON CAMDA 2026 Track 1 (bulk) --
+       so this generalization is already empirically demonstrated, not speculative. Work items:
+       rename package/modules/paper terminology (scmamamia -> mahalamia), factor out the
+       single-cell-specific pieces (cell-type stratification, per-cell-type copula) so the attack
+       runs on a plain multivariate SDG, and write up the bulk RNA-seq case as a second domain.
+
+   (2) ADD NEW SDG METHODS to the attack sweep (extends CLAUDE.md Experiment #2). Candidates:
+       C2S (Cell2Sentence), scGFT, scLDM, and a vine-copula NMF variant. Goal: broaden the
+       cross-model transferability evidence (JvKY W4) beyond the current six generators and probe
+       which architectural features make a generator vulnerable vs. resistant to MahalaMIA.
+
+   (3) PCA-BEFORE-MAHALANOBIS. Apply PCA (dimensionality reduction / decorrelation) to the
+       expression / covariance structure before computing the Mahalanobis distance, rather than
+       running Mahalanobis directly in gene space. Motivation: better-conditioned covariance
+       (fewer degenerate / singular directions than genes>cells), potential accuracy gain, and a
+       cleaner story than the current pseudo-inverse + nearest-PSD handling.

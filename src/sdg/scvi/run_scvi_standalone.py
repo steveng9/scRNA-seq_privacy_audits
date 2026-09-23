@@ -193,19 +193,26 @@ def cmd_train(args):
         n_latent=args.n_latent,
         n_layers=args.n_layers,
         n_hidden=args.n_hidden,
-        dropout_rate=0.1,
+        dropout_rate=args.dropout_rate,
         gene_likelihood="nb",
     )
 
     use_gpu = torch.cuda.is_available()
-    model.train(
+    early_stopping = not args.no_early_stopping
+    print(f"Regularization: dropout_rate={args.dropout_rate}  "
+          f"early_stopping={early_stopping}"
+          f"{f' (patience={args.early_stopping_patience})' if early_stopping else ''}  "
+          f"weight_decay={args.weight_decay}")
+    train_kwargs = dict(
         max_epochs=args.max_epochs,
         batch_size=args.batch_size,
-        early_stopping=True,
-        early_stopping_patience=20,
-        plan_kwargs={"lr": 1e-3},
+        early_stopping=early_stopping,
+        plan_kwargs={"lr": 1e-3, "weight_decay": args.weight_decay},
         accelerator="gpu" if use_gpu else "cpu",
     )
+    if early_stopping:
+        train_kwargs["early_stopping_patience"] = args.early_stopping_patience
+    model.train(**train_kwargs)
 
     os.makedirs(args.model_dir, exist_ok=True)
     model.save(args.model_dir, overwrite=True)
@@ -332,6 +339,16 @@ def main():
     p_train.add_argument("--n-hidden",  type=int, default=128)
     p_train.add_argument("--max-epochs", type=int, default=400)
     p_train.add_argument("--batch-size", type=int, default=512)
+    # --- principled-defense (regularization) knobs; defaults reproduce the
+    #     original scvi-tools recipe (dropout 0.1, early stopping on, wd 1e-6) ---
+    p_train.add_argument("--dropout-rate", type=float, default=0.1,
+                         help="Dropout rate for encoder/decoder (scvi default 0.1).")
+    p_train.add_argument("--early-stopping-patience", type=int, default=20,
+                         help="Epochs of no val-loss improvement before stopping.")
+    p_train.add_argument("--no-early-stopping", action="store_true",
+                         help="Disable validation-based early stopping entirely.")
+    p_train.add_argument("--weight-decay", type=float, default=1e-6,
+                         help="L2 weight decay for AdamW (scvi default 1e-6).")
 
     # --- generate ---
     p_gen = sub.add_parser("generate")

@@ -14,6 +14,10 @@ Config keys (under scvi_config):
     n_hidden     : hidden layer width (default 128)
     max_epochs   : training epochs cap (default 400)
     batch_size   : mini-batch size (default 512)
+    dropout_rate : encoder/decoder dropout (default 0.1) — regularization knob
+    early_stopping          : validation-based early stopping (default True)
+    early_stopping_patience : epochs w/o val-loss gain before stop (default 20)
+    weight_decay : L2 weight decay for AdamW (default 1e-6) — regularization knob
 """
 
 import os
@@ -66,6 +70,12 @@ class ScVI(BaseSingleCellDataGenerator):
         self.n_hidden     = gcfg.get("n_hidden",   128)
         self.max_epochs   = gcfg.get("max_epochs", 400)
         self.batch_size   = gcfg.get("batch_size", 512)
+        # Principled-defense (regularization) knobs. Defaults reproduce the
+        # original scvi-tools recipe, so existing configs are unchanged.
+        self.dropout_rate = gcfg.get("dropout_rate", 0.1)
+        self.early_stopping = gcfg.get("early_stopping", True)
+        self.early_stopping_patience = gcfg.get("early_stopping_patience", 20)
+        self.weight_decay = gcfg.get("weight_decay", 1e-6)
 
         # Resolved paths for data I/O
         cell_type_col = self.dataset_config["cell_type_col_name"]
@@ -94,7 +104,12 @@ class ScVI(BaseSingleCellDataGenerator):
             "--n-hidden",   str(self.n_hidden),
             "--max-epochs", str(self.max_epochs),
             "--batch-size", str(self.batch_size),
+            "--dropout-rate", str(self.dropout_rate),
+            "--early-stopping-patience", str(self.early_stopping_patience),
+            "--weight-decay", str(self.weight_decay),
         )
+        if not self.early_stopping:
+            cmd += ["--no-early-stopping"]
         if self.hvg_path:
             cmd += ["--hvg-path", self.hvg_path]
 
